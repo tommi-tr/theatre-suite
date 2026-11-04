@@ -252,7 +252,7 @@ export function RehearsalMode() {
 
   // ---------- Routing lines ----------
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [lines, setLines] = useState<Array<{ key: string; d: string; color: string; dashed: boolean }>>([]);
+  const [lines, setLines] = useState<Array<{ key: string; d: string; color: string; dashed: boolean; mx: number; my: number; label: string }>>([]);
   const [dragLine, setDragLine] = useState<string | null>(null);
   useLayoutEffect(() => {
     const wrap = wrapRef.current;
@@ -274,11 +274,17 @@ export function RehearsalMode() {
         const y2 = b.top - base.top;
         const my = (y1 + y2) / 2;
         const role = roleOf(o);
+        const parts: string[] = [];
+        if (s.volume !== null && Math.round(s.volume * 100) !== 100) parts.push(t("Vol {n}%", { n: Math.round(s.volume * 100) }));
+        if (s.speed !== null && Math.abs(s.speed - 1) > 0.001) parts.push(t("Speed {n}%", { n: Math.round(s.speed * 100) }));
         out.push({
           key: s.id,
           d: `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`,
           color: role === "live" ? "var(--go)" : role === "pre" ? "var(--pre)" : "var(--text-3)",
           dashed: s.status !== "playing",
+          mx: (x1 + x2) / 2,
+          my,
+          label: parts.join(" · "),
         });
       }
       setLines(out);
@@ -436,6 +442,17 @@ export function RehearsalMode() {
             ))}
             {dragLine ? <path d={dragLine} fill="none" stroke="var(--accent)" strokeWidth={2.5} strokeDasharray="4 4" /> : null}
           </svg>
+          {lines
+            .filter((l) => l.label)
+            .map((l) => (
+              <span
+                key={`chip-${l.key}`}
+                className="ts-pill"
+                style={{ position: "absolute", left: l.mx, top: l.my, transform: "translate(-50%, -50%)", background: "var(--surface)", borderColor: l.color, color: "var(--text)", pointerEvents: "none" }}
+              >
+                {l.label}
+              </span>
+            ))}
         </div>
 
         <Favorites t={t} />
@@ -556,8 +573,6 @@ function SourceCard({
         <Button variant="sm" iconOnly icon="nextF" aria-label={t("Next")} title={t("Next")} disabled={!s.canNext} onClick={() => onMedia("next")} />
         <Button variant="sm" iconOnly icon="star" aria-label={t("Add to favorites")} title={t("Add to favorites")} onClick={onStar} />
         <span className="ts-spacer" />
-        {s.volume !== null && Math.round(s.volume * 100) !== 100 ? <span className="ts-pill" style={{ height: 18 }}>{t("Vol {n}%", { n: Math.round(s.volume * 100) })}</span> : null}
-        {s.speed !== null && Math.abs(s.speed - 1) > 0.001 ? <span className="ts-pill" style={{ height: 18 }}>{t("Speed {n}%", { n: Math.round(s.speed * 100) })}</span> : null}
       </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-3)" }}>
         <span className="ts-ellipsis" style={{ maxWidth: "70%" }}>
