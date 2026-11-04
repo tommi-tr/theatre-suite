@@ -193,7 +193,6 @@ export function ShowMode() {
               onClick={async () => {
                 const files = await pickAudioFiles(t, true);
                 if (files.length) useDoc.getState().addFiles(files);
-                else useDoc.getState().addTrack();
               }}
             >
               {t("Add track")}

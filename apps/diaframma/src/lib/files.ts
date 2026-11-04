@@ -195,3 +195,28 @@ export async function restoreAutosave(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Exports the cue list as CSV (to share with the company or print). */
+export async function exportCsv(t: T): Promise<void> {
+  const { tracks, infos } = useDoc.getState();
+  const fmt = (s: number | null | undefined) => (s === null || s === undefined ? "" : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
+  let n = 0;
+  const rows = [[t("No."), t("Track"), t("On Space"), t("At end"), "IN", "OUT", t("Duration"), t("Volume"), t("File")]];
+  for (const x of tracks) {
+    if (x.hidden || !x.file) continue;
+    n++;
+    const info = infos[x.file.path];
+    const dur = info && typeof info === "object" ? info.durationSec : x.file.durationSec ?? null;
+    const out = x.outSec ?? dur;
+    rows.push([String(n), x.file.name, x.onSpace, x.atEnd, fmt(x.inSec), fmt(out), fmt(out !== null && out !== undefined ? out - x.inSec : null), `${x.volumeDb} dB`, x.file.path]);
+  }
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const base = useDoc.getState().filePath?.replace(/\.diaframma$/i, "") ?? "Cue list";
+  const path = await save({ defaultPath: `${base}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }], title: t("Export cue list") });
+  if (!path) return;
+  try {
+    await api.writeText(path, "\ufeff" + csv);
+  } catch (e) {
+    await message(String(e), { title: "Diaframma", kind: "error" });
+  }
+}

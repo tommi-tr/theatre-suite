@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { basename, useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd, type IconName } from "@theatre-suite/ui";
-import { confirmDiscard, newDocConfirm, openDocDialog, openDocPath, saveDoc } from "../lib/files";
+import { confirmDiscard, exportCsv, newDocConfirm, openDocDialog, openDocPath, saveDoc } from "../lib/files";
 import { useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 
@@ -53,6 +53,7 @@ export function FileMenu() {
           {item("save", t("Save as…"), "Ctrl Shift S", () => saveDoc(t, true))}
           {item("folderOpen", t("Open cue list…"), "Ctrl O", () => openDocDialog(t))}
           {item("fileAdd", t("New cue list"), "Ctrl N", () => newDocConfirm(t))}
+          {item("download", t("Export cue list (CSV)…"), null, () => exportCsv(t))}
           {recent.length ? (
             <>
               <div className="df-menu__sep" />

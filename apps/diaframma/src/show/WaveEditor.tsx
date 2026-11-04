@@ -58,6 +58,7 @@ export function WaveEditor({
   readOnly,
   onChange,
   t,
+  failed,
 }: {
   track: Track;
   duration: number | null;
@@ -67,6 +68,8 @@ export function WaveEditor({
   readOnly?: boolean;
   onChange: (patch: Partial<Track>, phase: EditPhase) => void;
   t: (k: string) => string;
+  /** The file could not be read. */
+  failed?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -217,7 +220,7 @@ export function WaveEditor({
         {dur && playheadSec !== null && playheadSec !== undefined ? <div className="df-wave__playhead" style={{ left: pct(playheadSec) }} /> : null}
         {!dur ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: 12 }}>
-            {t("Reading the file…")}
+            {failed ? t("This file cannot be read. Load another file.") : t("Reading the file…")}
           </div>
         ) : null}
       </div>

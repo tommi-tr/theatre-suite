@@ -293,4 +293,11 @@ export const it: Dict = {
   "Phone and Chrome (optional)": "Telefono e Chrome (facoltativi)",
   "Phone: press the Phone button, turn it on and scan the QR code with a phone on the same Wi-Fi. Chrome: install the Diaframma extension and turn it on in Settings to control each tab separately. Both stay off until you turn them on.":
     "Telefono: premi il pulsante Telefono, accendilo e inquadra il codice QR con un telefono sullo stesso Wi-Fi. Chrome: installa l'estensione Diaframma e attivala nelle Impostazioni per comandare ogni scheda separatamente. Entrambi restano spenti finché non li accendi.",
+  "This file cannot be read. Load another file.": "Questo file non si può leggere. Carica un altro file.",
+  "CANNOT READ FILE": "FILE NON LEGGIBILE",
+  "Export cue list (CSV)…": "Esporta scaletta (CSV)…",
+  "Export cue list": "Esporta scaletta",
+  "No.": "N.",
+  Duration: "Durata",
+  File: "File",
 };

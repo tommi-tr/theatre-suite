@@ -109,6 +109,12 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
           </span>
         </>
       ) : null}
+      {info === "error" && !missing ? (
+        <span className="ts-pill" style={{ borderColor: "var(--stop)", color: "var(--stop)" }}>
+          <Icon name="alert" size={11} />
+          {t("CANNOT READ FILE")}
+        </span>
+      ) : null}
       {missing ? (
         <>
           <span className="ts-pill" style={{ borderColor: "var(--stop)", color: "var(--stop)" }}>
@@ -260,7 +266,7 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
           })}
         </div>
       </div>
-      {expanded && !locked ? <TrackPanel track={track} dur={dur} peaks={infoObj?.peaks ?? null} voice={voice} /> : null}
+      {expanded && !locked ? <TrackPanel track={track} dur={dur} peaks={infoObj?.peaks ?? null} voice={voice} failed={info === "error"} /> : null}
     </article>
   );
 });
@@ -305,7 +311,7 @@ function MiniWave({ track, dur, out, peaks, voice }: { track: Track; dur: number
   );
 }
 
-function TrackPanel({ track, dur, peaks, voice }: { track: Track; dur: number | null; peaks: number[] | null; voice: Voice | null }) {
+function TrackPanel({ track, dur, peaks, voice, failed }: { track: Track; dur: number | null; peaks: number[] | null; voice: Voice | null; failed: boolean }) {
   const t = useT();
   const s = useSettings((x) => x.settings);
   const eqBands: Array<{ key: "low" | "mid" | "high"; label: string }> = [
@@ -383,7 +389,7 @@ function TrackPanel({ track, dur, peaks, voice }: { track: Track; dur: number | 
             {t("Zoom")}
           </Button>
         </div>
-        <WaveEditor track={track} duration={dur} peaks={peaks} playheadSec={voice?.positionSec ?? null} onChange={(patch, phase) => edit(track.id, patch, phase)} t={t} />
+        <WaveEditor track={track} duration={dur} peaks={peaks} playheadSec={voice?.positionSec ?? null} onChange={(patch, phase) => edit(track.id, patch, phase)} t={t} failed={failed} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 30 }}>
         <Button variant="sm" icon="edges" className="df-wide" onClick={() => useDoc.getState().patchTrack(track.id, { inSec: 0, outSec: null })}>
