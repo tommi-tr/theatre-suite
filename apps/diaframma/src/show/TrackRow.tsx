@@ -402,6 +402,7 @@ function TrackPanel({ track, dur, peaks, voice }: { track: Track; dur: number | 
               icon={track.loopVisible ? "eye" : "eyeOff"}
               on={track.loopVisible}
               className="df-wide"
+              style={{ flex: 1, minWidth: 0, width: "auto" }}
               aria-pressed={track.loopVisible}
               onClick={() => useDoc.getState().patchTrack(track.id, { loopVisible: !track.loopVisible })}
             >

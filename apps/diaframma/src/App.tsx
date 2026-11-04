@@ -51,7 +51,10 @@ function Shell() {
     let disposed = false;
     const stops: Array<() => void> = [];
     (async () => {
-      if (!isTauri) return;
+      if (!isTauri) {
+        if (location.search.includes("demo")) (await import("./lib/demo")).loadDemo();
+        return;
+      }
       try {
         const s = await api.sessionStart();
         if (disposed) return;
