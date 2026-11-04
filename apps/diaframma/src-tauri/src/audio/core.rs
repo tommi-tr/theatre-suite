@@ -313,6 +313,14 @@ pub fn apply_go(st: &mut State, tp: &TrackParams, mut v: Voice) {
         v.fade = Fade::to(0.0, 1.0, n.max(1));
     }
     st.voices.push(v);
+    // Keep at most a few paused tracks (each one holds a decoder): the oldest are released.
+    const MAX_PAUSED: usize = 8;
+    let paused: Vec<usize> = st.voices.iter().enumerate().filter(|(_, x)| x.paused && !x.ended).map(|(i, _)| i).collect();
+    if paused.len() > MAX_PAUSED {
+        for &i in &paused[..paused.len() - MAX_PAUSED] {
+            st.voices[i].ended = true;
+        }
+    }
     st.advance_standby_after(&tp.id);
 }
 
