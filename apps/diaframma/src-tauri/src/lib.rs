@@ -4,6 +4,7 @@
 //! interface: if the window freezes, sound keeps playing.
 
 mod audio;
+mod rehearsal;
 mod storage;
 
 use tauri::{Emitter, Manager};
@@ -32,8 +33,11 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let engine = audio::Engine::start(app.handle().clone());
+            let engine = audio::Engine::start(app.handle().clone(), "engine-state");
             app.manage(engine);
+            app.manage(audio::Player(audio::Engine::start(app.handle().clone(), "player-state")));
+            let journal = storage::data_dir(app.handle()).map(|d| d.join("rehearsal-journal.json")).unwrap_or_default();
+            app.manage(rehearsal::Rehearsal::start(journal));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -58,6 +62,20 @@ pub fn run() {
             audio::engine_stop_all,
             audio::engine_state,
             audio::engine_analyze,
+            audio::player_sync,
+            audio::player_play,
+            audio::player_pause,
+            audio::player_stop,
+            audio::player_set_speed,
+            audio::player_set_device,
+            audio::player_state,
+            rehearsal::rh_snapshot,
+            rehearsal::rh_media,
+            rehearsal::rh_set_volume,
+            rehearsal::rh_set_speed,
+            rehearsal::rh_route,
+            rehearsal::rh_pause_all,
+            rehearsal::rh_restore,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Diaframma");
@@ -66,6 +84,13 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             if let Some(engine) = handle.try_state::<audio::Engine>() {
                 engine.shutdown();
+            }
+            if let Some(player) = handle.try_state::<audio::Player>() {
+                player.0.shutdown();
+            }
+            // Put volumes and outputs of other programs back as they were.
+            if let Some(rh) = handle.try_state::<rehearsal::Rehearsal>() {
+                rh.restore();
             }
             storage::session_end(handle);
         }

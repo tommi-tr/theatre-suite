@@ -61,7 +61,7 @@ struct Voice {
 
 impl Voice {
     fn new(track_id: String, path: String, start_sec: f64, rate: u32, h: FeederHandles, duration: f64) -> Self {
-        let seg = Segment { start_frame: 0, src_start: start_sec };
+        let seg = Segment { start_frame: 0, src_start: start_sec, speed: h.ctl.speed() };
         Self {
             track_id,
             path,
@@ -129,6 +129,7 @@ struct State {
     rate: u32,
     status: EngineStatus,
     scratch: Vec<f32>,
+    speed: f64,
 }
 
 impl State {
@@ -204,7 +205,7 @@ fn render(st: &mut State, out: &mut [f32], channels: usize) {
                         v.next_seg = v.h.segments.pop().ok();
                     }
                 }
-                v.pos = v.seg.src_start + (v.consumed.saturating_sub(v.seg.start_frame)) as f64 / rate;
+                v.pos = v.seg.src_start + (v.consumed.saturating_sub(v.seg.start_frame)) as f64 / rate * v.seg.speed;
                 v.gain += (target_gain - v.gain) * 0.002;
                 let env_g = if ignore || env.is_empty() { 1.0 } else { envelope_gain(env, v.pos) };
                 let g = v.gain * env_g * v.fade.value() * v.pause.value();
@@ -318,7 +319,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn start(app: AppHandle) -> Self {
+    pub fn start(app: AppHandle, event: &'static str) -> Self {
         let inner = Arc::new(Inner {
             state: Mutex::new(State {
                 tracks: Vec::new(),
@@ -331,13 +332,14 @@ impl Engine {
                 rate: 0,
                 status: EngineStatus { ready: false, device: String::new(), sample_rate: 0, error: None },
                 scratch: Vec::new(),
+                speed: 1.0,
             }),
             host_tx: Mutex::new(None),
             infos: Mutex::new(HashMap::new()),
         });
         let engine = Engine { inner };
         engine.spawn_device_thread();
-        engine.spawn_control_thread(app);
+        engine.spawn_control_thread(app, event);
         engine
     }
 
@@ -391,7 +393,7 @@ impl Engine {
 
     // ---------------- Control thread ----------------
 
-    fn spawn_control_thread(&self, app: AppHandle) {
+    fn spawn_control_thread(&self, app: AppHandle, event: &'static str) {
         let engine = self.clone();
         thread::Builder::new()
             .name("diaframma-control".into())
@@ -406,7 +408,7 @@ impl Engine {
                         let live = engine.live_state();
                         let playing = live.voices.iter().any(|v| !v.paused);
                         if playing || last_state.as_ref() != Some(&live) {
-                            let _ = app.emit("engine-state", &live);
+                            let _ = app.emit(event, &live);
                             last_state = Some(live);
                         }
                     }
@@ -523,7 +525,8 @@ impl Engine {
     }
 
     fn make_voice(&self, id: &str, path: &str, start: f64, rate: u32, params: FeedParams) -> Result<Voice, String> {
-        let h = spawn_feeder(path.to_string(), start, rate, params)?;
+        let speed = self.inner.state.lock().speed;
+        let h = spawn_feeder(path.to_string(), start, rate, params, speed)?;
         let mut duration = h.ctl.duration();
         if let Some(info) = self.inner.infos.lock().get(path) {
             duration = info.duration_sec;
@@ -594,6 +597,16 @@ impl Engine {
             if immediate || !v.stopping() {
                 v.fade_to(0.0, sec, AfterFade::Stop);
             }
+        }
+    }
+
+    /// Playback speed for every voice (used by the internal player).
+    pub fn set_speed(&self, speed: f64) {
+        let mut st = self.inner.state.lock();
+        st.speed = speed.clamp(0.25, 4.0);
+        let sp = st.speed;
+        for v in st.voices.iter().chain(st.prepared.iter()) {
+            v.h.ctl.set_speed(sp);
         }
     }
 
@@ -836,4 +849,46 @@ pub async fn engine_analyze(engine: tauri::State<'_, Engine>, path: String) -> R
     let info = tauri::async_runtime::spawn_blocking(move || decode::analyze(&p)).await.map_err(|e| e.to_string())??;
     engine.store_info(&path, info.clone());
     Ok(info)
+}
+
+// ---------------- Internal player (Rehearsal mode) ----------------
+//
+// A second, independent engine: one track at a time, its own output.
+
+pub struct Player(pub Engine);
+
+#[tauri::command]
+pub fn player_sync(p: tauri::State<'_, Player>, tracks: Vec<TrackParams>, config: Config) {
+    p.0.sync(tracks, config);
+}
+
+#[tauri::command]
+pub fn player_play(p: tauri::State<'_, Player>, track_id: String) -> Result<(), String> {
+    p.0.set_standby(Some(track_id));
+    p.0.go()
+}
+
+#[tauri::command]
+pub fn player_pause(p: tauri::State<'_, Player>, track_id: String) {
+    p.0.toggle_pause(&track_id);
+}
+
+#[tauri::command]
+pub fn player_stop(p: tauri::State<'_, Player>) {
+    p.0.stop_all(true);
+}
+
+#[tauri::command]
+pub fn player_set_speed(p: tauri::State<'_, Player>, speed: f64) {
+    p.0.set_speed(speed);
+}
+
+#[tauri::command]
+pub fn player_set_device(p: tauri::State<'_, Player>, name: Option<String>) {
+    p.0.set_device(name);
+}
+
+#[tauri::command]
+pub fn player_state(p: tauri::State<'_, Player>) -> LiveState {
+    p.0.live_state()
 }

@@ -31,6 +31,8 @@ pub struct Segment {
     pub start_frame: u64,
     /// Time in the file (seconds) of that frame.
     pub src_start: f64,
+    /// Playback speed of this stretch (1.0 = normal).
+    pub speed: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,12 +49,19 @@ pub struct FeederCtl {
     pub failed: AtomicBool,
     pub pushed: AtomicU64,
     duration_bits: AtomicU64,
+    speed_bits: AtomicU64,
     pub params: Mutex<FeedParams>,
 }
 
 impl FeederCtl {
     pub fn duration(&self) -> f64 {
         f64::from_bits(self.duration_bits.load(Ordering::Relaxed))
+    }
+    pub fn speed(&self) -> f64 {
+        f64::from_bits(self.speed_bits.load(Ordering::Relaxed))
+    }
+    pub fn set_speed(&self, s: f64) {
+        self.speed_bits.store(s.clamp(0.25, 4.0).to_bits(), Ordering::Relaxed);
     }
 }
 
@@ -105,6 +114,7 @@ fn open_source(path: &Path) -> Result<Source, String> {
 
 /// Cubic (Hermite) resampler, stereo. Converts the file rate to the output rate.
 struct Resampler {
+    base: f64,
     step: f64,
     frac: f64,
     hist: [[f32; 2]; 4],
@@ -114,7 +124,11 @@ struct Resampler {
 
 impl Resampler {
     fn new(src: u32, dst: u32) -> Self {
-        Self { step: src as f64 / dst as f64, frac: 0.0, hist: [[0.0; 2]; 4], primed: 0, bypass: src == dst }
+        Self { base: src as f64 / dst as f64, step: src as f64 / dst as f64, frac: 0.0, hist: [[0.0; 2]; 4], primed: 0, bypass: src == dst }
+    }
+    fn set_speed(&mut self, speed: f64) {
+        self.step = self.base * speed;
+        self.bypass = (self.step - 1.0).abs() < 1e-9;
     }
     fn reset(&mut self) {
         self.frac = 0.0;
@@ -180,7 +194,7 @@ fn seek(src: &mut Source, secs: f64) -> f64 {
 }
 
 /// Starts a feeder thread for `path`, beginning at `start_sec`.
-pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedParams) -> Result<FeederHandles, String> {
+pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedParams, speed: f64) -> Result<FeederHandles, String> {
     let mut src = open_source(Path::new(&path))?;
     let capacity_frames = (out_rate as usize) * 3;
     let (mut prod, cons) = rtrb::RingBuffer::<f32>::new(capacity_frames * 2);
@@ -191,6 +205,7 @@ pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedPar
         failed: AtomicBool::new(false),
         pushed: AtomicU64::new(0),
         duration_bits: AtomicU64::new(src.duration.to_bits()),
+        speed_bits: AtomicU64::new(speed.clamp(0.25, 4.0).to_bits()),
         params: Mutex::new(params),
     });
     let ctl2 = ctl.clone();
@@ -199,6 +214,8 @@ pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedPar
         .spawn(move || {
             let ctl = ctl2;
             let mut rs = Resampler::new(src.sample_rate, out_rate);
+            let mut cur_speed = ctl.speed();
+            rs.set_speed(cur_speed);
             let mut out: Vec<f32> = Vec::with_capacity(16384);
             let mut pending: Vec<f32> = Vec::with_capacity(16384);
             // A loop jump (seconds) or a stop (NaN) to apply once `pending` is flushed.
@@ -210,7 +227,7 @@ pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedPar
                 target = 0.0;
                 let _ = seek(&mut src, 0.0);
             }
-            let _ = seg_prod.push(Segment { start_frame: 0, src_start: target });
+            let _ = seg_prod.push(Segment { start_frame: 0, src_start: target, speed: cur_speed });
             // Decoded frames before this time are dropped (sample-accurate start after a seek).
             let mut skip_until = target;
             let rate = src.sample_rate as f64;
@@ -243,7 +260,7 @@ pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedPar
                             eof = true;
                         } else {
                             rs.reset();
-                            let _ = seg_prod.push(Segment { start_frame: pushed, src_start: at });
+                            let _ = seg_prod.push(Segment { start_frame: pushed, src_start: at, speed: cur_speed });
                             skip_until = at;
                         }
                     }
@@ -301,6 +318,13 @@ pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedPar
                 }
                 let sb = sample_buf.as_mut().unwrap();
                 sb.copy_interleaved_ref(decoded);
+                let sp = ctl.speed();
+                if (sp - cur_speed).abs() > 1e-6 {
+                    cur_speed = sp;
+                    rs.set_speed(sp);
+                    let start_frame = pushed + (pending.len() / 2) as u64;
+                    let _ = seg_prod.push(Segment { start_frame, src_start: pkt_time.max(skip_until), speed: sp });
+                }
                 let stop_at = match p.looping {
                     Some((_, lout)) => lout,
                     None => p.out_sec.unwrap_or(f64::INFINITY),

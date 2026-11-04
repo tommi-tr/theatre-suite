@@ -52,7 +52,62 @@ export const api = {
   engineStopAll: (immediate: boolean) => call<void>("engine_stop_all", { immediate }),
   engineAnalyze: (path: string) => call<TrackInfo>("engine_analyze", { path }),
   engineState: () => call<LiveState>("engine_state"),
+
+  // Rehearsal mode (other programs on this computer)
+  rhSnapshot: () => call<RhSnapshot>("rh_snapshot"),
+  rhMedia: (id: string, action: "toggle" | "next" | "prev" | "pause") => call<void>("rh_media", { id, action }),
+  rhSetVolume: (ids: string[], volume: number) => call<void>("rh_set_volume", { ids, volume }),
+  rhSetSpeed: (ids: string[], rate: number) => call<void>("rh_set_speed", { ids, rate }),
+  rhRoute: (id: string, outputId: string | null) => call<void>("rh_route", { id, outputId }),
+  rhPauseAll: () => call<void>("rh_pause_all"),
+
+  // Internal player (Rehearsal mode)
+  playerSync: (tracks: EngineTrack[], config: EngineConfig) => call<void>("player_sync", { tracks, config }),
+  playerPlay: (trackId: string) => call<void>("player_play", { trackId }),
+  playerPause: (trackId: string) => call<void>("player_pause", { trackId }),
+  playerStop: () => call<void>("player_stop"),
+  playerSetSpeed: (speed: number) => call<void>("player_set_speed", { speed }),
+  playerSetDevice: (name: string | null) => call<void>("player_set_device", { name }),
+  playerState: () => call<LiveState>("player_state"),
 };
+
+export interface RhSource {
+  id: string;
+  app: string;
+  exe: string;
+  kind: "spotify" | "browser" | "media" | "vlc" | "program" | "internal";
+  title: string;
+  artist: string;
+  thumb: string | null;
+  status: "playing" | "paused" | "stopped";
+  canToggle: boolean;
+  canNext: boolean;
+  canPrev: boolean;
+  canSpeed: boolean;
+  speed: number | null;
+  volume: number | null;
+  peak: number;
+  pids: number[];
+  outputId: string | null;
+  positionSec: number | null;
+  durationSec: number | null;
+}
+
+export interface RhOutput {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  peakL: number;
+  peakR: number;
+}
+
+export interface RhSnapshot {
+  supported: boolean;
+  routingAvailable: boolean;
+  sources: RhSource[];
+  outputs: RhOutput[];
+  pendingRestore: number;
+}
 
 export function onEngineState(cb: (s: LiveState) => void): Promise<UnlistenFn> {
   if (!isTauri) return Promise.resolve(() => {});

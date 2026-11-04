@@ -22,6 +22,18 @@ export interface Settings {
   extensionBridgeEnabled: boolean;
   /** Roles of outputs in Rehearsal mode, by device name. */
   outputRoles: Record<string, "live" | "pre">;
+  favorites: Favorite[];
+}
+
+export interface Favorite {
+  id: string;
+  title: string;
+  artist: string;
+  source: string;
+  /** ISO date-time when it was starred. */
+  at: string;
+  positionSec: number | null;
+  link: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   phoneEnabled: false,
   extensionBridgeEnabled: false,
   outputRoles: {},
+  favorites: [],
 };
 
 function sanitize(raw: unknown): Settings {
@@ -65,6 +78,21 @@ function sanitize(raw: unknown): Settings {
     const roles: Record<string, "live" | "pre"> = {};
     for (const [k, v] of Object.entries(r.outputRoles as Record<string, unknown>)) if (v === "live" || v === "pre") roles[k] = v;
     s.outputRoles = roles;
+  }
+  if (Array.isArray(r.favorites)) {
+    s.favorites = (r.favorites as unknown[])
+      .filter((f): f is Record<string, unknown> => !!f && typeof f === "object")
+      .filter((f) => typeof f.id === "string" && typeof f.title === "string")
+      .map((f) => ({
+        id: f.id as string,
+        title: f.title as string,
+        artist: typeof f.artist === "string" ? f.artist : "",
+        source: typeof f.source === "string" ? f.source : "",
+        at: typeof f.at === "string" ? f.at : new Date().toISOString(),
+        positionSec: typeof f.positionSec === "number" ? f.positionSec : null,
+        link: typeof f.link === "string" ? f.link : null,
+      }))
+      .slice(0, 500);
   }
   return s;
 }
