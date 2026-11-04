@@ -432,12 +432,12 @@ pub fn analyze(path: &str) -> Result<TrackInfo, String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::io::Write;
 
     /// Stereo 16-bit WAV: left channel is a ramp (encodes the time), right a sine.
-    fn write_wav(path: &Path, rate: u32, secs: f32) {
+    pub(crate) fn write_wav(path: &Path, rate: u32, secs: f32) {
         let n = (rate as f32 * secs) as u32;
         let mut f = File::create(path).unwrap();
         let data_len = n * 4;
