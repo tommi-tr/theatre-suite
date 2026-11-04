@@ -69,6 +69,10 @@ function Shell() {
       } catch (e) {
         useUi.getState().showToast(String(e), "error");
       }
+      if (!useSettings.getState().settings.guideSeen) {
+        useSettings.getState().update({ guideSeen: true });
+        useUi.getState().openDialog("guide");
+      }
       stops.push(startAutosave());
       stops.push(startEngineSync());
       stops.push(startRemoteSync());

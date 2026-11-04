@@ -23,6 +23,8 @@ export interface Settings {
   /** Roles of outputs in Rehearsal mode, by device name. */
   outputRoles: Record<string, "live" | "pre">;
   favorites: Favorite[];
+  /** The guide was shown once at the first start. */
+  guideSeen: boolean;
 }
 
 export interface Favorite {
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   extensionBridgeEnabled: false,
   outputRoles: {},
   favorites: [],
+  guideSeen: false,
 };
 
 function sanitize(raw: unknown): Settings {
@@ -73,6 +76,7 @@ function sanitize(raw: unknown): Settings {
   if (typeof r.outputDevice === "string" || r.outputDevice === null) s.outputDevice = r.outputDevice as string | null;
   if (Array.isArray(r.recentFiles)) s.recentFiles = r.recentFiles.filter((x): x is string => typeof x === "string").slice(0, 10);
   if (typeof r.phoneEnabled === "boolean") s.phoneEnabled = r.phoneEnabled;
+  if (typeof r.guideSeen === "boolean") s.guideSeen = r.guideSeen;
   if (typeof r.extensionBridgeEnabled === "boolean") s.extensionBridgeEnabled = r.extensionBridgeEnabled;
   if (r.outputRoles && typeof r.outputRoles === "object") {
     const roles: Record<string, "live" | "pre"> = {};

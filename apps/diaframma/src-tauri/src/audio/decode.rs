@@ -177,17 +177,18 @@ fn to_stereo(samples: &[f32], channels: usize, mut f: impl FnMut(f32, f32)) {
     }
 }
 
+/// Seeks so that the next frames delivered start at `secs`.
+/// It lands a little earlier (pre-roll) because compressed formats (MP3, AAC)
+/// need a few frames to "warm up" after a jump; those frames are dropped by
+/// the caller (`skip_until`), so loops stay seamless and starts stay exact.
+/// Returns `secs`, or -1 if seeking failed.
 fn seek(src: &mut Source, secs: f64) -> f64 {
-    if secs <= 0.0001 {
-        // Re-open is not needed: seeking to zero is supported by every reader we use.
-        let r = src.format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(0.0), track_id: Some(src.track_id) });
-        src.decoder.reset();
-        return if r.is_ok() { 0.0 } else { -1.0 };
-    }
-    match src.format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(secs), track_id: Some(src.track_id) }) {
+    const PREROLL: f64 = 0.15;
+    let at = (secs - PREROLL).max(0.0);
+    match src.format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(at), track_id: Some(src.track_id) }) {
         Ok(_) => {
             src.decoder.reset();
-            secs
+            secs.max(0.0)
         }
         Err(_) => -1.0,
     }
@@ -428,4 +429,105 @@ pub fn analyze(path: &str) -> Result<TrackInfo, String> {
     let duration = frames as f64 / src.sample_rate as f64;
     let _ = src.duration;
     Ok(TrackInfo { duration_sec: duration, sample_rate: src.sample_rate, channels: channels_seen, peaks })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Stereo 16-bit WAV: left channel is a ramp (encodes the time), right a sine.
+    fn write_wav(path: &Path, rate: u32, secs: f32) {
+        let n = (rate as f32 * secs) as u32;
+        let mut f = File::create(path).unwrap();
+        let data_len = n * 4;
+        f.write_all(b"RIFF").unwrap();
+        f.write_all(&(36 + data_len).to_le_bytes()).unwrap();
+        f.write_all(b"WAVEfmt ").unwrap();
+        f.write_all(&16u32.to_le_bytes()).unwrap();
+        f.write_all(&1u16.to_le_bytes()).unwrap();
+        f.write_all(&2u16.to_le_bytes()).unwrap();
+        f.write_all(&rate.to_le_bytes()).unwrap();
+        f.write_all(&(rate * 4).to_le_bytes()).unwrap();
+        f.write_all(&4u16.to_le_bytes()).unwrap();
+        f.write_all(&16u16.to_le_bytes()).unwrap();
+        f.write_all(b"data").unwrap();
+        f.write_all(&data_len.to_le_bytes()).unwrap();
+        for i in 0..n {
+            let t = i as f32 / rate as f32;
+            let l = ((t / secs) * 30000.0) as i16;
+            let r = ((t * 440.0 * std::f32::consts::TAU).sin() * 12000.0) as i16;
+            f.write_all(&l.to_le_bytes()).unwrap();
+            f.write_all(&r.to_le_bytes()).unwrap();
+        }
+    }
+
+    fn drain(h: &mut FeederHandles, max_frames: usize) -> (Vec<f32>, Vec<Segment>) {
+        let (mut out, mut segs) = (Vec::new(), Vec::new());
+        let t0 = std::time::Instant::now();
+        loop {
+            while let Ok(s) = h.segments.pop() {
+                segs.push(s);
+            }
+            let n = h.audio.slots();
+            if n > 0 {
+                let mut buf = vec![0f32; n];
+                h.audio.pop_entire_slice(&mut buf).unwrap();
+                out.extend(buf);
+            } else if h.ctl.finished.load(Ordering::Acquire) {
+                break;
+            } else {
+                thread::sleep(Duration::from_millis(2));
+            }
+            if out.len() / 2 >= max_frames || t0.elapsed().as_secs() > 20 {
+                break;
+            }
+        }
+        while let Ok(s) = h.segments.pop() {
+            segs.push(s);
+        }
+        (out, segs)
+    }
+
+    #[test]
+    fn plays_in_out_and_loops_with_resampling() {
+        let dir = std::env::temp_dir().join(format!("diaframma-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let wav = dir.join("ramp.wav");
+        write_wav(&wav, 44100, 2.0);
+        let p = wav.to_string_lossy().to_string();
+        let ramp = |t: f32| t / 2.0 * 30000.0 / 32768.0;
+
+        let info = analyze(&p).unwrap();
+        assert!((info.duration_sec - 2.0).abs() < 0.01);
+        assert_eq!(info.peaks.len(), 1000);
+
+        // Whole file, 44.1 kHz -> 48 kHz.
+        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: None }, 1.0).unwrap();
+        let (a, _) = drain(&mut h, usize::MAX);
+        assert!(((a.len() / 2) as i64 - 96000).abs() < 200);
+        assert!((a[2 * 48000] - ramp(1.0)).abs() < 0.01);
+
+        // IN 0.5 s, OUT 1.5 s: exactly one second, starting at 0.5 s.
+        let mut h = spawn_feeder(p.clone(), 0.5, 48000, FeedParams { out_sec: Some(1.5), looping: None }, 1.0).unwrap();
+        let (a, _) = drain(&mut h, usize::MAX);
+        assert!(((a.len() / 2) as i64 - 48000).abs() < 300);
+        assert!((a[0] - ramp(0.5)).abs() < 0.01);
+
+        // Loop 0.5 – 1.0 s: jumps every 0.5 s after the first second, seamlessly.
+        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: Some((0.5, 1.0)) }, 1.0).unwrap();
+        let (a, segs) = drain(&mut h, 48000 * 3);
+        assert!(segs.len() >= 3);
+        assert!((segs[1].start_frame as i64 - 48000).abs() < 100);
+        assert!((segs[2].start_frame as i64 - segs[1].start_frame as i64 - 24000).abs() < 100);
+        let j = segs[1].start_frame as usize;
+        assert!((a[2 * j + 4] - ramp(0.5)).abs() < 0.01);
+
+        // Double speed: half the frames.
+        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: None }, 2.0).unwrap();
+        let (a, _) = drain(&mut h, usize::MAX);
+        assert!(((a.len() / 2) as i64 - 48000).abs() < 300);
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }

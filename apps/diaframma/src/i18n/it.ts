@@ -290,4 +290,7 @@ export const it: Dict = {
   "Copy address": "Copia indirizzo",
   "The phone remote is off. Turn it on to show the QR code.": "Il telecomando dal telefono è spento. Accendilo per vedere il codice QR.",
   "Welcome to Diaframma": "Benvenuto in Diaframma",
+  "Phone and Chrome (optional)": "Telefono e Chrome (facoltativi)",
+  "Phone: press the Phone button, turn it on and scan the QR code with a phone on the same Wi-Fi. Chrome: install the Diaframma extension and turn it on in Settings to control each tab separately. Both stay off until you turn them on.":
+    "Telefono: premi il pulsante Telefono, accendilo e inquadra il codice QR con un telefono sullo stesso Wi-Fi. Chrome: installa l'estensione Diaframma e attivala nelle Impostazioni per comandare ogni scheda separatamente. Entrambi restano spenti finché non li accendi.",
 };

@@ -76,6 +76,8 @@ export function ShowMode() {
         return;
       }
       if (k === "Escape") {
+        // An open menu closes first; it must never trigger Stop all.
+        if (document.querySelector(".df-menu")) return;
         e.preventDefault();
         const now = Date.now();
         const immediate = now - lastEsc.current < 900;
@@ -133,8 +135,20 @@ export function ShowMode() {
         st.undo();
       }
     };
+    // A focused button must not be "clicked" by the Space bar: Space is only GO.
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (useUi.getState().dialog || useUi.getState().mode !== "show" || isTyping(e.target)) return;
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
   }, [t]);
 
   // Keep the standby row visible.
@@ -205,7 +219,11 @@ export function ShowMode() {
             value={settings.outputDevice ?? ""}
             disabled={locked}
             onFocus={() => api.engineDevices().then(setDevices).catch(() => {})}
-            onChange={(e) => useSettings.getState().update({ outputDevice: e.currentTarget.value || null })}
+            onChange={(e) => {
+              useSettings.getState().update({ outputDevice: e.currentTarget.value || null });
+              // Give the keyboard back to the cue list (Space = GO).
+              e.currentTarget.blur();
+            }}
             aria-label={t("Audio output")}
           >
             <option value="">{t("Windows default")}</option>

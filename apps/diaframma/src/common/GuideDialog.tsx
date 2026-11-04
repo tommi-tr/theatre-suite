@@ -42,6 +42,8 @@ export function GuideDialog({ onClose }: { onClose: () => void }) {
         </ol>
         <h3>{t("Rehearsal mode")}</h3>
         <p>{t("See the players open on this computer (Spotify, browser, media player…), pause or skip them, and choose which output each one uses: LIVE is heard by everyone, PRE-LISTEN only by you.")}</p>
+        <h3>{t("Phone and Chrome (optional)")}</h3>
+        <p>{t("Phone: press the Phone button, turn it on and scan the QR code with a phone on the same Wi-Fi. Chrome: install the Diaframma extension and turn it on in Settings to control each tab separately. Both stay off until you turn them on.")}</p>
         <h3>{t("Keyboard")}</h3>
         <table className="df-guide__keys">
           <tbody>
