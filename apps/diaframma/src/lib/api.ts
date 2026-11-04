@@ -1,0 +1,86 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { LiveState, OthersOnGo, Track, TrackInfo } from "../state/types";
+
+export interface SessionStart {
+  crashed: boolean;
+  autosave: string | null;
+  openFile: string | null;
+}
+
+export interface EngineConfig {
+  othersOnGo: OthersOnGo;
+  autoAdvance: boolean;
+  fadeInSec: number;
+  fadeOutSec: number;
+  crossfadeSec: number;
+  stopAllSec: number;
+}
+
+/** Track as sent to the engine: path already resolved. */
+export type EngineTrack = Omit<Track, "file"> & { path: string | null };
+
+export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri) return Promise.reject(new Error(`Not running inside Diaframma (${cmd})`));
+  return invoke<T>(cmd, args);
+}
+
+export const api = {
+  appInfo: () => call<{ name: string; version: string; os: string }>("app_info"),
+  settingsLoad: () => call<unknown>("settings_load"),
+  settingsSave: (settings: unknown) => call<void>("settings_save", { settings }),
+  sessionStart: () => call<SessionStart>("session_start"),
+  autosaveWrite: (json: string) => call<void>("autosave_write", { json }),
+  autosaveClear: () => call<void>("autosave_clear"),
+  readText: (path: string) => call<string>("file_read_text", { path }),
+  writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
+  pathsExist: (paths: string[]) => call<boolean[]>("paths_exist", { paths }),
+  findFiles: (dir: string, names: string[]) => call<(string | null)[]>("find_files", { dir, names }),
+  resolveRelative: (baseFile: string, relative: string) => call<string | null>("resolve_relative", { baseFile, relative }),
+  makeRelative: (baseFile: string, target: string) => call<string | null>("make_relative", { baseFile, target }),
+
+  // Audio engine (Show mode)
+  engineDevices: () => call<string[]>("engine_devices"),
+  engineSetDevice: (name: string | null) => call<void>("engine_set_device", { name }),
+  engineSync: (tracks: EngineTrack[], config: EngineConfig) => call<void>("engine_sync", { tracks, config }),
+  engineSetStandby: (trackId: string | null) => call<void>("engine_set_standby", { trackId }),
+  engineGo: () => call<void>("engine_go"),
+  enginePause: (trackId: string) => call<void>("engine_pause", { trackId }),
+  engineStopAll: (immediate: boolean) => call<void>("engine_stop_all", { immediate }),
+  engineAnalyze: (path: string) => call<TrackInfo>("engine_analyze", { path }),
+  engineState: () => call<LiveState>("engine_state"),
+};
+
+export function onEngineState(cb: (s: LiveState) => void): Promise<UnlistenFn> {
+  if (!isTauri) return Promise.resolve(() => {});
+  return listen<LiveState>("engine-state", (e) => cb(e.payload));
+}
+
+export function onEvent<T>(name: string, cb: (payload: T) => void): Promise<UnlistenFn> {
+  if (!isTauri) return Promise.resolve(() => {});
+  return listen<T>(name, (e) => cb(e.payload));
+}
+
+export const appWindow = {
+  minimize: () => isTauri && getCurrentWindow().minimize(),
+  toggleMaximize: () => isTauri && getCurrentWindow().toggleMaximize(),
+  close: () => isTauri && getCurrentWindow().close(),
+  destroy: () => isTauri && getCurrentWindow().destroy(),
+  isMaximized: async () => (isTauri ? getCurrentWindow().isMaximized() : false),
+  onResized: (cb: () => void) => (isTauri ? getCurrentWindow().onResized(cb) : Promise.resolve(() => {})),
+  onCloseRequested: (cb: (prevent: () => void) => Promise<void> | void) =>
+    isTauri
+      ? getCurrentWindow().onCloseRequested(async (e) => {
+          await cb(() => e.preventDefault());
+        })
+      : Promise.resolve(() => {}),
+  onDragDrop: (cb: (paths: string[], x: number, y: number) => void) =>
+    isTauri
+      ? getCurrentWindow().onDragDropEvent((e) => {
+          if (e.payload.type === "drop") cb(e.payload.paths, e.payload.position.x, e.payload.position.y);
+        })
+      : Promise.resolve(() => {}),
+};
