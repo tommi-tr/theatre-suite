@@ -47,7 +47,16 @@ export const usePlayer = create<PlayerStore>((set, get) => {
     open: (paths) => {
       if (!paths.length) return;
       set({ playlist: paths, index: 0 });
-      get().play(0);
+      // The player's output opens only now; wait until it is ready, then play.
+      (async () => {
+        await api.playerSetDevice(get().device).catch(() => {});
+        for (let i = 0; i < 40; i++) {
+          const st = await api.playerState().catch(() => null);
+          if (st?.engine.ready) break;
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        get().play(0);
+      })();
     },
     play: (index, fromSec = 0) => {
       const i = index ?? get().index;
@@ -100,5 +109,4 @@ export function startPlayerEvents() {
   if (started || !isTauri) return;
   started = true;
   onEvent<LiveState>("player-state", (live) => usePlayer.setState({ live }));
-  api.playerSetDevice(null).catch(() => {});
 }

@@ -319,7 +319,10 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn start(app: AppHandle, event: &'static str) -> Self {
+    /// Starts an engine. With `lazy`, the audio output is opened only at the
+    /// first `set_device` (used by the internal player, so that an idle
+    /// Diaframma keeps a single output open).
+    pub fn start(app: AppHandle, event: &'static str, lazy: bool) -> Self {
         let inner = Arc::new(Inner {
             state: Mutex::new(State {
                 tracks: Vec::new(),
@@ -338,14 +341,14 @@ impl Engine {
             infos: Mutex::new(HashMap::new()),
         });
         let engine = Engine { inner };
-        engine.spawn_device_thread();
+        engine.spawn_device_thread(!lazy);
         engine.spawn_control_thread(app, event);
         engine
     }
 
     // ---------------- Device thread ----------------
 
-    fn spawn_device_thread(&self) {
+    fn spawn_device_thread(&self, open_now: bool) {
         let (tx, rx) = mpsc::channel::<HostCmd>();
         *self.inner.host_tx.lock() = Some(tx);
         let inner = self.inner.clone();
@@ -355,7 +358,8 @@ impl Engine {
                 let mut stream: Option<cpal::Stream> = None;
                 let mut wanted: Option<String> = None;
                 let mut last_try = Instant::now() - Duration::from_secs(10);
-                let mut need_open = true;
+                let mut need_open = open_now;
+                let mut active = open_now;
                 loop {
                     if need_open && last_try.elapsed() > Duration::from_secs(2) {
                         last_try = Instant::now();
@@ -373,6 +377,7 @@ impl Engine {
                     }
                     match rx.recv_timeout(Duration::from_millis(250)) {
                         Ok(HostCmd::SetDevice(name)) => {
+                            active = true;
                             if name != wanted || stream.is_none() {
                                 wanted = name;
                                 need_open = true;
@@ -380,7 +385,7 @@ impl Engine {
                             }
                         }
                         Err(mpsc::RecvTimeoutError::Timeout) => {
-                            if inner.state.lock().status.error.is_some() {
+                            if active && inner.state.lock().status.error.is_some() {
                                 need_open = true;
                             }
                         }

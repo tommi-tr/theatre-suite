@@ -34,9 +34,9 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let engine = audio::Engine::start(app.handle().clone(), "engine-state");
+            let engine = audio::Engine::start(app.handle().clone(), "engine-state", false);
             app.manage(engine);
-            app.manage(audio::Player(audio::Engine::start(app.handle().clone(), "player-state")));
+            app.manage(audio::Player(audio::Engine::start(app.handle().clone(), "player-state", true)));
             let journal = storage::data_dir(app.handle()).map(|d| d.join("rehearsal-journal.json")).unwrap_or_default();
             app.manage(rehearsal::Rehearsal::start(journal));
             app.manage(remote::ext::ExtBridge::start());
