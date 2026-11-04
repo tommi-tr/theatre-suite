@@ -627,6 +627,41 @@ textarea {
   cursor: default;
 }
 
+/* A fader that the mouse wheel moves (it was clicked last) */
+[data-wheel="on"] {
+  outline: 1.5px dashed var(--accent-line);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Numbers you can click to type */
+.ts-numtext {
+  cursor: text;
+  border-radius: 3px;
+}
+.ts-numtext:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.ts-numtext--off,
+.ts-numtext--off:hover {
+  cursor: default;
+  background: transparent;
+}
+.ts-numedit {
+  font: inherit;
+  font-family: var(--font-mono);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--accent-line);
+  border-radius: 3px;
+  padding: 0 3px;
+  height: 1.6em;
+  min-width: 4ch;
+  text-align: center;
+  outline: none;
+}
+
 /* Vertical fader (custom, pointer-driven) */
 .ts-vfader {
   position: relative;

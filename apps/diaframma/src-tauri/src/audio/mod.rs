@@ -1,10 +1,11 @@
-//! Native audio engine for Show mode.
+//! Native audio engine for Show mode (also used by the internal player and the launchpad).
 //!
 //! Threads:
 //! - audio callback (cpal/WASAPI): mixes the active voices; never opens files;
 //! - one feeder thread per voice: decodes ahead into a ring buffer (decode.rs);
-//! - device thread: owns the output stream, reopens it if the device changes or is lost;
-//! - control thread: prepares the next voices, applies "At end" fallbacks,
+//! - device thread: owns the output stream, reopens it if the device changes or is lost
+//!   (what is playing carries on from where it was);
+//! - control thread: prepares the standby track, serves start requests,
 //!   tells the interface what is playing (~20 times per second).
 //!
 //! The interface sends the cue list (`sync`) and commands (GO, standby,
@@ -27,7 +28,7 @@ use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter};
 
 use self::core::*;
-use decode::{FeedParams, spawn_feeder};
+use decode::{FeedParams, spawn_feeder_ex};
 use dsp::Fade;
 use model::*;
 
@@ -49,26 +50,49 @@ pub struct Engine {
     inner: Arc<Inner>,
 }
 
+/// What a voice was doing, to rebuild it on a new output.
+struct VoiceSnap {
+    track_id: String,
+    path: String,
+    pos: f64,
+    paused: bool,
+    paused_by_all: bool,
+    fade_value: f32,
+    fade_target: f32,
+    fade_left_sec: f64,
+    after_fade: AfterFade,
+    in_loop: bool,
+    at_end_fired: bool,
+}
+
+fn make_voice(inner: &Inner, id: &str, path: &str, start: f64, rate: u32, params: FeedParams, in_loop: bool) -> Result<Voice, String> {
+    let speed = inner.state.lock().speed;
+    let h = spawn_feeder_ex(path.to_string(), start, rate, params, speed, in_loop)?;
+    let mut duration = h.ctl.duration();
+    if let Some(info) = inner.infos.lock().get(path) {
+        duration = info.duration_sec;
+    }
+    Ok(Voice::new(id.to_string(), path.to_string(), start, rate, h, duration))
+}
+
+/// Waits a moment for the decoder to fill the buffer, so the start is clean.
+fn warm_up(v: &Voice) {
+    let t0 = Instant::now();
+    while v.h.audio.slots() < 2048 && !v.h.ctl.finished.load(Ordering::Relaxed) && t0.elapsed() < Duration::from_millis(150) {
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
 impl Engine {
     /// Starts an engine. With `lazy`, the audio output is opened only at the
-    /// first `set_device` (used by the internal player, so that an idle
-    /// Diaframma keeps a single output open).
-    pub fn start(app: AppHandle, event: &'static str, lazy: bool) -> Self {
+    /// first `set_device` (used by the internal player and the launchpad, so that
+    /// an idle Diaframma keeps a single output open).
+    pub fn start(app: AppHandle, event: &'static str, lazy: bool, config: Config) -> Self {
+        let mut st = State::new();
+        st.config = config;
         let inner = Arc::new(Inner {
             last_prepare: Mutex::new(HashMap::new()),
-            state: Mutex::new(State {
-                tracks: Vec::new(),
-                config: Config::default(),
-                standby: None,
-                voices: Vec::with_capacity(64),
-                prepared: Vec::with_capacity(16),
-                graveyard: Vec::with_capacity(64),
-                requests: Vec::with_capacity(16),
-                rate: 0,
-                status: EngineStatus { ready: false, device: String::new(), sample_rate: 0, error: None },
-                scratch: Vec::new(),
-                speed: 1.0,
-            }),
+            state: Mutex::new(st),
             host_tx: Mutex::new(None),
             infos: Mutex::new(HashMap::new()),
         });
@@ -154,7 +178,7 @@ impl Engine {
             .expect("control thread");
     }
 
-    /// Drops finished voices, serves start requests, keeps the right voices prepared.
+    /// Drops finished voices, serves start requests, keeps the standby track prepared.
     fn housekeeping(&self) {
         let (dead, requests, wanted, rate) = {
             let mut st = self.inner.state.lock();
@@ -173,22 +197,15 @@ impl Engine {
                     *cur = p;
                 }
             }
-            // Which tracks should be ready to start instantly?
+            // Pause all ends by itself when nothing is left paused by it.
+            if st.paused_all && !st.voices.iter().any(|v| v.paused_by_all && v.paused && !v.ended) {
+                st.paused_all = false;
+            }
+            // The standby track is ready to start instantly.
             let mut wanted: Vec<String> = Vec::new();
             if let Some(sb) = st.standby.clone() {
                 if st.track(&sb).map(|t| t.playable()).unwrap_or(false) {
                     wanted.push(sb);
-                }
-            }
-            for v in st.voices.iter() {
-                if let Some(tp) = st.track(&v.track_id) {
-                    if matches!(tp.at_end, AtEnd::Next | AtEnd::Crossfade) {
-                        if let Some(n) = st.next_playable(&tp.id) {
-                            if !wanted.contains(&n) {
-                                wanted.push(n);
-                            }
-                        }
-                    }
                 }
             }
             // Drop prepared voices that are no longer wanted or are out of date.
@@ -235,7 +252,7 @@ impl Engine {
                     lp.retain(|_, t| t.elapsed() < Duration::from_secs(5));
                 }
             }
-            if let Ok(v) = self.make_voice(&id, &path, start, rate, params) {
+            if let Ok(v) = make_voice(&self.inner, &id, &path, start, rate, params, false) {
                 let mut st = self.inner.state.lock();
                 if st.rate == rate && !st.prepared.iter().any(|p| p.track_id == id) {
                     st.prepared.push(v);
@@ -246,39 +263,23 @@ impl Engine {
         }
         for r in requests {
             match r {
-                Request::StartNext { after, fade_sec } => {
-                    let next = {
+                Request::StartStandby { fade_sec } => {
+                    let tp = {
                         let st = self.inner.state.lock();
-                        st.next_playable(&after).and_then(|id| st.track(&id).cloned())
+                        st.standby.as_deref().and_then(|id| st.track(id).cloned())
                     };
-                    if let Some(tp) = next {
+                    if let Some(tp) = tp {
                         if let Some(path) = tp.path.clone() {
-                            if let Ok(mut v) = self.make_voice(&tp.id, &path, tp.in_sec, rate, feed_params(&tp)) {
-                                if fade_sec > 0.0 {
-                                    let n = v.frames(fade_sec);
-                                    v.fade = Fade::to(0.0, 1.0, n.max(1));
-                                }
+                            if let Ok(mut v) = make_voice(&self.inner, &tp.id, &path, tp.in_sec, rate, feed_params(&tp), false) {
+                                v.fade_in(fade_sec);
                                 let mut st = self.inner.state.lock();
-                                st.voices.push(v);
-                                if st.standby.as_deref() == Some(tp.id.as_str()) {
-                                    st.advance_standby_after(&tp.id);
-                                }
+                                started(&mut st, &tp.id, v);
                             }
                         }
                     }
                 }
             }
         }
-    }
-
-    fn make_voice(&self, id: &str, path: &str, start: f64, rate: u32, params: FeedParams) -> Result<Voice, String> {
-        let speed = self.inner.state.lock().speed;
-        let h = spawn_feeder(path.to_string(), start, rate, params, speed)?;
-        let mut duration = h.ctl.duration();
-        if let Some(info) = self.inner.infos.lock().get(path) {
-            duration = info.duration_sec;
-        }
-        Ok(Voice::new(id.to_string(), path.to_string(), start, rate, h, duration))
     }
 
     // ---------------- Commands ----------------
@@ -306,88 +307,65 @@ impl Engine {
             return;
         }
         let j = match st.standby.as_ref().and_then(|id| list.iter().position(|x| x == id)) {
-            None => 0,
+            None => {
+                if delta < 0 {
+                    0
+                } else {
+                    // After the main track if there is one.
+                    st.main.as_ref().and_then(|m| list.iter().position(|x| x == m)).map(|i| (i + 1).min(list.len() - 1)).unwrap_or(0)
+                }
+            }
             Some(i) => (i as i32 + delta).clamp(0, list.len() as i32 - 1) as usize,
         };
         st.standby = Some(list[j].clone());
     }
 
-    /// Pauses (or resumes) the track that started last.
-    pub fn pause_current(&self) {
-        let id = {
-            let st = self.inner.state.lock();
-            st.voices.iter().rev().find(|v| !v.stopping()).map(|v| v.track_id.clone())
-        };
-        if let Some(id) = id {
-            self.toggle_pause(&id);
-        }
-    }
-
-    /// Short description of the show for the phone remote.
-    pub fn summary(&self) -> serde_json::Value {
-        let st = self.inner.state.lock();
-        let mut numbers = std::collections::HashMap::new();
-        let mut n = 0;
-        for t in st.tracks.iter().filter(|t| !t.hidden) {
-            n += 1;
-            numbers.insert(t.id.clone(), n);
-        }
-        let name = |id: &str| -> String {
-            st.track(id)
-                .and_then(|t| t.path.as_deref())
-                .map(|p| p.rsplit(['\\', '/']).next().unwrap_or(p).to_string())
-                .unwrap_or_default()
-        };
-        let standby = st.standby.as_ref().map(|id| serde_json::json!({ "n": numbers.get(id), "name": name(id) }));
-        let playing: Vec<serde_json::Value> = st
-            .voices
-            .iter()
-            .filter(|v| !v.ended)
-            .map(|v| {
-                let tp = st.track(&v.track_id);
-                let out = tp.and_then(|t| t.out_sec).map(|o| if v.duration > 0.0 { o.min(v.duration) } else { o }).unwrap_or(v.duration);
-                serde_json::json!({
-                    "n": numbers.get(&v.track_id),
-                    "name": name(&v.track_id),
-                    "pos": v.pos,
-                    "left": (out - v.pos).max(0.0),
-                    "paused": v.paused,
-                    "fadingOut": v.fade.falling(),
-                })
-            })
-            .collect();
-        serde_json::json!({ "ready": st.status.ready, "standby": standby, "playing": playing })
+    /// Pause all / resume all (P).
+    pub fn pause_all(&self) {
+        toggle_pause_all(&mut self.inner.state.lock());
     }
 
     pub fn go(&self) -> Result<(), String> {
-        let (tp, rate) = {
+        let (plan, rate) = {
             let mut st = self.inner.state.lock();
-            let Some(sb) = st.standby.clone() else { return Ok(()) };
-            let Some(tp) = st.track(&sb).cloned() else { return Ok(()) };
-            if !tp.playable() {
-                st.advance_standby_after(&sb);
-                return Ok(());
-            }
-            if st.rate == 0 {
+            if st.rate == 0 && !st.paused_all {
                 return Err("The audio output is not available".into());
             }
-            if let Some(i) = st.prepared.iter().position(|p| p.track_id == tp.id) {
-                let v = st.prepared.swap_remove(i);
-                apply_go(&mut st, &tp, v);
-                return Ok(());
+            let plan = plan_go(&mut st);
+            // Already prepared? Start it right here, under the same lock.
+            if let GoPlan::Start(tp) = &plan {
+                if let Some(i) = st.prepared.iter().position(|p| p.track_id == tp.id) {
+                    let v = st.prepared.swap_remove(i);
+                    let tp = tp.clone();
+                    apply_go(&mut st, &tp, v);
+                    return Ok(());
+                }
             }
-            (tp, st.rate)
+            (plan, st.rate)
         };
-        // Not prepared yet (for example just loaded): open it now.
-        let v = self.make_voice(&tp.id, tp.path.as_deref().unwrap_or_default(), tp.in_sec, rate, feed_params(&tp))?;
-        // Give the decoder a moment to fill the buffer, so the start is clean.
-        let t0 = Instant::now();
-        while v.h.audio.slots() < 2048 && !v.h.ctl.finished.load(Ordering::Relaxed) && t0.elapsed() < Duration::from_millis(150) {
-            thread::sleep(Duration::from_millis(2));
+        match plan {
+            GoPlan::Start(tp) => {
+                // Not prepared yet (for example just loaded): open it now.
+                let v = make_voice(&self.inner, &tp.id, tp.path.as_deref().unwrap_or_default(), tp.in_sec, rate, feed_params(&tp), false)?;
+                warm_up(&v);
+                let mut st = self.inner.state.lock();
+                apply_go(&mut st, &tp, v);
+            }
+            GoPlan::Loop { track, at } => {
+                let v = make_voice(&self.inner, &track.id, track.path.as_deref().unwrap_or_default(), at, rate, feed_params(&track), true)?;
+                warm_up(&v);
+                let mut st = self.inner.state.lock();
+                apply_loop(&mut st, &track, v);
+            }
+            _ => {}
         }
-        let mut st = self.inner.state.lock();
-        apply_go(&mut st, &tp, v);
         Ok(())
+    }
+
+    /// Plays one track at once, leaving the others alone (launchpad, internal player).
+    pub fn play_now(&self, track_id: &str) -> Result<(), String> {
+        self.set_standby(Some(track_id.to_string()));
+        self.go()
     }
 
     pub fn toggle_pause(&self, track_id: &str) {
@@ -399,13 +377,34 @@ impl Engine {
     }
 
     pub fn stop_all(&self, immediate: bool) {
+        stop_all(&mut self.inner.state.lock(), immediate);
+    }
+
+    /// Stops one track (launchpad), with a short fade.
+    pub fn stop_track(&self, track_id: &str, fade_sec: f64) {
         let mut st = self.inner.state.lock();
-        let sec = if immediate { QUICK_STOP_SEC } else { st.config.stop_all_sec.max(QUICK_STOP_SEC) };
-        for v in st.voices.iter_mut() {
-            if immediate || !v.stopping() {
-                v.fade_to(0.0, sec, AfterFade::Stop);
-            }
+        for v in st.voices.iter_mut().filter(|v| v.track_id == track_id) {
+            v.fade_to(0.0, fade_sec.max(QUICK_STOP_SEC), AfterFade::Stop);
         }
+    }
+
+    /// Moves the play position of a paused track (it resumes from there).
+    pub fn seek(&self, track_id: &str, sec: f64) -> Result<(), String> {
+        let (tp, rate, in_loop) = {
+            let st = self.inner.state.lock();
+            let Some(v) = st.voices.iter().rev().find(|v| v.track_id == track_id && v.alive()) else { return Ok(()) };
+            let Some(tp) = st.track(track_id).cloned() else { return Ok(()) };
+            let in_loop = v.in_loop() && tp.loop_points.map(|l| sec >= l.in_sec && sec < l.out_sec).unwrap_or(tp.at_end == AtEnd::LoopAll);
+            (tp, st.rate, in_loop)
+        };
+        let Some(path) = tp.path.clone() else { return Ok(()) };
+        let v = make_voice(&self.inner, track_id, &path, sec.max(0.0), rate, feed_params(&tp), in_loop)?;
+        warm_up(&v);
+        let mut st = self.inner.state.lock();
+        if !apply_seek(&mut st, track_id, v) {
+            return Ok(());
+        }
+        Ok(())
     }
 
     /// Playback speed for every voice (used by the internal player).
@@ -426,17 +425,27 @@ impl Engine {
 
     pub fn live_state(&self) -> LiveState {
         let st = self.inner.state.lock();
+        let main_idx = st.main_index();
         LiveState {
             standby_id: st.standby.clone(),
+            main_id: main_idx.map(|i| st.voices[i].track_id.clone()),
+            pending: st.pending_step().map(|s| match s {
+                AtEnd::Stop => "stop",
+                AtEnd::FadeOut => "fadeOut",
+                AtEnd::LoopAll => "loopAll",
+                _ => "loopCut",
+            }),
+            paused_all: st.paused_all,
             voices: st
                 .voices
                 .iter()
-                .filter(|v| !v.ended)
-                .map(|v| {
+                .enumerate()
+                .filter(|(_, v)| !v.ended)
+                .map(|(i, v)| {
                     let tp = st.track(&v.track_id);
                     VoiceState {
                         track_id: v.track_id.clone(),
-                        position_sec: (v.pos * 10.0).round() / 10.0,
+                        position_sec: (v.pos * 20.0).round() / 20.0,
                         duration_sec: v.duration,
                         paused: v.paused,
                         fading: if v.fade.rising() {
@@ -446,12 +455,66 @@ impl Engine {
                         } else {
                             None
                         },
-                        looping: tp.map(|t| matches!(t.at_end, AtEnd::LoopAll | AtEnd::LoopCut)).unwrap_or(false),
+                        looping: tp.map(|t| t.at_end.is_loop()).unwrap_or(false),
+                        in_loop: v.in_loop(),
+                        main: main_idx == Some(i),
                     }
                 })
                 .collect(),
             engine: st.status.clone(),
         }
+    }
+
+    /// Short description of the show for the phone remote.
+    pub fn summary(&self) -> serde_json::Value {
+        let live = self.live_state();
+        let st = self.inner.state.lock();
+        let mut numbers = HashMap::new();
+        let mut n = st.config.number_from;
+        for t in st.tracks.iter().filter(|t| !t.hidden) {
+            numbers.insert(t.id.clone(), n);
+            n += 1;
+        }
+        let name = |id: &str| -> String {
+            st.track(id)
+                .and_then(|t| t.path.as_deref())
+                .map(|p| p.rsplit(['\\', '/']).next().unwrap_or(p).to_string())
+                .unwrap_or_default()
+        };
+        let at_end = |id: &str| st.track(id).map(|t| serde_json::to_value(t.at_end).unwrap_or_default()).unwrap_or_default();
+        let on_space = |id: &str| st.track(id).map(|t| serde_json::to_value(t.on_space).unwrap_or_default()).unwrap_or_default();
+        let standby = st.standby.as_ref().filter(|id| st.track(id).map(|t| t.playable()).unwrap_or(false)).map(|id| {
+            serde_json::json!({ "n": numbers.get(id), "name": name(id), "onSpace": on_space(id) })
+        });
+        let playing: Vec<serde_json::Value> = live
+            .voices
+            .iter()
+            .map(|v| {
+                let tp = st.track(&v.track_id);
+                let out = tp.and_then(|t| t.out_sec).map(|o| if v.duration_sec > 0.0 { o.min(v.duration_sec) } else { o }).unwrap_or(v.duration_sec);
+                serde_json::json!({
+                    "n": numbers.get(&v.track_id),
+                    "name": name(&v.track_id),
+                    "pos": v.position_sec,
+                    "left": (out - v.position_sec).max(0.0),
+                    "paused": v.paused,
+                    "fadingOut": v.fading == Some("out"),
+                    "inLoop": v.in_loop,
+                    "main": v.main,
+                    "atEnd": at_end(&v.track_id),
+                })
+            })
+            .collect();
+        let main_at_end = live.main_id.as_deref().map(at_end);
+        serde_json::json!({
+            "ready": st.status.ready,
+            "standby": standby,
+            "playing": playing,
+            "pending": live.pending,
+            "mainAtEnd": main_at_end,
+            "pausedAll": live.paused_all,
+            "mainDb": st.config.main_db,
+        })
     }
 
     pub fn analyze_cached(&self, path: &str) -> Option<TrackInfo> {
@@ -495,17 +558,35 @@ fn open_stream(inner: &Arc<Inner>, wanted: Option<&str>) -> Result<cpal::Stream,
     let rate = supported.sample_rate();
     let channels = supported.channels() as usize;
     let config = cpal::StreamConfig { channels: supported.channels(), sample_rate: rate, buffer_size: cpal::BufferSize::Default };
-    {
-        // New device: stop what was playing and rebuild prepared voices at the new rate.
+    // New device: remember what was playing, so it carries on on the new output.
+    let snaps: Vec<VoiceSnap> = {
         let mut st = inner.state.lock();
         let mut old: Vec<Voice> = st.voices.drain(..).collect();
+        let snaps = old
+            .iter()
+            .filter(|v| !v.ended)
+            .map(|v| VoiceSnap {
+                track_id: v.track_id.clone(),
+                path: v.path.clone(),
+                pos: v.pos,
+                paused: v.paused,
+                paused_by_all: v.paused_by_all,
+                fade_value: v.fade.value(),
+                fade_target: v.fade.target(),
+                fade_left_sec: v.fade.remaining() as f64 / v.rate.max(1) as f64,
+                after_fade: v.after_fade,
+                in_loop: v.in_loop(),
+                at_end_fired: v.at_end_fired,
+            })
+            .collect();
         old.extend(st.prepared.drain(..));
         for v in old {
             v.h.ctl.stop.store(true, Ordering::Relaxed);
             st.graveyard.push(v);
         }
         st.rate = rate;
-    }
+        snaps
+    };
     let err_inner = inner.clone();
     let on_error = move |e: cpal::Error| {
         let mut st = err_inner.state.lock();
@@ -519,6 +600,23 @@ fn open_stream(inner: &Arc<Inner>, wanted: Option<&str>) -> Result<cpal::Stream,
         cpal::SampleFormat::U16 => build::<u16>(&device, config, channels, inner.clone(), on_error),
         other => return Err(format!("Unsupported output format {other:?}")),
     }?;
+    // Rebuild the voices at the new rate, where they were.
+    for s in snaps {
+        let tp = inner.state.lock().track(&s.track_id).cloned();
+        let params = tp.as_ref().map(feed_params).unwrap_or(FeedParams { out_sec: None, looping: None, loop_after_end: false });
+        let Ok(mut v) = make_voice(inner, &s.track_id, &s.path, s.pos, rate, params, s.in_loop) else { continue };
+        warm_up(&v);
+        v.paused = s.paused;
+        v.paused_by_all = s.paused_by_all;
+        v.pause = Fade::steady(if s.paused { 0.0 } else { 1.0 });
+        v.at_end_fired = s.at_end_fired;
+        v.after_fade = s.after_fade;
+        v.fade = if s.fade_left_sec > 0.0 { Fade::to(s.fade_value, s.fade_target, v.frames(s.fade_left_sec).max(1)) } else { Fade::steady(s.fade_value) };
+        if s.after_fade == AfterFade::Stop && s.fade_target == 0.0 && s.fade_left_sec <= 0.0 {
+            continue;
+        }
+        inner.state.lock().voices.push(v);
+    }
     stream.play().map_err(|e| format!("Cannot start the audio output: {e}"))?;
     let mut st = inner.state.lock();
     st.status = EngineStatus { ready: true, device: dev_name, sample_rate: rate, error: None };
@@ -595,6 +693,11 @@ pub fn engine_set_standby(engine: tauri::State<'_, Engine>, track_id: Option<Str
 }
 
 #[tauri::command]
+pub fn engine_standby_step(engine: tauri::State<'_, Engine>, delta: i32) {
+    engine.standby_step(delta);
+}
+
+#[tauri::command]
 pub fn engine_go(engine: tauri::State<'_, Engine>) -> Result<(), String> {
     engine.go()
 }
@@ -602,6 +705,16 @@ pub fn engine_go(engine: tauri::State<'_, Engine>) -> Result<(), String> {
 #[tauri::command]
 pub fn engine_pause(engine: tauri::State<'_, Engine>, track_id: String) {
     engine.toggle_pause(&track_id);
+}
+
+#[tauri::command]
+pub fn engine_pause_all(engine: tauri::State<'_, Engine>) {
+    engine.pause_all();
+}
+
+#[tauri::command]
+pub async fn engine_seek(engine: tauri::State<'_, Engine>, track_id: String, sec: f64) -> Result<(), String> {
+    engine.seek(&track_id, sec)
 }
 
 #[tauri::command]
@@ -638,13 +751,17 @@ pub fn player_sync(p: tauri::State<'_, Player>, tracks: Vec<TrackParams>, config
 
 #[tauri::command]
 pub fn player_play(p: tauri::State<'_, Player>, track_id: String) -> Result<(), String> {
-    p.0.set_standby(Some(track_id));
-    p.0.go()
+    p.0.play_now(&track_id)
 }
 
 #[tauri::command]
 pub fn player_pause(p: tauri::State<'_, Player>, track_id: String) {
     p.0.toggle_pause(&track_id);
+}
+
+#[tauri::command]
+pub async fn player_seek(p: tauri::State<'_, Player>, track_id: String, sec: f64) -> Result<(), String> {
+    p.0.seek(&track_id, sec)
 }
 
 #[tauri::command]
@@ -664,5 +781,41 @@ pub fn player_set_device(p: tauri::State<'_, Player>, name: Option<String>) {
 
 #[tauri::command]
 pub fn player_state(p: tauri::State<'_, Player>) -> LiveState {
+    p.0.live_state()
+}
+
+// ---------------- Launchpad ----------------
+//
+// A third engine: pads play on top of everything, each on its own.
+
+pub struct Pads(pub Engine);
+
+#[tauri::command]
+pub fn pads_sync(p: tauri::State<'_, Pads>, tracks: Vec<TrackParams>, config: Config) {
+    p.0.sync(tracks, config);
+}
+
+#[tauri::command]
+pub fn pads_play(p: tauri::State<'_, Pads>, track_id: String) -> Result<(), String> {
+    p.0.play_now(&track_id)
+}
+
+#[tauri::command]
+pub fn pads_stop(p: tauri::State<'_, Pads>, track_id: String, fade_sec: f64) {
+    p.0.stop_track(&track_id, fade_sec);
+}
+
+#[tauri::command]
+pub fn pads_stop_all(p: tauri::State<'_, Pads>) {
+    p.0.stop_all(false);
+}
+
+#[tauri::command]
+pub fn pads_set_device(p: tauri::State<'_, Pads>, name: Option<String>) {
+    p.0.set_device(name);
+}
+
+#[tauri::command]
+pub fn pads_state(p: tauri::State<'_, Pads>) -> LiveState {
     p.0.live_state()
 }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { basename } from "@theatre-suite/core";
 import { api, isTauri, onEvent, type EngineConfig, type EngineTrack } from "../lib/api";
 import { newTrack, type LiveState } from "./types";
+import { useSettings } from "./settings";
 
 /** Diaframma's own player for Rehearsal mode: fully controllable (play, seek, volume, speed, output). */
 interface PlayerStore {
@@ -20,14 +21,17 @@ interface PlayerStore {
   setVolume: (v: number) => void;
   setSpeed: (v: number) => void;
   setDevice: (name: string | null) => void;
+  /** Sends the equalizer of the settings again. */
+  refreshEq: () => void;
   close: () => void;
 }
 
-const CONFIG: EngineConfig = { othersOnGo: "stop", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0, crossfadeSec: 0, stopAllSec: 0.05 };
+const CONFIG: EngineConfig = { othersOnGo: "stop", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0, crossfadeSec: 0, stopAllSec: 0.05, steps: false };
 
 function trackFor(path: string, index: number, inSec: number, volume: number): EngineTrack {
   const db = volume <= 0.001 ? -60 : 20 * Math.log10(volume);
-  return { ...newTrack(`player-${index}`), path, inSec, volumeDb: db, atEnd: "stop" } as unknown as EngineTrack;
+  const { file: _f, ...rest } = newTrack(`player-${index}`);
+  return { ...rest, path, inSec, volumeDb: db, atEnd: "stop", eq: [...useSettings.getState().settings.rhEq] };
 }
 
 export const usePlayer = create<PlayerStore>((set, get) => {
@@ -91,6 +95,9 @@ export const usePlayer = create<PlayerStore>((set, get) => {
     setDevice: (name) => {
       set({ device: name });
       api.playerSetDevice(name).catch(() => {});
+    },
+    refreshEq: () => {
+      if (get().playlist.length) sync(get().live?.voices[0]?.positionSec ?? 0).catch(() => {});
     },
     close: () => {
       api.playerStop().catch(() => {});

@@ -32,16 +32,25 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Theatre Suite",
     "copyright": "© 2026 Theatre Suite",
     "category": "Music",
     "shortDescription": "Sound cues and rehearsal audio for the theatre",
     "longDescription": "Diaframma plays sound cues during shows (GO with the space bar) and controls the audio players open on your computer during rehearsals.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "fileAssociations": [
       {
-        "ext": ["diaframma"],
+        "ext": [
+          "diaframma"
+        ],
         "name": "Diaframma cue list",
         "description": "Diaframma cue list",
         "role": "Editor",
@@ -49,13 +58,21 @@
       }
     ],
     "windows": {
-      "webviewInstallMode": { "type": "embedBootstrapper" },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "Italian"],
+        "languages": [
+          "English",
+          "Italian"
+        ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico"
       }
-    }
+    },
+    "resources": [
+      "sounds/*"
+    ]
   }
 }

@@ -15,17 +15,23 @@ use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus,
 };
 use windows::Storage::Streams::DataReader;
-use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+use windows::Win32::Devices::FunctionDiscovery::{PKEY_Device_DeviceDesc, PKEY_Device_FriendlyName};
+use windows::Win32::Foundation::PROPERTYKEY;
+use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+use windows::Win32::System::Com::StructuredStorage::PropVariantToUInt32;
 use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, WPARAM};
 use windows::Win32::Media::Audio::Endpoints::IAudioMeterInformation;
 use windows::Win32::Media::Audio::{
-    AudioSessionStateActive, DEVICE_STATE_ACTIVE, IAudioSessionControl2, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator, ISimpleAudioVolume,
+    AudioSessionStateActive, DEVICE_STATE, DEVICE_STATE_ACTIVE, DEVICE_STATE_UNPLUGGED, IAudioSessionControl2, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator, ISimpleAudioVolume,
     MMDeviceEnumerator, eConsole, eMultimedia, eRender,
 };
 use windows::Win32::System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree, STGM_READ};
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
 use windows::Win32::System::WinRT::RoGetActivationFactory;
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_APPCOMMAND};
+use windows::Win32::UI::Input::KeyboardAndMouse::{MAPVK_VK_TO_VSC, MapVirtualKeyW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_APPCOMMAND, WM_CHAR, WM_KEYDOWN, WM_KEYUP,
+};
 use windows::core::{BOOL, GUID, HRESULT, HSTRING, IInspectable, Interface, PWSTR};
 
 use super::{JournalEntry, Output, Snapshot, Source};
@@ -39,6 +45,7 @@ enum Cmd {
     Volume(Vec<String>, f32),
     Speed(Vec<String>, f64),
     Route(String, Option<String>, mpsc::Sender<Result<(), String>>),
+    OutputVolume(String, f32),
     PauseAll,
     Restore(mpsc::Sender<()>),
 }
@@ -82,6 +89,9 @@ impl Rehearsal {
     }
     pub fn pause_all(&self) {
         self.send(Cmd::PauseAll);
+    }
+    pub fn set_output_volume(&self, id: String, v: f32) {
+        self.send(Cmd::OutputVolume(id, v));
     }
     /// Puts volumes and outputs back as they were. Blocks up to 3 seconds.
     pub fn restore(&self) {
@@ -151,6 +161,7 @@ fn worker(rx: mpsc::Receiver<Cmd>, journal_path: PathBuf) {
                 let _ = r.send(w.route(&id, out));
             }
             Ok(Cmd::PauseAll) => w.pause_all(),
+            Ok(Cmd::OutputVolume(id, v)) => w.set_output_volume(&id, v),
             Ok(Cmd::Restore(r)) => {
                 w.restore_pending();
                 let _ = r.send(());
@@ -160,8 +171,8 @@ fn worker(rx: mpsc::Receiver<Cmd>, journal_path: PathBuf) {
         }
         if !w.journal.is_empty() && last_retry.elapsed() > Duration::from_secs(30) {
             last_retry = std::time::Instant::now();
-            // Retry entries whose program was closed: they are restored when it runs again.
-            let _ = w.sessions();
+            // Retry entries whose program (or output) was away: they are restored when it is back.
+            w.restore_pending();
         }
     }
 }
@@ -191,7 +202,7 @@ fn pretty_app(exe: &str) -> (String, String) {
         "brave" => ("Brave".into(), "browser".into()),
         "opera" => ("Opera".into(), "browser".into()),
         "vlc" => ("VLC".into(), "vlc".into()),
-        "wmplayer" => ("Windows Media Player".into(), "vlc".into()),
+        "wmplayer" => ("Windows Media Player".into(), "wmp".into()),
         "microsoft.media.player" => ("Media Player".into(), "media".into()),
         "" => ("Program".into(), "program".into()),
         other => {
@@ -242,32 +253,109 @@ fn device_id(d: &IMMDevice) -> Option<String> {
     }
 }
 
-fn device_name(d: &IMMDevice) -> String {
+/// PKEY_AudioEndpoint_FormFactor.
+const PKEY_FORM_FACTOR: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x1da5d803_d492_4edd_8c23_e0c0ffee7f0e), pid: 0 };
+
+/// Name as Windows shows it ("Speakers (Realtek Audio)"), its short description and its kind.
+fn device_info(d: &IMMDevice) -> (String, String, &'static str) {
     unsafe {
-        d.OpenPropertyStore(STGM_READ)
-            .and_then(|ps| ps.GetValue(&PKEY_Device_FriendlyName))
-            .map(|v| v.to_string())
-            .unwrap_or_else(|_| "Audio output".into())
+        let Ok(ps) = d.OpenPropertyStore(STGM_READ) else { return ("Audio output".into(), String::new(), "other") };
+        let text = |k: &PROPERTYKEY| ps.GetValue(k).map(|v| v.to_string()).unwrap_or_default();
+        let friendly = text(&PKEY_Device_FriendlyName);
+        let desc = text(&PKEY_Device_DeviceDesc);
+        let form = ps.GetValue(&PKEY_FORM_FACTOR).ok().and_then(|v| PropVariantToUInt32(&v).ok()).unwrap_or(10);
+        let kind = match form {
+            1 => "speakers",
+            3 | 5 | 6 => "headphones",
+            9 => "hdmi",
+            8 | 7 => "digital",
+            2 => "line",
+            _ => "other",
+        };
+        let name = if !friendly.trim().is_empty() {
+            friendly
+        } else if !desc.trim().is_empty() {
+            desc.clone()
+        } else {
+            "Audio output".into()
+        };
+        (name, desc, kind)
     }
 }
 
 impl Worker {
+    /// Outputs that are connected now.
     fn devices(&self) -> Vec<(String, String, IMMDevice)> {
+        self.devices_with_state(false).into_iter().map(|(id, name, d, _)| (id, name, d)).collect()
+    }
+
+    /// Outputs; with `unplugged`, also the ones that exist but are not connected (shown greyed).
+    fn devices_with_state(&self, unplugged: bool) -> Vec<(String, String, IMMDevice, bool)> {
         let mut out = Vec::new();
         let Some(en) = &self.enumerator else { return out };
+        let mask = if unplugged { DEVICE_STATE(DEVICE_STATE_ACTIVE.0 | DEVICE_STATE_UNPLUGGED.0) } else { DEVICE_STATE_ACTIVE };
         unsafe {
-            if let Ok(col) = en.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE) {
+            if let Ok(col) = en.EnumAudioEndpoints(eRender, mask) {
                 let n = col.GetCount().unwrap_or(0);
                 for i in 0..n {
                     if let Ok(d) = col.Item(i) {
                         if let Some(id) = device_id(&d) {
-                            out.push((id, device_name(&d), d));
+                            let active = d.GetState().map(|s| s == DEVICE_STATE_ACTIVE).unwrap_or(false);
+                            out.push((id, device_info(&d).0, d, active));
                         }
                     }
                 }
             }
         }
         out
+    }
+
+    fn endpoint_volume(dev: &IMMDevice) -> Option<IAudioEndpointVolume> {
+        unsafe { dev.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None).ok() }
+    }
+
+    fn set_output_volume(&mut self, id: &str, v: f32) {
+        let key = format!("dev:{id}");
+        for (did, _, dev) in self.devices() {
+            if did != id {
+                continue;
+            }
+            let Some(ev) = Self::endpoint_volume(&dev) else { continue };
+            unsafe {
+                if !self.journal.get(&key).map(|e| e.volume.is_some()).unwrap_or(false) {
+                    if let Ok(before) = ev.GetMasterVolumeLevelScalar() {
+                        self.remember(&key, |e| e.volume = Some(before));
+                    }
+                }
+                let _ = ev.SetMasterVolumeLevelScalar(v.clamp(0.0, 1.0), std::ptr::null());
+            }
+        }
+    }
+
+    /// Puts output volumes back (journal entries "dev:<id>").
+    fn restore_devices(&mut self) {
+        let keys: Vec<String> = self.journal.keys().filter(|k| k.starts_with("dev:")).cloned().collect();
+        if keys.is_empty() {
+            return;
+        }
+        let devs = self.devices();
+        let mut done = Vec::new();
+        for k in keys {
+            let id = &k[4..];
+            let Some((_, _, dev)) = devs.iter().find(|(d, _, _)| d == id) else { continue };
+            if let (Some(v), Some(ev)) = (self.journal.get(&k).and_then(|e| e.volume), Self::endpoint_volume(dev)) {
+                unsafe {
+                    let _ = ev.SetMasterVolumeLevelScalar(v, std::ptr::null());
+                }
+            }
+            done.push(k);
+        }
+        if !done.is_empty() {
+            for k in done {
+                self.journal.remove(&k);
+            }
+            self.save_journal();
+        }
     }
 
     fn default_device_id(&self) -> Option<String> {
@@ -396,6 +484,7 @@ impl Worker {
                     src.thumb = self.thumb(&key, &props);
                 }
                 if let Ok(info) = ms.GetPlaybackInfo() {
+                    // Some players report 0 (or nothing) when they do not support speed: that is not "0 %".
                     src.status = match info.PlaybackStatus() {
                         Ok(PlaybackStatus::Playing) => "playing",
                         Ok(PlaybackStatus::Paused) => "paused",
@@ -408,7 +497,10 @@ impl Worker {
                         src.can_prev = c.IsPreviousEnabled().unwrap_or(false);
                         src.can_speed = c.IsPlaybackRateEnabled().unwrap_or(false);
                     }
-                    src.speed = info.PlaybackRate().and_then(|r| r.Value()).ok();
+                    src.speed = info.PlaybackRate().and_then(|r| r.Value()).ok().filter(|r| r.is_finite() && *r > 0.05);
+                    if !src.can_speed {
+                        src.speed = None;
+                    }
                 }
                 if let Ok(tl) = ms.GetTimelineProperties() {
                     let pos = tl.Position().map(|t| t.Duration as f64 / 1e7).unwrap_or(0.0);
@@ -436,7 +528,7 @@ impl Worker {
             }
             let e = by_exe.entry(s.exe.clone()).or_insert_with(|| {
                 let (app, kind) = pretty_app(&s.exe);
-                let keys = kind == "vlc";
+                let keys = kind == "vlc" || kind == "wmp";
                 Source {
                     id: format!("p:{}", s.exe),
                     app: app.clone(),
@@ -472,9 +564,11 @@ impl Worker {
         }
 
         let outputs = self
-            .devices()
+            .devices_with_state(true)
             .into_iter()
-            .map(|(id, name, dev)| {
+            .map(|(id, name, dev, connected)| {
+                let (_, desc, kind) = device_info(&dev);
+                let volume = if connected { Self::endpoint_volume(&dev).and_then(|ev| unsafe { ev.GetMasterVolumeLevelScalar().ok() }) } else { None };
                 let mut peaks = [0f32; 2];
                 unsafe {
                     if let Ok(m) = dev.Activate::<IAudioMeterInformation>(CLSCTX_ALL, None) {
@@ -489,7 +583,7 @@ impl Worker {
                         }
                     }
                 }
-                Output { is_default: Some(&id) == default_id.as_ref(), id, name, peak_l: peaks[0], peak_r: peaks[1] }
+                Output { is_default: Some(&id) == default_id.as_ref(), id, name, description: desc, kind: kind.into(), connected, volume, peak_l: peaks[0], peak_r: peaks[1] }
             })
             .collect();
 
@@ -525,6 +619,16 @@ impl Worker {
             };
         }
         if src.kind == "vlc" {
+            // VLC: its own keyboard shortcuts, sent to its window (Space, N, P).
+            let (vk, ch) = match action {
+                "toggle" | "pause" => (0x20u16, ' '),
+                "next" => (0x4E, 'n'),
+                "prev" => (0x50, 'p'),
+                _ => return Err("Unknown command".into()),
+            };
+            return if send_key(&src.pids, vk, ch) { Ok(()) } else { Err("VLC's window was not found".into()) };
+        }
+        if src.kind == "wmp" {
             let cmd: isize = match action {
                 "toggle" | "pause" => 14,
                 "next" => 11,
@@ -547,7 +651,8 @@ impl Worker {
         let sessions = self.sessions();
         for id in ids {
             let Some((src, _)) = self.find(id).cloned() else { continue };
-            for s in sessions.iter().filter(|s| src.pids.contains(&s.pid)) {
+            // Every audio session of that program (some players open more than one).
+            for s in sessions.iter().filter(|s| src.pids.contains(&s.pid) || (!src.exe.is_empty() && s.exe == src.exe)) {
                 if let Some(vol) = &s.volume {
                     unsafe {
                         let before = vol.GetMasterVolume().ok();
@@ -595,14 +700,64 @@ impl Worker {
             if let Some(ms) = ms {
                 let _ = ms.TryPauseAsync().and_then(|o| o.join());
             } else if src.kind == "vlc" {
+                send_key(&src.pids, 0x20, ' ');
+            } else if src.kind == "wmp" {
                 send_app_command(&src.pids, 14);
             }
         }
     }
 
     fn restore_pending(&mut self) {
+        self.restore_devices();
         let _ = self.sessions();
     }
+}
+
+/// Visible top-level windows of these processes, the main one first
+/// (for VLC: the Qt window whose title contains "VLC").
+fn windows_of(pids: &[u32]) -> Vec<HWND> {
+    struct Ctx {
+        pids: Vec<u32>,
+        found: Vec<(HWND, i32)>,
+    }
+    unsafe extern "system" fn cb(hwnd: HWND, lp: LPARAM) -> BOOL {
+        unsafe {
+            let ctx = &mut *(lp.0 as *mut Ctx);
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if ctx.pids.contains(&pid) && IsWindowVisible(hwnd).as_bool() {
+                let mut cls = [0u16; 128];
+                let n = GetClassNameW(hwnd, &mut cls) as usize;
+                let cls = String::from_utf16_lossy(&cls[..n]);
+                let mut title = [0u16; 256];
+                let n = GetWindowTextW(hwnd, &mut title) as usize;
+                let title = String::from_utf16_lossy(&title[..n]);
+                let score = if title.contains("VLC") && cls.starts_with("Qt") { 2 } else if !title.is_empty() { 1 } else { 0 };
+                ctx.found.push((hwnd, score));
+            }
+        }
+        BOOL(1)
+    }
+    let mut ctx = Ctx { pids: pids.to_vec(), found: Vec::new() };
+    unsafe {
+        let _ = EnumWindows(Some(cb), LPARAM(&mut ctx as *mut Ctx as isize));
+    }
+    ctx.found.sort_by(|a, b| b.1.cmp(&a.1));
+    ctx.found.into_iter().map(|(h, _)| h).collect()
+}
+
+/// Presses a key in the program's window without bringing it to the front.
+fn send_key(pids: &[u32], vk: u16, ch: char) -> bool {
+    let Some(h) = windows_of(pids).into_iter().next() else { return false };
+    unsafe {
+        let scan = MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) as isize;
+        let down = 1 | (scan << 16);
+        let up = down | (1 << 30) | (1 << 31);
+        let _ = PostMessageW(Some(h), WM_KEYDOWN, WPARAM(vk as usize), LPARAM(down));
+        let _ = PostMessageW(Some(h), WM_CHAR, WPARAM(ch as usize), LPARAM(down));
+        let _ = PostMessageW(Some(h), WM_KEYUP, WPARAM(vk as usize), LPARAM(up));
+    }
+    true
 }
 
 fn send_app_command(pids: &[u32], cmd: isize) {

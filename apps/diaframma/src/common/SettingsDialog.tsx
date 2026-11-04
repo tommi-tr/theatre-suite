@@ -4,6 +4,9 @@ import { Button, Dialog, Segmented, Switch } from "@theatre-suite/ui";
 import { api } from "../lib/api";
 import { APP_VERSION } from "../lib/version";
 import { useSettings, DEFAULT_SETTINGS, type Settings } from "../state/settings";
+import { matchVolumes, useDoc } from "../state/doc";
+import { useUi } from "../state/ui";
+import { restoreStandardPads } from "./Launchpad";
 import type { OthersOnGo } from "../state/types";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -107,7 +110,34 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <Row label={t("After GO, standby moves to the next track")}>
         <Switch checked={s.autoAdvance} onChange={(v) => set({ autoAdvance: v })} label={t("After GO, standby moves to the next track")} />
       </Row>
-      <Row label={t("Other tracks when GO plays or fades in")} hint={t("Crossfade and Stop all & play always do exactly what they say.")}>
+      <Row label={t("Numbering starts from")}>
+        <Segmented small ariaLabel={t("Numbering starts from")} value={String(s.numberFrom) as "0" | "1"} onChange={(v) => set({ numberFrom: v === "0" ? 0 : 1 })} options={[{ value: "0", label: "0" }, { value: "1", label: "1" }]} />
+      </Row>
+      <Row label={t("The track that plays is the first row on screen")} hint={t("Useful with long cue lists: the list scrolls by itself at every GO.")}>
+        <Switch checked={s.followPlaying} onChange={(v) => set({ followPlaying: v })} label={t("The track that plays is the first row on screen")} />
+      </Row>
+      <Row label={t("Make all tracks equally loud")} hint={t("Moves the volume fader of every track so they sound the same (it never makes a track clip). You can undo it with Ctrl Z.")}>
+        <Button
+          variant="sm"
+          icon="volume"
+          disabled={useDoc.getState().locked}
+          onClick={() => {
+            const r = matchVolumes();
+            useUi
+              .getState()
+              .showToast(
+                r.changed
+                  ? t("Volumes matched: {n} tracks changed.", { n: r.changed })
+                  : r.skipped
+                    ? t("Wait until every track has been read, then try again.")
+                    : t("The tracks are already equally loud."),
+              );
+          }}
+        >
+          {t("Match volumes")}
+        </Button>
+      </Row>
+      <Row label={t("Other tracks when GO plays or fades in")} hint={t("The track in front follows its own At end or Space (Next cuts, Crossfade crossfades). This applies to the other tracks that are playing.")}>
         <Segmented small ariaLabel={t("Other tracks when GO plays or fades in")} value={s.othersOnGo} onChange={(v) => set({ othersOnGo: v })} options={others} />
       </Row>
       <Row label={t("Fade in")}>
@@ -140,6 +170,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           {t("Default times")}
         </Button>
       </div>
+
+      <div className="df-set-section">{t("Rehearsal mode")}</div>
+      <Row label={t("Diaframma chooses the outputs")} hint={t("Every program stays on the output chosen in Diaframma, even when Windows changes its default output. Everything goes back as it was when Diaframma closes.")}>
+        <Switch checked={s.pinOutputs} onChange={(v) => set({ pinOutputs: v })} label={t("Diaframma chooses the outputs")} />
+      </Row>
+
+      <div className="df-set-section">{t("Launchpad")}</div>
+      <Row label={t("Standard sounds")} hint={t("Puts back the sounds that come with Diaframma (your own sounds stay).")}>
+        <Button variant="sm" icon="reset" onClick={() => (restoreStandardPads(), useUi.getState().showToast(t("Standard sounds are back.")))}>
+          {t("Put them back")}
+        </Button>
+      </Row>
 
       <div className="df-set-section">{t("Connections (off until you turn them on)")}</div>
       <Row label={t("Phone remote")} hint={t("A page on your Wi-Fi to press GO from your phone. Set it up from the Phone button.")}>

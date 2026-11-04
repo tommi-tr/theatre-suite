@@ -74,6 +74,21 @@ export const ICONS = {
   sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41",
   moon: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z",
   monitor: "M2 3h20v14H2zM8 21h8M12 17v4",
+  collapse: "M7 3l5 5 5-5M7 21l5-5 5 5M4 12h16",
+  expand: "M7 8l5-5 5 5M7 16l5 5 5-5M4 12h16",
+  compact: "M4 5h16M4 9.5h16M4 14h16M4 18.5h16",
+  duplicate: "M8 8h12v12H8zM4 16V4h12M14 11v6M11 14h6",
+  grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+  keyboard: "M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10",
+  sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+  pin: "M12 17v5M8 3h8l-1.5 7L18 13H6l3.5-3z",
+  arrowUp: "M12 19V5M5 12l7-7 7 7",
+  arrowDown: "M12 5v14M19 12l-7 7-7-7",
+  hdmi: "M3 7h18v7l-3 3H6l-3-3zM7 11h10",
+  pencil: "M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
+  hand: "M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0",
+  toEnd: "M5 12h12M13 7l5 5-5 5M21 5v14",
+  toggle: "M7 7h10a5 5 0 0 1 0 10H7A5 5 0 0 1 7 7zM7 12h.01",
 } as const;
 
 export type IconName = keyof typeof ICONS;

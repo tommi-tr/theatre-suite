@@ -2,7 +2,8 @@ import { useT } from "@theatre-suite/core";
 import { Button, Dialog, Kbd } from "@theatre-suite/ui";
 
 const KEYS: Array<[string, string]> = [
-  ["Space", "GO: plays the track in standby"],
+  ["Space", "GO: does what is in standby"],
+  ["P", "Pause all / resume all"],
   ["1 … 99 + Enter", "Puts that track in standby"],
   ["↑ ↓", "Moves standby"],
   ["Esc", "Stop all with a quick fade"],
@@ -36,10 +37,14 @@ export function GuideDialog({ onClose }: { onClose: () => void }) {
         <h3>{t("Show mode in four steps")}</h3>
         <ol>
           <li>{t("Drop audio files onto the list, or press Add track and Load.")}</li>
-          <li>{t("For each track choose what Space does (On Space) and what happens when it ends (At end).")}</li>
-          <li>{t("Click a track name, or type its number and Enter, to put it in standby (amber).")}</li>
+          <li>{t("For each track choose how it starts (Start) and what it does at its end or when you press GO while it plays (At end or Space).")}</li>
+          <li>{t("Click a track, or type its number and Enter, to put it in standby (amber).")}</li>
           <li>{t("Press Space for GO. The playing track turns green. Lock the list during the show.")}</li>
         </ol>
+        <h3>{t("How GO works")}</h3>
+        <p>{t("GO looks at the track playing in front. With Next or Crossfade it goes straight to the track in standby. With Stop, Fade out or a loop, the first GO stops, fades or goes into the loop, and the next GO plays the track in standby: the standby box shows both steps. While paused (P), GO resumes; a click on the waveform first moves the play position.")}</p>
+        <h3>{t("Launchpad")}</h3>
+        <p>{t("Turn it on with the Launchpad button at the top. Each sound has keys of your choice (for example Num 1, or L + 1) and plays while held, to the end, or until pressed again. Diaframma comes with standard sounds (thunder, doorbell, phone, alarm…); add your own with Add sound.")}</p>
         <h3>{t("Rehearsal mode")}</h3>
         <p>{t("See the players open on this computer (Spotify, browser, media player…), pause or skip them, and choose which output each one uses: LIVE is heard by everyone, PRE-LISTEN only by you.")}</p>
         <h3>{t("Phone and Chrome (optional)")}</h3>

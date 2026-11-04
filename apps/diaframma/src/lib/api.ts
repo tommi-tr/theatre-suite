@@ -16,6 +16,10 @@ export interface EngineConfig {
   fadeOutSec: number;
   crossfadeSec: number;
   stopAllSec: number;
+  mainDb?: number;
+  numberFrom?: number;
+  /** Show behaviour (Stop / Fade out / Loop need their own GO). Off for the player and the pads. */
+  steps?: boolean;
 }
 
 /** Track as sent to the engine: path already resolved. */
@@ -30,6 +34,7 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 
 export const api = {
   appInfo: () => call<{ name: string; version: string; os: string }>("app_info"),
+  builtinSoundsDir: () => call<string | null>("builtin_sounds_dir"),
   settingsLoad: () => call<unknown>("settings_load"),
   settingsSave: (settings: unknown) => call<void>("settings_save", { settings }),
   sessionStart: () => call<SessionStart>("session_start"),
@@ -47,8 +52,11 @@ export const api = {
   engineSetDevice: (name: string | null) => call<void>("engine_set_device", { name }),
   engineSync: (tracks: EngineTrack[], config: EngineConfig) => call<void>("engine_sync", { tracks, config }),
   engineSetStandby: (trackId: string | null) => call<void>("engine_set_standby", { trackId }),
+  engineStandbyStep: (delta: number) => call<void>("engine_standby_step", { delta }),
   engineGo: () => call<void>("engine_go"),
   enginePause: (trackId: string) => call<void>("engine_pause", { trackId }),
+  enginePauseAll: () => call<void>("engine_pause_all"),
+  engineSeek: (trackId: string, sec: number) => call<void>("engine_seek", { trackId, sec }),
   engineStopAll: (immediate: boolean) => call<void>("engine_stop_all", { immediate }),
   engineAnalyze: (path: string) => call<TrackInfo>("engine_analyze", { path }),
   engineState: () => call<LiveState>("engine_state"),
@@ -60,15 +68,25 @@ export const api = {
   rhSetSpeed: (ids: string[], rate: number) => call<void>("rh_set_speed", { ids, rate }),
   rhRoute: (id: string, outputId: string | null) => call<void>("rh_route", { id, outputId }),
   rhPauseAll: () => call<void>("rh_pause_all"),
+  rhSetOutputVolume: (id: string, volume: number) => call<void>("rh_set_output_volume", { id, volume }),
 
   // Internal player (Rehearsal mode)
   playerSync: (tracks: EngineTrack[], config: EngineConfig) => call<void>("player_sync", { tracks, config }),
   playerPlay: (trackId: string) => call<void>("player_play", { trackId }),
   playerPause: (trackId: string) => call<void>("player_pause", { trackId }),
+  playerSeek: (trackId: string, sec: number) => call<void>("player_seek", { trackId, sec }),
   playerStop: () => call<void>("player_stop"),
   playerSetSpeed: (speed: number) => call<void>("player_set_speed", { speed }),
   playerSetDevice: (name: string | null) => call<void>("player_set_device", { name }),
   playerState: () => call<LiveState>("player_state"),
+
+  // Launchpad
+  padsSync: (tracks: EngineTrack[], config: EngineConfig) => call<void>("pads_sync", { tracks, config }),
+  padsPlay: (trackId: string) => call<void>("pads_play", { trackId }),
+  padsStop: (trackId: string, fadeSec: number) => call<void>("pads_stop", { trackId, fadeSec }),
+  padsStopAll: () => call<void>("pads_stop_all"),
+  padsSetDevice: (name: string | null) => call<void>("pads_set_device", { name }),
+  padsState: () => call<LiveState>("pads_state"),
 
   // Connections (off until the user turns them on)
   extEnable: (on: boolean) => call<void>("ext_enable", { on }),
@@ -77,7 +95,7 @@ export const api = {
   phoneEnable: (on: boolean) => call<PhoneInfo>("phone_enable", { on }),
   phoneInfo: () => call<PhoneInfo>("phone_info"),
   phoneNewCode: () => call<PhoneInfo>("phone_new_code"),
-  phoneUpdate: (locked: boolean, favorites: unknown) => call<void>("phone_update", { locked, favorites }),
+  phoneUpdate: (locked: boolean, favorites: unknown, levels: Record<string, number>, rhMain: number) => call<void>("phone_update", { locked, favorites, levels, rhMain }),
 };
 
 export interface ExtTab {
@@ -118,7 +136,7 @@ export interface RhSource {
   id: string;
   app: string;
   exe: string;
-  kind: "spotify" | "browser" | "media" | "vlc" | "program" | "internal";
+  kind: "spotify" | "browser" | "media" | "vlc" | "wmp" | "program" | "internal";
   title: string;
   artist: string;
   thumb: string | null;
@@ -139,6 +157,13 @@ export interface RhSource {
 export interface RhOutput {
   id: string;
   name: string;
+  /** "Speakers", "Headphones"… as Windows describes it. */
+  description: string;
+  kind: "speakers" | "headphones" | "hdmi" | "digital" | "line" | "other";
+  /** Known to Windows but not connected now. */
+  connected: boolean;
+  /** Volume of the output itself (0…1). */
+  volume: number | null;
   isDefault: boolean;
   peakL: number;
   peakR: number;

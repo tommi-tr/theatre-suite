@@ -81,6 +81,21 @@ impl Biquad {
         self.bypass = false;
     }
 
+    pub fn set_highpass(&mut self, freq: f32, q: f32, sample_rate: f32) {
+        let w0 = 2.0 * PI * freq / sample_rate;
+        let (sin, cos) = w0.sin_cos();
+        let alpha = sin / (2.0 * q);
+        let a0 = 1.0 + alpha;
+        self.b0 = (1.0 + cos) / 2.0 / a0;
+        self.b1 = -(1.0 + cos) / a0;
+        self.b2 = (1.0 + cos) / 2.0 / a0;
+        self.a1 = -2.0 * cos / a0;
+        self.a2 = (1.0 - alpha) / a0;
+        self.z1 = [0.0; 2];
+        self.z2 = [0.0; 2];
+        self.bypass = false;
+    }
+
     #[inline]
     pub fn process(&mut self, ch: usize, x: f32) -> f32 {
         if self.bypass {
@@ -93,25 +108,37 @@ impl Biquad {
     }
 }
 
-/// Three-band EQ: low shelf 200 Hz, peak 1 kHz, high shelf 5 kHz.
+/// Five-band EQ: low shelf 60 Hz, peaks at 230 Hz, 910 Hz and 4 kHz, high shelf 14 kHz.
+pub const EQ_BANDS: [(BandKind, f32, f32); 5] = [
+    (BandKind::LowShelf, 60.0, 0.707),
+    (BandKind::Peak, 230.0, 0.9),
+    (BandKind::Peak, 910.0, 0.9),
+    (BandKind::Peak, 4000.0, 0.9),
+    (BandKind::HighShelf, 14000.0, 0.707),
+];
+
 #[derive(Clone, Copy, Debug, Default)]
-pub struct Eq3 {
-    bands: [Biquad; 3],
-    key: (i32, i32, i32),
+pub struct Eq5 {
+    bands: [Biquad; 5],
+    key: [i32; 5],
+    rate: u32,
     ready: bool,
 }
 
-impl Eq3 {
-    pub fn configure(&mut self, low: f32, mid: f32, high: f32, sample_rate: f32) {
-        let key = ((low * 10.0) as i32, (mid * 10.0) as i32, (high * 10.0) as i32);
-        if self.ready && key == self.key {
+impl Eq5 {
+    pub fn configure(&mut self, gains: &[f64; 5], sample_rate: f32) {
+        let key = gains.map(|g| (g * 10.0).round() as i32);
+        if self.ready && key == self.key && self.rate == sample_rate as u32 {
             return;
         }
         self.key = key;
+        self.rate = sample_rate as u32;
         self.ready = true;
-        self.bands[0].set(BandKind::LowShelf, 200.0, 0.707, low, sample_rate);
-        self.bands[1].set(BandKind::Peak, 1000.0, 0.9, mid, sample_rate);
-        self.bands[2].set(BandKind::HighShelf, 5000.0, 0.707, high, sample_rate);
+        for (i, (kind, f, q)) in EQ_BANDS.iter().enumerate() {
+            // Keep the top band below Nyquist at low sample rates.
+            let f = f.min(sample_rate * 0.45);
+            self.bands[i].set(*kind, f, *q, gains[i] as f32, sample_rate);
+        }
     }
 
     #[inline]
@@ -123,6 +150,26 @@ impl Eq3 {
             r = b.process(1, r);
         }
         (l, r)
+    }
+}
+
+/// K-weighting (ITU-R BS.1770): high shelf +4 dB at ~1.7 kHz, then high-pass at ~38 Hz.
+pub struct KWeight {
+    shelf: Biquad,
+    hp: Biquad,
+}
+
+impl KWeight {
+    pub fn new(rate: f32) -> Self {
+        let mut shelf = Biquad::default();
+        shelf.set(BandKind::HighShelf, 1681.97, 0.7072, 3.9998, rate);
+        let mut hp = Biquad::default();
+        hp.set_highpass(38.135, 0.5003, rate);
+        Self { shelf, hp }
+    }
+    #[inline]
+    pub fn process(&mut self, ch: usize, x: f32) -> f32 {
+        self.hp.process(ch, self.shelf.process(ch, x))
     }
 }
 
@@ -184,6 +231,9 @@ impl Fade {
     pub fn target(&self) -> f32 {
         self.to
     }
+    pub fn remaining(&self) -> u64 {
+        self.len.saturating_sub(self.pos)
+    }
     pub fn rising(&self) -> bool {
         !self.done() && self.to > self.from
     }
@@ -218,8 +268,8 @@ mod tests {
 
     #[test]
     fn eq_flat_is_transparent() {
-        let mut eq = Eq3::default();
-        eq.configure(0.0, 0.0, 0.0, 48000.0);
+        let mut eq = Eq5::default();
+        eq.configure(&[0.0; 5], 48000.0);
         assert_eq!(eq.process(0.3, -0.2), (0.3, -0.2));
     }
 }

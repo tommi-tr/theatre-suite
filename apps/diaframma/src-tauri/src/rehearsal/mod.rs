@@ -17,7 +17,7 @@ pub struct Source {
     pub id: String,
     pub app: String,
     pub exe: String,
-    /// "spotify" | "browser" | "media" | "vlc" | "program"
+    /// "spotify" | "browser" | "media" | "vlc" | "wmp" | "program"
     pub kind: String,
     pub title: String,
     pub artist: String,
@@ -43,6 +43,14 @@ pub struct Source {
 pub struct Output {
     pub id: String,
     pub name: String,
+    /// Short description from Windows ("Speakers", "Headphones"…).
+    pub description: String,
+    /// "speakers" | "headphones" | "hdmi" | "digital" | "line" | "other"
+    pub kind: String,
+    /// False: known to Windows but not connected now (not usable).
+    pub connected: bool,
+    /// Volume of the output itself (0…1).
+    pub volume: Option<f32>,
     pub is_default: bool,
     pub peak_l: f32,
     pub peak_r: f32,
@@ -89,6 +97,7 @@ impl Rehearsal {
         Err("Only available on Windows".into())
     }
     pub fn pause_all(&self) {}
+    pub fn set_output_volume(&self, _id: String, _v: f32) {}
     pub fn restore(&self) {}
 }
 
@@ -124,6 +133,12 @@ pub async fn rh_route(rh: tauri::State<'_, Rehearsal>, id: String, output_id: Op
 #[tauri::command]
 pub async fn rh_pause_all(rh: tauri::State<'_, Rehearsal>) -> Result<(), String> {
     rh.pause_all();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn rh_set_output_volume(rh: tauri::State<'_, Rehearsal>, id: String, volume: f32) -> Result<(), String> {
+    rh.set_output_volume(id, volume.clamp(0.0, 1.0));
     Ok(())
 }
 

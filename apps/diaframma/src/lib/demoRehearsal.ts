@@ -8,10 +8,10 @@ export function demoSnapshot(): RhSnapshot {
     routingAvailable: true,
     pendingRestore: 0,
     outputs: [
-      { id: "hp", name: "Headphones", isDefault: false, peakL: 0.4, peakR: 0.36 },
-      { id: "spk", name: "Speakers (Realtek Audio)", isDefault: true, peakL: 0.5, peakR: 0.46 },
-      { id: "hdmi", name: "HDMI · Projector", isDefault: false, peakL: 0, peakR: 0 },
-      { id: "usb", name: "USB Audio Interface", isDefault: false, peakL: 0, peakR: 0 },
+      { id: "hp", name: "Headphones (WH-1000XM4 Stereo)", description: "Headphones", kind: "headphones", connected: true, volume: 0.6, isDefault: false, peakL: 0.4, peakR: 0.36 },
+      { id: "spk", name: "Speakers (Realtek Audio)", description: "Speakers", kind: "speakers", connected: true, volume: 0.8, isDefault: true, peakL: 0.5, peakR: 0.46 },
+      { id: "hdmi", name: "DELL U2419H (NVIDIA High Definition Audio)", description: "DELL U2419H", kind: "hdmi", connected: true, volume: 1, isDefault: false, peakL: 0, peakR: 0 },
+      { id: "usb", name: "Speakers (USB Audio Interface)", description: "Speakers", kind: "speakers", connected: false, volume: null, isDefault: false, peakL: 0, peakR: 0 },
     ],
     sources: [
       { ...base, id: "m:spotify", app: "Spotify", exe: "spotify.exe", kind: "spotify", title: "Gymnopédie No. 1", artist: "Erik Satie", status: "playing", canToggle: true, canNext: true, canPrev: true, volume: 0.8, outputId: "hp", positionSec: 61, durationSec: 196 },

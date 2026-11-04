@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -142,6 +143,8 @@ export function Range({
   disabled?: boolean;
 }) {
   const fill = ((value - min) / (max - min)) * 100;
+  const live = useRef({ value, onChange, min, max, step });
+  live.current = { value, onChange, min, max, step };
   return (
     <input
       type="range"
@@ -153,8 +156,179 @@ export function Range({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(Number(e.currentTarget.value))}
+      onPointerDown={(e) => {
+        const el = e.currentTarget;
+        setWheelTarget(el, (steps, fine) => {
+          const c = live.current;
+          const next = Math.min(c.max, Math.max(c.min, c.value + steps * c.step * (fine ? 1 : 2)));
+          if (next !== c.value) c.onChange(Math.round(next / c.step) * c.step);
+        });
+      }}
       style={{ width, ["--fill" as string]: `${fill}%` }}
     />
+  );
+}
+
+/* ---------------- Mouse wheel on the last clicked fader ---------------- */
+
+type WheelFn = (steps: number, fine: boolean) => void;
+let wheelTarget: { el: HTMLElement; fn: WheelFn } | null = null;
+let wheelAcc = 0;
+let wheelInstalled = false;
+
+/**
+ * After a click on a fader, the mouse wheel moves that fader (wherever the
+ * pointer is) until something else is clicked. Shift = finer steps.
+ */
+export function setWheelTarget(el: HTMLElement | null, fn?: WheelFn) {
+  if (wheelTarget && wheelTarget.el !== el) wheelTarget.el.removeAttribute("data-wheel");
+  wheelTarget = el && fn ? { el, fn } : null;
+  wheelAcc = 0;
+  if (el && fn) el.setAttribute("data-wheel", "on");
+  if (wheelInstalled || typeof window === "undefined") return;
+  wheelInstalled = true;
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (!wheelTarget) return;
+      if (!wheelTarget.el.isConnected) {
+        wheelTarget = null;
+        return;
+      }
+      e.preventDefault();
+      // A mouse notch is ~100 px; touchpads send many small deltas.
+      wheelAcc += e.deltaY;
+      const unit = Math.abs(e.deltaY) >= 50 ? Math.abs(e.deltaY) : 50;
+      while (Math.abs(wheelAcc) >= unit * 0.99) {
+        const dir = wheelAcc < 0 ? 1 : -1;
+        wheelAcc += dir * unit;
+        wheelTarget.fn(dir, e.shiftKey);
+      }
+    },
+    { passive: false, capture: true },
+  );
+  window.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (wheelTarget && !wheelTarget.el.contains(e.target as Node)) setWheelTarget(null);
+    },
+    true,
+  );
+}
+
+/* ---------------- Number you can type ---------------- */
+
+/** Reads "3", "-2,5", "+1.5 dB", "1:05.3" (minutes:seconds). Null if not a number. */
+export function parseNumberText(text: string): number | null {
+  const s = text.trim().replace(/,/g, ".").replace(/[^0-9.:+\-−]/g, "").replace("−", "-");
+  if (!s) return null;
+  if (s.includes(":")) {
+    const parts = s.split(":").map((p) => Number(p));
+    if (parts.some((p) => !Number.isFinite(p))) return null;
+    let total = 0;
+    for (const p of parts) total = total * 60 + Math.abs(p);
+    return s.startsWith("-") ? -total : total;
+  }
+  const v = Number(s);
+  return Number.isFinite(v) ? v : null;
+}
+
+/**
+ * A value shown as plain text; a click turns it into a field to type a new
+ * value (Enter or click away to confirm, Esc to cancel). It looks the same as
+ * before until it is clicked.
+ */
+export function NumberField({
+  value,
+  text,
+  onCommit,
+  min,
+  max,
+  label,
+  className,
+  style,
+  disabled,
+  parse = parseNumberText,
+  title,
+}: {
+  value: number | null;
+  /** What is shown (formatted value). */
+  text: string;
+  onCommit: (v: number) => void;
+  min?: number;
+  max?: number;
+  label: string;
+  className?: string;
+  style?: CSSProperties;
+  disabled?: boolean;
+  parse?: (s: string) => number | null;
+  title?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+  const commit = () => {
+    const v = parse(draft);
+    setEditing(false);
+    if (v === null) return;
+    const c = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v));
+    if (c !== value) onCommit(c);
+  };
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className={cx("ts-numedit", className)}
+        style={{ ...style, width: `${Math.max(4, draft.length + 1)}ch` }}
+        aria-label={label}
+        value={draft}
+        inputMode="decimal"
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onBlur={commit}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") commit();
+          else if (e.key === "Escape") {
+            e.preventDefault();
+            setEditing(false);
+          }
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      className={cx("ts-numtext", disabled && "ts-numtext--off", className)}
+      style={style}
+      role={disabled ? undefined : "button"}
+      tabIndex={disabled ? undefined : 0}
+      aria-label={disabled ? undefined : `${label}: ${text}`}
+      title={disabled ? title : title ?? label}
+      onPointerDown={(e) => !disabled && e.stopPropagation()}
+      onClick={(e) => {
+        if (disabled) return;
+        e.stopPropagation();
+        setDraft(text.replace(/\s*(dB|s|%|Hz)$/i, ""));
+        setEditing(true);
+      }}
+      onKeyDown={(e) => {
+        if (!disabled && e.key === "Enter") {
+          e.preventDefault();
+          setDraft(text);
+          setEditing(true);
+        }
+      }}
+    >
+      {text}
+    </span>
   );
 }
 
@@ -210,6 +384,14 @@ export function VFader({
       onReset();
     }
   };
+  const live = useRef({ value, onChange, min, max, step });
+  live.current = { value, onChange, min, max, step };
+  const armWheel = (el: HTMLElement) =>
+    setWheelTarget(el, (steps, fine) => {
+      const c = live.current;
+      const next = Math.min(c.max, Math.max(c.min, c.value + steps * c.step * (fine ? 1 : 2)));
+      if (next !== c.value) c.onChange(Math.round(next / c.step) * c.step);
+    });
   const ref0 = zero ?? min;
   const yv = toY(value);
   const y0 = toY(ref0);
@@ -230,6 +412,10 @@ export function VFader({
       onPointerDown={(e) => {
         if (disabled) return;
         e.currentTarget.setPointerCapture(e.pointerId);
+        armWheel(e.currentTarget);
+        // A click on the handle only takes hold of it; elsewhere it jumps there.
+        const rect = ref.current?.getBoundingClientRect();
+        if (rect && Math.abs(e.clientY - rect.top - yv) <= 7) return;
         setFromEvent(e);
       }}
       onPointerMove={(e) => {

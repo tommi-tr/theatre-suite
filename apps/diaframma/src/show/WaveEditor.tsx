@@ -1,6 +1,6 @@
 import { useMemo, useRef, type PointerEvent as RPointerEvent } from "react";
 import { clamp, formatTime } from "@theatre-suite/core";
-import { Icon } from "@theatre-suite/ui";
+import { Icon, NumberField } from "@theatre-suite/ui";
 import type { EnvPoint, Track } from "../state/types";
 
 export type EditPhase = "start" | "move" | "end";
@@ -70,6 +70,7 @@ export function WaveEditor({
   playheadSec,
   readOnly,
   onChange,
+  onSeek,
   t,
   failed,
 }: {
@@ -80,12 +81,16 @@ export function WaveEditor({
   playheadSec?: number | null;
   readOnly?: boolean;
   onChange: (patch: Partial<Track>, phase: EditPhase) => void;
+  /** Given while the track is paused: a click away from the markers moves the play position. */
+  onSeek?: (sec: number) => void;
   t: (k: string) => string;
   /** The file could not be read. */
   failed?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  /** Last press on a volume point, to recognise a double click. */
+  const lastDot = useRef<{ index: number; at: number } | null>(null);
   const dur = duration && duration > 0 ? duration : 0;
   const inSec = clamp(track.inSec, 0, dur || 0);
   const outSec = dur ? clamp(track.outSec ?? dur, 0, dur) : 0;
@@ -128,14 +133,28 @@ export function WaveEditor({
     let d: Drag | null = null;
     if (el) {
       const k = el.dataset.drag!;
-      if (k === "pt") d = { kind: "pt", index: Number(el.dataset.index) };
-      else d = { kind: k as "in" | "out" | "lin" | "lout" };
+      if (k === "pt") {
+        const index = Number(el.dataset.index);
+        const now = Date.now();
+        // Double click on a point removes it.
+        if (lastDot.current && lastDot.current.index === index && now - lastDot.current.at < 400) {
+          lastDot.current = null;
+          removePoint(index);
+          return;
+        }
+        lastDot.current = { index, at: now };
+        d = { kind: "pt", index };
+      } else d = { kind: k as "in" | "out" | "lin" | "lout" };
     } else {
       // Click on (or near) the volume line: add a point there.
       const tm = toTime(e.clientX);
       const r = ref.current!.getBoundingClientRect();
       const lineY = r.top + (Y(levelAt(track.envelope, tm)) / 100) * r.height;
-      if (Math.abs(e.clientY - lineY) > 14) return;
+      if (Math.abs(e.clientY - lineY) > 14) {
+        // Away from the line: while paused, move the play position there.
+        if (onSeek) onSeek(tm);
+        return;
+      }
       const v = toLevel(e.clientY);
       const pts = [...track.envelope, { t: Math.round(tm * 100) / 100, v: Math.round(v * 100) / 100 }].sort((a, b) => a.t - b.t);
       const index = pts.findIndex((p) => p.t === Math.round(tm * 100) / 100);
@@ -168,7 +187,7 @@ export function WaveEditor({
       <div
         ref={ref}
         className={height > 200 ? "df-wave df-wave--big" : "df-wave"}
-        style={{ height, cursor: readOnly || !dur ? "default" : "crosshair" }}
+        style={{ height, cursor: readOnly || !dur ? "default" : onSeek ? "pointer" : "crosshair" }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -205,7 +224,6 @@ export function WaveEditor({
                 data-index={i}
                 title={t("Drag to move · double-click to remove")}
                 style={{ left: pct(p.t), top: `${Y(p.v)}%` }}
-                onDoubleClick={() => removePoint(i)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   removePoint(i);
@@ -230,12 +248,30 @@ export function WaveEditor({
         {dur ? (
           <>
             <div className="df-wave__marker" data-drag="in" style={{ left: pct(inSec) }} title={t("Drag IN (start)")} />
-            <span className="df-wave__tag" style={{ left: pct(inSec), marginLeft: 5 }}>
-              IN {formatTime(inSec, true)}
+            <span className="df-wave__tag df-wave__tag--edit" style={{ left: pct(inSec), marginLeft: 5 }}>
+              IN{" "}
+              <NumberField
+                value={inSec}
+                text={formatTime(inSec, true)}
+                label={t("IN (start)")}
+                min={0}
+                max={Math.max(0, outSec - 0.1)}
+                disabled={readOnly}
+                onCommit={(v) => onChange({ inSec: Math.round(v * 100) / 100 }, "start")}
+              />
             </span>
             <div className="df-wave__marker" data-drag="out" style={{ left: pct(outSec) }} title={t("Drag OUT (end)")} />
-            <span className="df-wave__tag" style={{ left: pct(outSec), transform: "translateX(-100%)", marginLeft: -5 }}>
-              OUT {formatTime(outSec, true)}
+            <span className="df-wave__tag df-wave__tag--edit" style={{ left: pct(outSec), transform: "translateX(-100%)", marginLeft: -5 }}>
+              OUT{" "}
+              <NumberField
+                value={outSec}
+                text={formatTime(outSec, true)}
+                label={t("OUT (end)")}
+                min={inSec + 0.1}
+                max={dur}
+                disabled={readOnly}
+                onCommit={(v) => onChange({ outSec: Math.abs(v - dur) < 0.02 ? null : Math.round(v * 100) / 100 }, "start")}
+              />
             </span>
           </>
         ) : null}

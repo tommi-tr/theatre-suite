@@ -2,10 +2,59 @@ import { create } from "zustand";
 import type { Lang, ThemePref } from "@theatre-suite/core";
 import { debounce } from "@theatre-suite/core";
 import { api } from "../lib/api";
-import type { OthersOnGo } from "./types";
+import { FLAT_EQ, type Eq, type OthersOnGo } from "./types";
+
+export type PadMode = "hold" | "toEnd" | "toggle";
+
+/** A launchpad sound. */
+export interface Pad {
+  id: string;
+  /** Null for a standard sound: its name comes from the dictionary. */
+  name: string | null;
+  /** Standard sound that comes with Diaframma (file name without extension). */
+  builtin: string | null;
+  /** The user's own file. */
+  path: string | null;
+  /** Keys to press together (KeyboardEvent.code), e.g. ["Numpad1"] or ["KeyL", "Digit1"]. */
+  keys: string[];
+  /** hold: plays while the keys are held · toEnd: plays to the end · toggle: same keys again stop it. */
+  mode: PadMode;
+  loop: boolean;
+  volumeDb: number;
+}
+
+export const BUILTIN_SOUNDS: { file: string; name: string; mode: PadMode; loop: boolean }[] = [
+  { file: "thunder", name: "Thunder", mode: "toEnd", loop: false },
+  { file: "doorbell", name: "Doorbell", mode: "toEnd", loop: false },
+  { file: "phone-bell", name: "Old phone ringing", mode: "toggle", loop: true },
+  { file: "phone-ring", name: "Phone ringing", mode: "toggle", loop: true },
+  { file: "knock", name: "Knocking at the door", mode: "toEnd", loop: false },
+  { file: "alarm-siren", name: "Siren", mode: "hold", loop: true },
+  { file: "alarm-bell", name: "Alarm bell", mode: "hold", loop: true },
+  { file: "car-horn", name: "Car horn", mode: "toEnd", loop: false },
+  { file: "applause", name: "Applause", mode: "toEnd", loop: false },
+  { file: "rain", name: "Rain", mode: "toggle", loop: true },
+  { file: "wind", name: "Wind", mode: "toggle", loop: true },
+  { file: "clock", name: "Clock ticking", mode: "toggle", loop: true },
+  { file: "church-bell", name: "Church bell", mode: "toEnd", loop: false },
+  { file: "beep", name: "Beep", mode: "hold", loop: true },
+];
+
+export function defaultPads(): Pad[] {
+  return BUILTIN_SOUNDS.map((b, i) => ({
+    id: `builtin-${b.file}`,
+    name: null,
+    builtin: b.file,
+    path: null,
+    keys: i < 9 ? [`Numpad${i + 1}`] : [],
+    mode: b.mode,
+    loop: b.loop,
+    volumeDb: 0,
+  }));
+}
 
 export interface Settings {
-  version: 1;
+  version: 2;
   language: Lang;
   theme: ThemePref;
   /** After a GO, standby moves to the next track. */
@@ -25,6 +74,21 @@ export interface Settings {
   favorites: Favorite[];
   /** The guide was shown once at the first start. */
   guideSeen: boolean;
+  /** First number of the cue list. */
+  numberFrom: 0 | 1;
+  /** Show mode: the track that plays is kept as the first row on screen. */
+  followPlaying: boolean;
+  /** Main volume of Show mode (dB). */
+  mainDb: number;
+  /** Rehearsal mode: main volume (0…1) applied on top of every source. */
+  rhMain: number;
+  /** Rehearsal mode: equalizer of Diaframma's own player. */
+  rhEq: Eq;
+  /** Rehearsal mode: Diaframma sets the output of every program itself (ignores the Windows default). */
+  pinOutputs: boolean;
+  /** Launchpad on. */
+  launchpadOn: boolean;
+  pads: Pad[];
 }
 
 export interface Favorite {
@@ -39,11 +103,11 @@ export interface Favorite {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 1,
+  version: 2,
   language: "en",
   theme: "dark",
   autoAdvance: true,
-  othersOnGo: "pause",
+  othersOnGo: "fadeOut",
   fadeInSec: 3,
   fadeOutSec: 3,
   crossfadeSec: 4,
@@ -55,10 +119,18 @@ export const DEFAULT_SETTINGS: Settings = {
   outputRoles: {},
   favorites: [],
   guideSeen: false,
+  numberFrom: 1,
+  followPlaying: false,
+  mainDb: 0,
+  rhMain: 1,
+  rhEq: [...FLAT_EQ],
+  pinOutputs: true,
+  launchpadOn: false,
+  pads: defaultPads(),
 };
 
 function sanitize(raw: unknown): Settings {
-  const s = { ...DEFAULT_SETTINGS };
+  const s = { ...DEFAULT_SETTINGS, pads: defaultPads(), rhEq: [...FLAT_EQ] as Eq };
   if (!raw || typeof raw !== "object") return s;
   const r = raw as Record<string, unknown>;
   const num = (k: keyof Settings, lo: number, hi: number) => {
@@ -69,6 +141,32 @@ function sanitize(raw: unknown): Settings {
   if (r.theme === "dark" || r.theme === "light" || r.theme === "system") s.theme = r.theme;
   if (typeof r.autoAdvance === "boolean") s.autoAdvance = r.autoAdvance;
   if (r.othersOnGo === "pause" || r.othersOnGo === "fadeOut" || r.othersOnGo === "keep" || r.othersOnGo === "stop") s.othersOnGo = r.othersOnGo;
+  // Version 1 saved the old default (Pause): the default is now Fade out.
+  if (r.version !== 2 && r.othersOnGo === "pause") s.othersOnGo = "fadeOut";
+  if (r.numberFrom === 0 || r.numberFrom === 1) s.numberFrom = r.numberFrom;
+  if (typeof r.followPlaying === "boolean") s.followPlaying = r.followPlaying;
+  if (typeof r.pinOutputs === "boolean") s.pinOutputs = r.pinOutputs;
+  if (typeof r.launchpadOn === "boolean") s.launchpadOn = r.launchpadOn;
+  num("mainDb", -60, 10);
+  num("rhMain", 0, 1);
+  if (Array.isArray(r.rhEq)) s.rhEq = [0, 1, 2, 3, 4].map((i) => (typeof (r.rhEq as unknown[])[i] === "number" ? Math.max(-24, Math.min(24, (r.rhEq as number[])[i])) : 0)) as Eq;
+  if (Array.isArray(r.pads)) {
+    const modes: PadMode[] = ["hold", "toEnd", "toggle"];
+    s.pads = (r.pads as unknown[])
+      .filter((p): p is Record<string, unknown> => !!p && typeof p === "object" && typeof (p as Record<string, unknown>).id === "string")
+      .map((p) => ({
+        id: p.id as string,
+        name: typeof p.name === "string" ? p.name : null,
+        builtin: typeof p.builtin === "string" ? p.builtin : null,
+        path: typeof p.path === "string" ? p.path : null,
+        keys: Array.isArray(p.keys) ? (p.keys as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 3) : [],
+        mode: modes.includes(p.mode as PadMode) ? (p.mode as PadMode) : "toEnd",
+        loop: p.loop === true,
+        volumeDb: typeof p.volumeDb === "number" && Number.isFinite(p.volumeDb) ? Math.max(-40, Math.min(10, p.volumeDb)) : 0,
+      }))
+      .filter((p) => p.builtin || p.path)
+      .slice(0, 64);
+  }
   num("fadeInSec", 0, 60);
   num("fadeOutSec", 0, 60);
   num("crossfadeSec", 0, 60);

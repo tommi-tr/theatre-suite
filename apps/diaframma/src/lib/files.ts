@@ -200,11 +200,12 @@ export async function restoreAutosave(text: string): Promise<boolean> {
 export async function exportCsv(t: T): Promise<void> {
   const { tracks, infos } = useDoc.getState();
   const fmt = (s: number | null | undefined) => (s === null || s === undefined ? "" : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
-  let n = 0;
-  const rows = [[t("No."), t("Track"), t("On Space"), t("At end"), "IN", "OUT", t("Duration"), t("Volume"), t("File")]];
+  let n = useSettings.getState().settings.numberFrom - 1;
+  const rows = [[t("No."), t("Track"), t("Start"), t("At end or Space"), "IN", "OUT", t("Duration"), t("Volume"), t("File")]];
   for (const x of tracks) {
-    if (x.hidden || !x.file) continue;
+    if (x.hidden) continue;
     n++;
+    if (!x.file) continue;
     const info = infos[x.file.path];
     const dur = info && typeof info === "object" ? info.durationSec : x.file.durationSec ?? null;
     const out = x.outSec ?? dur;

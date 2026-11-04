@@ -11,6 +11,9 @@ function config(): EngineConfig {
     fadeOutSec: s.fadeOutSec,
     crossfadeSec: s.crossfadeSec,
     stopAllSec: s.stopAllSec,
+    mainDb: s.mainDb,
+    numberFrom: s.numberFrom,
+    steps: true,
   };
 }
 
@@ -50,7 +53,10 @@ export function startEngineSync(): () => void {
       const deviceChanged = s.settings.outputDevice !== prevSettings.outputDevice;
       prevSettings = s.settings;
       push();
-      if (deviceChanged) api.engineSetDevice(s.settings.outputDevice).catch((e) => console.error(e));
+      if (deviceChanged) {
+        api.engineSetDevice(s.settings.outputDevice).catch((e) => console.error(e));
+        api.padsSetDevice(s.settings.outputDevice).catch(() => {});
+      }
     }
   });
   api.engineSetDevice(useSettings.getState().settings.outputDevice).catch((e) => console.error(e));

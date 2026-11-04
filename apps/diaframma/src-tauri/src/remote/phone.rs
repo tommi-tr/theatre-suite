@@ -27,6 +27,10 @@ struct State {
     code: String,
     locked: bool,
     favorites: serde_json::Value,
+    /// Volume levels of the rehearsal sources as Diaframma shows them (0…1, by source id).
+    levels: serde_json::Value,
+    /// Main volume of Rehearsal mode (0…1).
+    rh_main: f64,
     error: Option<String>,
     rh_cache: Option<(Instant, Snapshot)>,
 }
@@ -137,8 +141,12 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                 json(&serde_json::json!({
                     "show": show,
                     "locked": s.locked,
-                    "sources": rh.sources.iter().map(|x| serde_json::json!({"id": x.id, "app": x.app, "title": x.title, "artist": x.artist, "status": x.status, "canToggle": x.can_toggle, "canNext": x.can_next, "canPrev": x.can_prev})).collect::<Vec<_>>(),
+                    "sources": rh.sources.iter().map(|x| {
+                        let level = s.levels.get(&x.id).and_then(|v| v.as_f64()).or(x.volume.map(|v| v as f64));
+                        serde_json::json!({"id": x.id, "app": x.app, "title": x.title, "artist": x.artist, "status": x.status, "canToggle": x.can_toggle, "canNext": x.can_next, "canPrev": x.can_prev, "volume": level, "hasVolume": x.volume.is_some()})
+                    }).collect::<Vec<_>>(),
                     "favorites": s.favorites,
+                    "rhMain": s.rh_main,
                 }))
             }
             (Method::Post, "/api/cmd") => {
@@ -157,12 +165,18 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                         engine.standby_step(1);
                         Ok(())
                     }
-                    "pause" => {
-                        engine.pause_current();
+                    "pause" | "pauseall" => {
+                        engine.pause_all();
+                        Ok(())
+                    }
+                    "vol" => {
+                        let db = v.get("db").and_then(|x| x.as_f64()).unwrap_or(0.0).clamp(-60.0, 10.0);
+                        let _ = app.emit("phone-main-volume", db);
                         Ok(())
                     }
                     "stopall" => {
                         engine.stop_all(false);
+                        app.state::<crate::audio::Pads>().0.stop_all(false);
                         Ok(())
                     }
                     "rh" => {
@@ -178,6 +192,17 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                     }
                     "star" => {
                         let _ = app.emit("phone-star", v.get("id").cloned().unwrap_or_default());
+                        Ok(())
+                    }
+                    "unstar" => {
+                        let _ = app.emit("phone-unstar", v.get("id").cloned().unwrap_or_default());
+                        Ok(())
+                    }
+                    "rhvol" => {
+                        let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                        let level = v.get("v").and_then(|x| x.as_f64()).unwrap_or(1.0).clamp(0.0, 1.0);
+                        st.lock().rh_cache = None;
+                        let _ = app.emit("phone-rh-volume", serde_json::json!({ "id": id, "v": level }));
                         Ok(())
                     }
                     _ => Err("Unknown command".into()),
@@ -214,8 +239,10 @@ pub fn phone_new_code(p: tauri::State<'_, Phone>) -> PhoneInfo {
 }
 
 #[tauri::command]
-pub fn phone_update(p: tauri::State<'_, Phone>, locked: bool, favorites: serde_json::Value) {
+pub fn phone_update(p: tauri::State<'_, Phone>, locked: bool, favorites: serde_json::Value, levels: serde_json::Value, rh_main: f64) {
     let mut s = p.st.lock();
     s.locked = locked;
     s.favorites = favorites;
+    s.levels = levels;
+    s.rh_main = rh_main;
 }

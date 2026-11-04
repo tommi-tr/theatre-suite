@@ -3,11 +3,13 @@ import { basename, History, uid } from "@theatre-suite/core";
 import { api } from "../lib/api";
 import { APP_VERSION } from "../lib/version";
 import {
+  EMPTY_LIVE,
   FORMAT_ID,
   FORMAT_VERSION,
   newTrack,
   type AtEnd,
   type CueListDoc,
+  type Eq,
   type LiveState,
   type OnSpace,
   type Track,
@@ -42,18 +44,24 @@ export function parseDoc(text: string): Track[] {
     throw new Error("This cue list was made with a newer version of Diaframma. Please update Diaframma.");
   }
   if (!Array.isArray(raw.tracks)) throw new Error("The cue list is damaged (no tracks).");
-  const onSpace: OnSpace[] = ["play", "fadeIn", "crossfade", "stopAllPlay"];
+  const onSpace: OnSpace[] = ["play", "fadeIn", "stopAllPlay"];
   const atEnd: AtEnd[] = ["stop", "next", "fadeOut", "crossfade", "loopAll", "loopCut"];
   const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+  const eqOf = (v: unknown): Eq => {
+    if (Array.isArray(v)) return [0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq;
+    // Version 1: three bands (low shelf 200 Hz, mid 1 kHz, high shelf 5 kHz).
+    const o = (v ?? {}) as Record<string, unknown>;
+    return [num(o.low, 0), 0, num(o.mid, 0), 0, num(o.high, 0)];
+  };
   const seen = new Set<string>();
-  return (raw.tracks as unknown[]).map((t0) => {
+  const rawTracks = raw.tracks as unknown[];
+  const tracks = rawTracks.map((t0) => {
     const t = (t0 ?? {}) as Record<string, unknown>;
     let id = typeof t.id === "string" && t.id ? t.id : uid();
     if (seen.has(id)) id = uid();
     seen.add(id);
     const base = newTrack(id);
     const f = t.file as Record<string, unknown> | null | undefined;
-    const eq = (t.eq ?? {}) as Record<string, unknown>;
     const loop = t.loop as Record<string, unknown> | null | undefined;
     return {
       ...base,
@@ -71,7 +79,7 @@ export function parseDoc(text: string): Track[] {
       atEnd: atEnd.includes(t.atEnd as AtEnd) ? (t.atEnd as AtEnd) : "stop",
       ignoreVolume: t.ignoreVolume === true,
       volumeDb: num(t.volumeDb, 0),
-      eq: { low: num(eq.low, 0), mid: num(eq.mid, 0), high: num(eq.high, 0) },
+      eq: eqOf(t.eq),
       inSec: Math.max(0, num(t.inSec, 0)),
       outSec: typeof t.outSec === "number" ? t.outSec : null,
       envelope: Array.isArray(t.envelope)
@@ -85,15 +93,29 @@ export function parseDoc(text: string): Track[] {
       loopVisible: t.loopVisible !== false,
     };
   });
+  // Version 1: "Crossfade" was chosen on the track that starts. Now the track
+  // playing before it says "Crossfade" in At end or Space.
+  rawTracks.forEach((t0, i) => {
+    const t = (t0 ?? {}) as Record<string, unknown>;
+    if (t.onSpace !== "crossfade") return;
+    for (let j = i - 1; j >= 0; j--) {
+      if (tracks[j].hidden || !tracks[j].file) continue;
+      if (tracks[j].atEnd === "stop" || tracks[j].atEnd === "next") tracks[j] = { ...tracks[j], atEnd: "crossfade" };
+      break;
+    }
+  });
+  return tracks;
 }
 
-/** Visible (numbered) tracks, in order. */
-export function numbering(tracks: Track[]): Map<string, number> {
+/** Visible (numbered) tracks, in order. `from` is the first number (0 or 1). */
+export function numbering(tracks: Track[], from = 1): Map<string, number> {
   const m = new Map<string, number>();
-  let n = 0;
-  for (const t of tracks) if (!t.hidden) m.set(t.id, ++n);
+  let n = from;
+  for (const t of tracks) if (!t.hidden) m.set(t.id, n++);
   return m;
 }
+
+export type RowView = "normal" | "compact";
 
 export type InfoState = TrackInfo | "loading" | "error";
 
@@ -104,6 +126,8 @@ interface DocStore {
   /** Missing audio files, by track id. */
   missing: Record<string, boolean>;
   expanded: Record<string, boolean>;
+  /** "compact": one short line per track, only the chosen options. */
+  view: RowView;
   infos: Record<string, InfoState>;
   live: LiveState;
   locked: boolean;
@@ -116,6 +140,7 @@ interface DocStore {
   loadIntoTrack: (id: string, path: string) => void;
   clearTrack: (id: string) => void;
   deleteTrack: (id: string) => void;
+  duplicateTrack: (id: string) => void;
   toggleHidden: (id: string) => void;
   moveTrack: (from: number, to: number) => void;
   undo: () => void;
@@ -124,6 +149,8 @@ interface DocStore {
   replaceDoc: (tracks: Track[], filePath: string | null, dirty: boolean) => void;
   markSaved: (filePath: string) => void;
   toggleExpanded: (id: string) => void;
+  setAllExpanded: (open: boolean) => void;
+  setView: (v: RowView) => void;
   setLive: (live: LiveState) => void;
   setLocked: (v: boolean) => void;
   ensureInfo: (path: string) => void;
@@ -152,8 +179,9 @@ export const useDoc = create<DocStore>((set, get) => {
     dirty: false,
     missing: {},
     expanded: {},
+    view: "normal",
     infos: {},
-    live: { standbyId: null, voices: [], engine: { ready: false, device: "", sampleRate: 0, error: null } },
+    live: EMPTY_LIVE,
     locked: false,
     history: new History<Track[]>(),
 
@@ -202,6 +230,21 @@ export const useDoc = create<DocStore>((set, get) => {
     },
     clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], loop: null }),
     deleteTrack: (id) => commit(get().tracks.filter((t) => t.id !== id)),
+    duplicateTrack: (id) => {
+      const tracks = [...get().tracks];
+      const i = tracks.findIndex((t) => t.id === id);
+      if (i < 0) return;
+      const src = tracks[i];
+      const copy: Track = {
+        ...structuredClone(src),
+        id: uid(),
+        hidden: false,
+      };
+      tracks.splice(i + 1, 0, copy);
+      commit(tracks);
+      // The copy opens like the original, so it can be changed at once.
+      if (get().expanded[id]) set({ expanded: { ...get().expanded, [copy.id]: true } });
+    },
     toggleHidden: (id) => {
       const t = get().tracks.find((x) => x.id === id);
       if (t) get().patchTrack(id, { hidden: !t.hidden });
@@ -231,7 +274,10 @@ export const useDoc = create<DocStore>((set, get) => {
       tracks.forEach((t) => t.file && get().ensureInfo(t.file.path));
     },
     markSaved: (filePath) => set({ filePath, dirty: false }),
-    toggleExpanded: (id) => set({ expanded: { ...get().expanded, [id]: !get().expanded[id] } }),
+    toggleExpanded: (id) => set({ expanded: { ...get().expanded, [id]: !get().expanded[id] }, view: "normal" }),
+    setAllExpanded: (open) =>
+      set({ expanded: open ? Object.fromEntries(get().tracks.filter((t) => t.file && !t.hidden).map((t) => [t.id, true])) : {}, view: "normal" }),
+    setView: (view) => set({ view, expanded: view === "compact" ? {} : get().expanded }),
     setLive: (live) => set({ live }),
     setLocked: (v) => set({ locked: v }),
     ensureInfo: (path) => {
@@ -267,4 +313,55 @@ export function trackDuration(t: Track, infos: Record<string, InfoState>): numbe
 export function effectiveOut(t: Track, dur: number | null): number | null {
   if (t.outSec !== null) return dur !== null ? Math.min(t.outSec, dur) : t.outSec;
   return dur;
+}
+
+/**
+ * Loudness of the part of the track that plays (IN–OUT), in LUFS-like dB,
+ * gated like EBU R128 (silence and quiet passages do not count). Null if unknown.
+ */
+export function trackLoudness(t: Track, info: InfoState | undefined): { lufs: number; peak: number } | null {
+  if (!info || typeof info !== "object" || !info.loudness?.length || !info.durationSec) return null;
+  const bins = info.loudness.length;
+  const dur = info.durationSec;
+  const out = effectiveOut(t, dur) ?? dur;
+  const a = Math.max(0, Math.floor((t.inSec / dur) * bins));
+  const b = Math.min(bins, Math.max(a + 1, Math.ceil((out / dur) * bins)));
+  const ms = info.loudness.slice(a, b);
+  const peak = Math.max(...info.peaks.slice(a, b), 1e-6);
+  const lk = (x: number) => -0.691 + 10 * Math.log10(Math.max(x, 1e-12));
+  // Absolute gate −70, then relative gate −10 below the mean.
+  let gated = ms.filter((x) => lk(x) > -70);
+  if (!gated.length) return null;
+  const mean1 = gated.reduce((s, x) => s + x, 0) / gated.length;
+  gated = gated.filter((x) => lk(x) > lk(mean1) - 10);
+  if (!gated.length) return null;
+  const mean = gated.reduce((s, x) => s + x, 0) / gated.length;
+  return { lufs: lk(mean), peak };
+}
+
+/**
+ * Sets the volume fader of every track so that they all sound equally loud
+ * (the median loudness is the target, so faders move as little as possible).
+ * A track is never pushed so far that it would clip. Returns how many tracks changed.
+ */
+export function matchVolumes(): { changed: number; skipped: number } {
+  const st = useDoc.getState();
+  const items = st.tracks
+    .filter((t) => t.file && !t.hidden)
+    .map((t) => ({ t, l: trackLoudness(t, st.infos[t.file!.path]) }))
+    .filter((x): x is { t: Track; l: { lufs: number; peak: number } } => x.l !== null);
+  const skipped = st.tracks.filter((t) => t.file && !t.hidden).length - items.length;
+  if (!items.length) return { changed: 0, skipped };
+  const sorted = items.map((x) => x.l.lufs).sort((a, b) => a - b);
+  const target = sorted[Math.floor(sorted.length / 2)];
+  const vols = new Map<string, number>();
+  for (const { t, l } of items) {
+    let db = target - l.lufs;
+    const headroom = -20 * Math.log10(l.peak) - 0.5; // dB until the peak reaches −0.5 dBFS
+    db = Math.min(db, headroom, 10);
+    db = Math.max(-40, Math.round(db * 2) / 2);
+    if (Math.abs(db - t.volumeDb) >= 0.5) vols.set(t.id, db);
+  }
+  if (vols.size) st.setTracks((tracks) => tracks.map((t) => (vols.has(t.id) ? { ...t, volumeDb: vols.get(t.id)! } : t)));
+  return { changed: vols.size, skipped };
 }

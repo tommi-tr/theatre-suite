@@ -3,6 +3,7 @@ import { formatTime, useT } from "@theatre-suite/core";
 import { Button, Dialog, Icon } from "@theatre-suite/ui";
 import { effectiveOut, numbering, trackDuration, useDoc } from "../state/doc";
 import type { Track } from "../state/types";
+import { useSettings } from "../state/settings";
 
 export function ReorderDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
@@ -12,7 +13,7 @@ export function ReorderDialog({ onClose }: { onClose: () => void }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const nums = numbering(order);
+  const nums = numbering(order, useSettings((x) => x.settings.numberFrom));
 
   const move = (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || to > order.length) return;

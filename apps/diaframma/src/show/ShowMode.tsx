@@ -3,9 +3,11 @@ import { formatTime, useT } from "@theatre-suite/core";
 import { Button, HoldButton, Icon, Kbd, StatusBar } from "@theatre-suite/ui";
 import { api, appWindow } from "../lib/api";
 import { openDocDialog, pickAudioFiles } from "../lib/files";
+import { launchpadClaims, stopEverything } from "../lib/launchpad";
 import { effectiveOut, numbering, trackDuration, useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
+import { LaunchpadPanel, LaunchpadToggle } from "../common/Launchpad";
 import { GoBar } from "./GoBar";
 import { TrackRow } from "./TrackRow";
 import { ReorderDialog } from "./ReorderDialog";
@@ -24,6 +26,7 @@ export function ShowMode() {
   const infos = useDoc((s) => s.infos);
   const missing = useDoc((s) => s.missing);
   const expanded = useDoc((s) => s.expanded);
+  const view = useDoc((s) => s.view);
   const locked = useDoc((s) => s.locked);
   const settings = useSettings((s) => s.settings);
   const dialog = useUi((s) => s.dialog);
@@ -31,7 +34,8 @@ export function ShowMode() {
   const typedTimer = useRef<number | null>(null);
   const lastEsc = useRef(0);
   const [devices, setDevices] = useState<string[]>([]);
-  const numbers = useMemo(() => numbering(tracks), [tracks]);
+  const numbers = useMemo(() => numbering(tracks, settings.numberFrom), [tracks, settings.numberFrom]);
+  const listRef = useRef<HTMLElement>(null);
 
   // Arm the first track when a cue list is opened and nothing is in standby.
   const filePath = useDoc((s) => s.filePath);
@@ -61,7 +65,7 @@ export function ShowMode() {
     };
   }, []);
 
-  // Keyboard: GO, standby, stop, lock, undo.
+  // Keyboard: GO, Pause all, standby, stop, lock, undo.
   useEffect(() => {
     const playable = () => useDoc.getState().tracks.filter((x) => !x.hidden && x.file);
     const onKey = (e: KeyboardEvent) => {
@@ -75,6 +79,7 @@ export function ShowMode() {
         if (!e.repeat) api.engineGo().catch((err) => useUi.getState().showToast(String(err), "error"));
         return;
       }
+      if (launchpadClaims(e)) return;
       if (k === "Escape") {
         // An open menu closes first; it must never trigger Stop all.
         if (document.querySelector(".df-menu")) return;
@@ -83,7 +88,12 @@ export function ShowMode() {
         const immediate = now - lastEsc.current < 900;
         lastEsc.current = now;
         setTyped("");
-        api.engineStopAll(immediate).catch(() => {});
+        stopEverything(immediate);
+        return;
+      }
+      if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        if (!e.repeat) api.enginePauseAll().catch(() => {});
         return;
       }
       if (/^[0-9]$/.test(k) && !e.ctrlKey && !e.altKey) {
@@ -101,7 +111,7 @@ export function ShowMode() {
         setTyped((p) => {
           if (p) {
             const n = Number(p);
-            const nums = numbering(st.tracks);
+            const nums = numbering(st.tracks, useSettings.getState().settings.numberFrom);
             const target = st.tracks.find((x) => nums.get(x.id) === n);
             if (target && target.file) api.engineSetStandby(target.id).catch(() => {});
             else useUi.getState().showToast(t("There is no track {n}.", { n }));
@@ -115,10 +125,7 @@ export function ShowMode() {
         e.preventDefault();
         const list = playable();
         if (!list.length) return;
-        const i = list.findIndex((x) => x.id === st.live.standbyId);
-        const j = i < 0 ? 0 : Math.max(0, Math.min(list.length - 1, i + (k === "ArrowDown" ? 1 : -1)));
-        api.engineSetStandby(list[j].id).catch(() => {});
-        document.querySelector(`[data-track-id="${list[j].id}"]`)?.scrollIntoView({ block: "nearest" });
+        api.engineStandbyStep(k === "ArrowDown" ? 1 : -1).catch(() => {});
         return;
       }
       if (e.ctrlKey && k.toLowerCase() === "l") {
@@ -151,10 +158,25 @@ export function ShowMode() {
     };
   }, [t]);
 
-  // Keep the standby row visible.
+  // The track that plays as the first row (option), else keep standby visible.
+  const mainId = live.mainId;
   useEffect(() => {
-    if (live.standbyId) document.querySelector(`[data-track-id="${live.standbyId}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [live.standbyId]);
+    if (!settings.followPlaying || !mainId) return;
+    const row = document.querySelector<HTMLElement>(`[data-track-id="${mainId}"]`);
+    const list = listRef.current;
+    if (row && list) list.scrollTo({ top: row.offsetTop - list.offsetTop - 10, behavior: "smooth" });
+  }, [mainId, settings.followPlaying]);
+  useEffect(() => {
+    if (!live.standbyId) return;
+    const row = document.querySelector<HTMLElement>(`[data-track-id="${live.standbyId}"]`);
+    if (!row) return;
+    if (!settings.followPlaying) row.scrollIntoView({ block: "nearest" });
+    else {
+      // Only if it is off screen below.
+      const list = listRef.current;
+      if (list && row.offsetTop - list.offsetTop > list.scrollTop + list.clientHeight) row.scrollIntoView({ block: "end" });
+    }
+  }, [live.standbyId, settings.followPlaying]);
 
   const voiceOf = useMemo(() => {
     const m = new Map<string, (typeof live.voices)[number]>();
@@ -176,6 +198,7 @@ export function ShowMode() {
     }, 0);
   const missingCount = Object.values(missing).filter(Boolean).length;
   const outputLabel = settings.outputDevice ?? t("Windows default");
+  const anyExpanded = Object.values(expanded).some(Boolean);
 
   return (
     <>
@@ -205,10 +228,13 @@ export function ShowMode() {
               {t("Show locked")}
             </span>
             <span className="ts-ellipsis" style={{ color: "var(--text-2)", fontSize: 12.5 }}>
-              {t("Only GO, standby, Pause, On Space and At end can be used")}
+              {t("Only GO, standby, Pause, Start and At end or Space can be used")}
             </span>
           </div>
         )}
+        <div className="df-toolbar__center">
+          <LaunchpadToggle />
+        </div>
         <span className="ts-spacer" />
         <label className="ts-btn ts-btn--ghost" style={{ cursor: locked ? "default" : "pointer" }} title={t("Audio output")}>
           <Icon name="speaker" size={15} />
@@ -234,6 +260,38 @@ export function ShowMode() {
             {settings.outputDevice && !devices.includes(settings.outputDevice) ? <option value={settings.outputDevice}>{outputLabel}</option> : null}
           </select>
         </label>
+        <div className="df-viewbtns" role="group" aria-label={t("Rows")}>
+          <button
+            type="button"
+            className="ts-btn ts-btn--icon"
+            aria-label={t("Close the settings of every track")}
+            title={t("Close the settings of every track")}
+            disabled={!anyExpanded && view === "normal"}
+            onClick={() => (useDoc.getState().setAllExpanded(false), useDoc.getState().setView("normal"))}
+          >
+            <Icon name="collapse" size={15} />
+          </button>
+          <button
+            type="button"
+            className="ts-btn ts-btn--icon"
+            aria-label={t("Open the settings of every track")}
+            title={t("Open the settings of every track")}
+            disabled={locked}
+            onClick={() => useDoc.getState().setAllExpanded(true)}
+          >
+            <Icon name="expand" size={15} />
+          </button>
+          <button
+            type="button"
+            className={view === "compact" ? "ts-btn ts-btn--icon ts-btn--on" : "ts-btn ts-btn--icon"}
+            aria-pressed={view === "compact"}
+            aria-label={t("Very compact rows: only the chosen options, to see a long cue list at once")}
+            title={t("Very compact rows: only the chosen options, to see a long cue list at once")}
+            onClick={() => useDoc.getState().setView(view === "compact" ? "normal" : "compact")}
+          >
+            <Icon name="compact" size={15} />
+          </button>
+        </div>
         {!locked ? (
           <Button icon="lock" onClick={() => useDoc.getState().setLocked(true)} kbd="Ctrl L">
             {t("Lock")}
@@ -256,18 +314,21 @@ export function ShowMode() {
         </div>
       ) : null}
 
-      <main className="df-list" aria-label={t("Tracks")}>
+      <main ref={listRef} className={view === "compact" ? "df-list df-list--compact" : "df-list"} aria-label={t("Tracks")}>
         {tracks.map((tr) => (
           <TrackRow
             key={tr.id}
             track={tr}
             number={numbers.get(tr.id) ?? null}
             standby={live.standbyId === tr.id}
+            main={live.mainId === tr.id}
+            pausedAll={live.pausedAll}
             voice={voiceOf.get(tr.id) ?? null}
             info={tr.file ? infos[tr.file.path] : undefined}
             missing={!!missing[tr.id]}
             locked={locked}
             expanded={!!expanded[tr.id]}
+            compact={view === "compact"}
           />
         ))}
         {!locked ? (
@@ -276,7 +337,10 @@ export function ShowMode() {
             {t("Add an empty row")}
           </button>
         ) : null}
+        {settings.followPlaying ? <div aria-hidden="true" style={{ flex: "none", height: "70vh" }} /> : null}
       </main>
+
+      {settings.launchpadOn ? <LaunchpadPanel /> : null}
 
       <StatusBar>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -294,7 +358,7 @@ export function ShowMode() {
         </span>
         <span className="ts-spacer" />
         <span>
-          <Kbd>0–9</Kbd> + <Kbd>Enter</Kbd> {t("standby")} · <Kbd>↑ ↓</Kbd> {t("move standby")} · <Kbd>Esc</Kbd> ×2 {t("instant stop")}
+          <Kbd>0–9</Kbd> + <Kbd>Enter</Kbd> {t("standby")} · <Kbd>↑ ↓</Kbd> {t("move standby")} · <Kbd>P</Kbd> {t("pause all")} · <Kbd>Esc</Kbd> ×2 {t("instant stop")}
         </span>
       </StatusBar>
 

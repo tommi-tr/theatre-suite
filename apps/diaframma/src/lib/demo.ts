@@ -31,15 +31,14 @@ export function loadDemo() {
     ...extra,
   });
   const tracks = [
-    mk("t1", "Valzer atto II.mp3", 195, { atEnd: "fadeOut" }),
+    mk("t1", "Valzer atto II.mp3", 195, { atEnd: "crossfade" }),
     mk("h1", "Applausi registrati.wav", 42, { hidden: true }),
     mk("t2", "Temporale lontano.wav", 208, {
-      onSpace: "crossfade",
       atEnd: "loopCut",
       inSec: 4.2,
       outSec: 194,
       volumeDb: -3,
-      eq: { low: 2, mid: -1.5, high: 1 },
+      eq: [2, 0.5, -1.5, 0, 1],
       loop: { inSec: 80, outSec: 169.5 },
       envelope: [
         { t: 4.2, v: 0 },
@@ -63,12 +62,13 @@ export function loadDemo() {
       return 0.14 + 0.84 * Math.exp(-q * 4.5) * (1 - p * 0.45);
     },
   };
-  const info = (dur: number, pk: number[]) => ({ durationSec: dur, sampleRate: 48000, channels: 2, peaks: pk });
+  const info = (dur: number, pk: number[]) => ({ durationSec: dur, sampleRate: 48000, channels: 2, peaks: pk, loudness: pk.map((p) => p * p * 0.3) });
   useDoc.setState({
     tracks,
     filePath: "C:\\Show\\Il giardino dei ciliegi.diaframma",
     dirty: false,
     expanded: { t2: true },
+    view: location.search.includes("compact") ? "compact" : "normal",
     infos: {
       "C:\\Show\\Valzer atto II.mp3": info(195, peaks(11, env.waltz)),
       "C:\\Show\\Applausi registrati.wav": info(42, peaks(5, env.bells)),
@@ -77,7 +77,10 @@ export function loadDemo() {
     },
     live: {
       standbyId: "t2",
-      voices: [{ trackId: "t1", positionSec: 72, durationSec: 195, paused: false, fading: null, looping: false }],
+      mainId: "t1",
+      pending: null,
+      pausedAll: location.search.includes("paused"),
+      voices: [{ trackId: "t1", positionSec: 72, durationSec: 195, paused: location.search.includes("paused"), fading: null, looping: false, inLoop: false, main: true }],
       engine: { ready: true, device: "USB Audio Interface", sampleRate: 48000, error: null },
     },
   });
