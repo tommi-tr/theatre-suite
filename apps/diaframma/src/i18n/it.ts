@@ -300,4 +300,5 @@ export const it: Dict = {
   "No.": "N.",
   Duration: "Durata",
   File: "File",
+  "Click the line to add a volume point": "Clicca sulla linea per aggiungere un punto di volume",
 };

@@ -38,6 +38,19 @@ function envelopePath(points: EnvPoint[], dur: number): { line: string; area: st
   return { line: d, area: `${d} L1000 100 L0 100 Z` };
 }
 
+/** Level of the volume curve at time t (same shape as the audio engine). */
+function levelAt(points: EnvPoint[], t: number): number {
+  if (!points.length) return 1;
+  if (t <= points[0].t) return points[0].v;
+  const last = points[points.length - 1];
+  if (t >= last.t) return last.v;
+  const i = points.findIndex((p) => p.t > t);
+  const a = points[i - 1];
+  const b = points[i];
+  const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
+  return a.v + (b.v - a.v) * u * u * (3 - 2 * u);
+}
+
 export function rulerTicks(dur: number, maxTicks = 6): number[] {
   if (!dur || dur <= 0) return [];
   const steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800];
@@ -118,8 +131,11 @@ export function WaveEditor({
       if (k === "pt") d = { kind: "pt", index: Number(el.dataset.index) };
       else d = { kind: k as "in" | "out" | "lin" | "lout" };
     } else {
-      // Click on the line area: add a volume point.
+      // Click on (or near) the volume line: add a point there.
       const tm = toTime(e.clientX);
+      const r = ref.current!.getBoundingClientRect();
+      const lineY = r.top + (Y(levelAt(track.envelope, tm)) / 100) * r.height;
+      if (Math.abs(e.clientY - lineY) > 14) return;
       const v = toLevel(e.clientY);
       const pts = [...track.envelope, { t: Math.round(tm * 100) / 100, v: Math.round(v * 100) / 100 }].sort((a, b) => a.t - b.t);
       const index = pts.findIndex((p) => p.t === Math.round(tm * 100) / 100);
@@ -167,6 +183,12 @@ export function WaveEditor({
             <div className="df-wave__dim" style={{ left: 0, width: pct(inSec) }} />
             <div className="df-wave__dim" style={{ left: pct(outSec), right: 0 }} />
           </>
+        ) : null}
+        {!env.line && dur ? (
+          <div
+            title={t("Click the line to add a volume point")}
+            style={{ position: "absolute", left: 0, right: 0, top: "8%", borderTop: "2px dashed var(--accent-line)", pointerEvents: "none" }}
+          />
         ) : null}
         {env.line ? (
           <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} aria-hidden="true">

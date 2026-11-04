@@ -1,6 +1,7 @@
 import { formatTime, useT } from "@theatre-suite/core";
 import { Icon } from "@theatre-suite/ui";
 import { api } from "../lib/api";
+import { useUi } from "../state/ui";
 import { effectiveOut, trackDuration, useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 import { AT_END, ON_SPACE, atEndText, goActionText, nextGoEffect } from "./labels";
@@ -28,7 +29,7 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
         className="df-go"
         disabled={!sb || !live.engine.ready}
         aria-label={sb ? t("GO: {action} track {n}", { action: goActionText(t, sb.onSpace, settings), n: numbers.get(sb.id) ?? "" }) : t("GO")}
-        onClick={() => api.engineGo().catch((e) => console.error(e))}
+        onClick={() => api.engineGo().catch((e) => useUi.getState().showToast(String(e), "error"))}
         onKeyDown={(e) => e.key === " " && e.preventDefault()}
       >
         <span className="df-go__main">
