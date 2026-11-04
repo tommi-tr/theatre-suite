@@ -41,11 +41,11 @@ jobs:
       - name: Type check (all packages)
         run: pnpm -r typecheck
 
-      - name: Rust tests
-        run: cargo test -p diaframma --lib
-
       - name: Build installer
         run: pnpm --filter diaframma tauri build --bundles nsis
+
+      - name: Rust tests
+        run: cargo test -p diaframma --lib
 
       - name: Upload installer
         uses: actions/upload-artifact@v7
