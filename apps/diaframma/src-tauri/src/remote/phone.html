@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0E0F12">
+<title>Diaframma remote</title>
+<style>
+  :root { --bg:#0E0F12; --bar:#131418; --s1:#18191E; --s2:#202228; --s3:#2A2D35; --bd:#272A31; --bd2:#383C46; --t1:#ECEDF0; --t2:#A7AAB3; --t3:#878B95;
+          --go:#34D17B; --goInk:#04200F; --sb:#FFB224; --sbInk:#2B1B00; --stop:#FF5F5F; --acc:#8E80FF; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--t1); font: 15px/1.35 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bar); border-bottom: 1px solid var(--bd); }
+  header b { font-size: 16px; }
+  .tabs { margin-left: auto; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--bd); border-radius: 8px; background: var(--s1); }
+  .tabs button { border: 0; background: transparent; color: var(--t2); padding: 7px 12px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; }
+  .tabs button[aria-pressed=true] { background: var(--s3); color: var(--t1); }
+  main { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .card { border: 1px solid var(--bd); background: var(--s1); border-radius: 12px; padding: 12px 14px; }
+  .kick { font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+  .name { font-size: 17px; font-weight: 600; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .badge { flex: none; width: 44px; height: 44px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font: 600 20px ui-monospace, Consolas, monospace; }
+  .sb { border: 1.5px solid rgba(255,178,36,.75); background: rgba(255,178,36,.09); }
+  .sb .badge { background: var(--sb); color: var(--sbInk); }
+  .pl { border-color: rgba(52,209,123,.6); background: rgba(52,209,123,.09); }
+  .pl .badge { background: var(--go); color: var(--goInk); }
+  .mono { font-family: ui-monospace, Consolas, monospace; }
+  .go { width: 100%; height: 132px; border: 0; border-radius: 16px; background: var(--go); color: var(--goInk); font: 800 44px/1 system-ui; letter-spacing: .08em; }
+  .go:active { filter: brightness(.9); transform: scale(.995); }
+  .go:disabled { background: var(--s3); color: var(--t3); }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .btn { height: 56px; border: 1px solid var(--bd); border-radius: 12px; background: var(--s2); color: var(--t1); font: 600 16px system-ui; }
+  .btn:active { background: var(--s3); }
+  .stop { border: 1.5px solid var(--stop); background: rgba(255,95,95,.1); color: var(--stop); }
+  .muted { color: var(--t3); font-size: 13px; }
+  .lock { display: none; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--acc); color: var(--acc); font-weight: 600; font-size: 13px; }
+  .src .ctl { display: flex; gap: 8px; margin-top: 10px; }
+  .src .ctl button { flex: 1; height: 46px; border: 1px solid var(--bd); border-radius: 10px; background: var(--s2); color: var(--t1); font-size: 18px; }
+  .src .ctl button:disabled { opacity: .35; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: .06em; border: 1px solid var(--bd2); color: var(--t2); }
+  .pill.on { border-color: rgba(52,209,123,.6); color: var(--go); }
+  .pill.pa { border-color: rgba(255,178,36,.75); color: var(--sb); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 7px 4px; border-bottom: 1px solid var(--bd); color: var(--t2); vertical-align: top; }
+  #err { display: none; position: fixed; left: 12px; right: 12px; bottom: 12px; padding: 10px 12px; border-radius: 10px; background: var(--s2); border: 1px solid var(--stop); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true"><rect x="1" y="1" width="98" height="98" rx="23" fill="#F5F5F7"/><path d="M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68" stroke="#1B1C21" stroke-width="5" stroke-linecap="round"/><path d="M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38" stroke="#6B5BEF" stroke-width="5" stroke-linecap="round"/></svg>
+  <b>Diaframma</b>
+  <div class="tabs"><button id="tShow" aria-pressed="true">Show</button><button id="tRh" aria-pressed="false">Rehearsal</button></div>
+</header>
+<main id="show">
+  <div class="lock" id="lock">🔒 Show locked · GO, standby, Pause and Stop all still work</div>
+  <div class="card sb" id="sbCard"><div class="row"><div class="badge" id="sbN">–</div><div style="min-width:0"><div class="kick" style="color:var(--sb)">STANDBY</div><div class="name" id="sbName">Nothing in standby</div></div></div></div>
+  <button class="go" id="go">GO</button>
+  <div class="grid">
+    <button class="btn" id="up">▲ Standby</button>
+    <button class="btn" id="down">▼ Standby</button>
+    <button class="btn" id="pause">❚❚ Pause</button>
+    <button class="btn stop" id="stop">■ Stop all</button>
+  </div>
+  <div id="playing"></div>
+  <div class="muted" id="status"></div>
+</main>
+<main id="rh" hidden>
+  <button class="btn" id="pauseAll">❚❚ Pause all</button>
+  <div id="sources"></div>
+  <div class="card"><div class="kick" style="color:var(--sb)">★ FAVORITES</div><table><tbody id="favs"></tbody></table></div>
+</main>
+<div id="err"></div>
+<script>
+  const k = new URLSearchParams(location.search).get("k") || "";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const fmt = (s) => { if (s == null || !isFinite(s)) return "--:--"; s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
+  let last = null;
+  function showErr(t) { const e = $("err"); e.textContent = t; e.style.display = t ? "block" : "none"; }
+  async function cmd(body) {
+    if (navigator.vibrate) navigator.vibrate(15);
+    try {
+      const r = await fetch("/api/cmd?k=" + encodeURIComponent(k), { method: "POST", body: JSON.stringify(body) });
+      const j = await r.json();
+      showErr(j.ok ? "" : j.error || "Error");
+    } catch { showErr("Diaframma cannot be reached. Same Wi-Fi?"); }
+    poll();
+  }
+  $("go").onclick = () => cmd({ action: "go" });
+  $("up").onclick = () => cmd({ action: "up" });
+  $("down").onclick = () => cmd({ action: "down" });
+  $("pause").onclick = () => cmd({ action: "pause" });
+  $("stop").onclick = () => cmd({ action: "stopall" });
+  $("pauseAll").onclick = () => cmd({ action: "rhpauseall" });
+  $("tShow").onclick = () => { $("show").hidden = false; $("rh").hidden = true; $("tShow").setAttribute("aria-pressed", "true"); $("tRh").setAttribute("aria-pressed", "false"); };
+  $("tRh").onclick = () => { $("show").hidden = true; $("rh").hidden = false; $("tShow").setAttribute("aria-pressed", "false"); $("tRh").setAttribute("aria-pressed", "true"); };
+  function render(s) {
+    const sh = s.show || {};
+    $("lock").style.display = s.locked ? "block" : "none";
+    $("sbN").textContent = sh.standby && sh.standby.n ? sh.standby.n : "–";
+    $("sbName").textContent = sh.standby ? sh.standby.name : "Nothing in standby";
+    $("go").disabled = !sh.standby || !sh.ready;
+    $("playing").innerHTML = (sh.playing || []).map((p) =>
+      `<div class="card pl" style="margin-bottom:10px"><div class="row"><div class="badge">${esc(p.n ?? "–")}</div><div style="flex:1;min-width:0"><div class="kick" style="color:var(--go)">${p.paused ? "PAUSED" : p.fadingOut ? "FADING OUT" : "PLAYING"}</div><div class="name">${esc(p.name)}</div></div><div class="mono" style="text-align:right"><div style="font-size:20px;font-weight:600">${fmt(p.pos)}</div><div class="muted">−${fmt(p.left)}</div></div></div></div>`).join("");
+    $("status").textContent = sh.ready ? "Connected to Diaframma" : "Diaframma's audio output is not ready";
+    $("sources").innerHTML = (s.sources || []).map((x) =>
+      `<div class="card src" style="margin-top:10px"><div class="row" style="justify-content:space-between"><b>${esc(x.app)}</b><span class="pill ${x.status === "playing" ? "on" : x.status === "paused" ? "pa" : ""}">${esc(x.status.toUpperCase())}</span></div><div class="muted" style="margin-top:4px">${esc(x.title)}${x.artist ? " · " + esc(x.artist) : ""}</div><div class="ctl"><button data-id="${esc(x.id)}" data-op="prev" ${x.canPrev ? "" : "disabled"}>⏮</button><button data-id="${esc(x.id)}" data-op="toggle" ${x.canToggle ? "" : "disabled"}>⏯</button><button data-id="${esc(x.id)}" data-op="next" ${x.canNext ? "" : "disabled"}>⏭</button><button data-id="${esc(x.id)}" data-op="star">★</button></div></div>`).join("") || `<div class="card muted" style="margin-top:10px">No player is making sound on the computer.</div>`;
+    $("favs").innerHTML = (Array.isArray(s.favorites) ? s.favorites : []).map((f) => `<tr><td><b style="color:var(--t1)">${esc(f.title)}</b><br>${esc(f.artist)}</td><td>${esc(f.source)}</td><td class="mono">${f.positionSec != null ? fmt(f.positionSec) : ""}</td></tr>`).join("") || `<tr><td class="muted">No favorites yet.</td></tr>`;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-op]");
+    if (!b) return;
+    if (b.dataset.op === "star") cmd({ action: "star", id: b.dataset.id });
+    else cmd({ action: "rh", id: b.dataset.id, op: b.dataset.op });
+  });
+  async function poll() {
+    try {
+      const r = await fetch("/api/state?k=" + encodeURIComponent(k), { cache: "no-store" });
+      if (r.status === 403) { showErr("Wrong access code: scan the QR code again."); return; }
+      const s = await r.json();
+      last = s; render(s);
+      if ($("err").textContent.startsWith("Diaframma cannot")) showErr("");
+    } catch { showErr("Diaframma cannot be reached. Same Wi-Fi?"); }
+  }
+  poll(); setInterval(poll, 700);
+</script>
+</body>
+</html>

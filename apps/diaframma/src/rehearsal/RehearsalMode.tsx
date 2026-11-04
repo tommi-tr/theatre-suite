@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { save } from "@tauri-apps/plugin-dialog";
 import { basename, formatTime, uid, useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd, Range, StatusBar, type IconName } from "@theatre-suite/ui";
-import { api, isTauri, type RhOutput, type RhSnapshot, type RhSource } from "../lib/api";
+import { api, isTauri, type ExtTabs, type RhOutput, type RhSnapshot, type RhSource } from "../lib/api";
 import { pickAudioFiles } from "../lib/files";
 import { useSettings, type Favorite } from "../state/settings";
 import { startPlayerEvents, usePlayer } from "../state/player";
@@ -39,6 +39,7 @@ function kindText(t: (k: string) => string, s: RhSource): string {
 export function RehearsalMode() {
   const t = useT();
   const [snap, setSnap] = useState<RhSnapshot | null>(null);
+  const [ext, setExt] = useState<ExtTabs | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [volume, setVolume] = useState(1);
   const [speed, setSpeed] = useState(1);
@@ -57,6 +58,10 @@ export function RehearsalMode() {
       .rhSnapshot()
       .then(setSnap)
       .catch(() => setSnap({ supported: false, routingAvailable: false, sources: [], outputs: [], pendingRestore: 0 }));
+    api
+      .extTabs()
+      .then(setExt)
+      .catch(() => setExt(null));
   }, []);
 
   useEffect(() => {
@@ -67,8 +72,37 @@ export function RehearsalMode() {
   }, [refresh]);
 
   // The internal player appears as a source like the others.
+  const chromeSource = (snap?.sources ?? []).find((x) => x.exe === "chrome.exe") ?? null;
   const sources: RhSource[] = useMemo(() => {
-    const list = [...(snap?.sources ?? [])];
+    let list = [...(snap?.sources ?? [])];
+    // With the extension, every Chrome tab is a source of its own.
+    if (ext?.connected) {
+      list = list.filter((x) => x.exe !== "chrome.exe");
+      for (const tab of ext.tabs) {
+        const m = tab.media;
+        list.push({
+          id: `tab:${tab.tabId}`,
+          app: t("Chrome tab"),
+          exe: "chrome.exe",
+          kind: "browser",
+          title: m?.title || tab.title,
+          artist: m?.site || "",
+          thumb: null,
+          status: m ? (m.paused ? "paused" : "playing") : tab.audible ? "playing" : "stopped",
+          canToggle: !!m,
+          canNext: !!m,
+          canPrev: !!m,
+          canSpeed: !!m,
+          speed: m?.playbackRate ?? null,
+          volume: m ? m.volume : null,
+          peak: 0,
+          pids: chromeSource?.pids ?? [],
+          outputId: chromeSource?.outputId ?? null,
+          positionSec: m?.currentTime ?? null,
+          durationSec: m?.duration ?? null,
+        });
+      }
+    }
     if (player.playlist.length) {
       const defaultOut = snap?.outputs.find((o) => o.isDefault)?.id ?? null;
       const devId = player.device ? snap?.outputs.find((o) => o.name === player.device)?.id ?? defaultOut : null;
@@ -95,7 +129,7 @@ export function RehearsalMode() {
       });
     }
     return list;
-  }, [snap, player, playerVoice]);
+  }, [snap, ext, chromeSource, player, playerVoice, t]);
 
   const sel = sources.filter((s) => selected.includes(s.id));
   const speedOk = sel.length > 0 && sel.every((s) => s.canSpeed);
@@ -114,15 +148,18 @@ export function RehearsalMode() {
     }
   }, [selected.join("|")]);
 
+  const tabId = (id: string) => (id.startsWith("tab:") ? Number(id.slice(4)) : null);
   const applyVolume = (v: number) => {
     setVolume(v);
-    const ext = sel.filter((s) => s.id !== INTERNAL).map((s) => s.id);
+    sel.forEach((s) => tabId(s.id) !== null && api.extCommand(tabId(s.id)!, "volume", v).catch(() => {}));
+    const ext = sel.filter((s) => s.id !== INTERNAL && tabId(s.id) === null).map((s) => s.id);
     if (ext.length) api.rhSetVolume(ext, v).catch(() => {});
     if (selected.includes(INTERNAL)) usePlayer.getState().setVolume(v);
   };
   const applySpeed = (v: number) => {
     setSpeed(v);
-    const ext = sel.filter((s) => s.id !== INTERNAL).map((s) => s.id);
+    sel.forEach((s) => tabId(s.id) !== null && api.extCommand(tabId(s.id)!, "speed", v).catch(() => {}));
+    const ext = sel.filter((s) => s.id !== INTERNAL && tabId(s.id) === null).map((s) => s.id);
     if (ext.length) api.rhSetSpeed(ext, v).catch(() => {});
     if (selected.includes(INTERNAL)) usePlayer.getState().setSpeed(v);
   };
@@ -135,6 +172,10 @@ export function RehearsalMode() {
       else p.prev();
       return;
     }
+    if (tabId(s.id) !== null) {
+      api.extCommand(tabId(s.id)!, action).then(() => window.setTimeout(refresh, 300)).catch(() => {});
+      return;
+    }
     api
       .rhMedia(s.id, action)
       .then(() => window.setTimeout(refresh, 250))
@@ -145,6 +186,11 @@ export function RehearsalMode() {
     if (s.id === INTERNAL) {
       usePlayer.getState().setDevice(out.isDefault ? null : out.name);
       return;
+    }
+    if (tabId(s.id) !== null) {
+      if (!chromeSource) return;
+      useUi.getState().showToast(t("Chrome tabs share one output: the whole of Chrome moves."));
+      s = chromeSource;
     }
     if (!snap?.routingAvailable) {
       useUi.getState().showToast(t("Choosing the output of each program is not available on this version of Windows."), "error");

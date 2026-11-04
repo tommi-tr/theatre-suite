@@ -551,6 +551,67 @@ impl Engine {
         self.inner.state.lock().standby = id;
     }
 
+    /// Moves standby to the previous (-1) or next (+1) playable track.
+    pub fn standby_step(&self, delta: i32) {
+        let mut st = self.inner.state.lock();
+        let list: Vec<String> = st.tracks.iter().filter(|t| t.playable()).map(|t| t.id.clone()).collect();
+        if list.is_empty() {
+            return;
+        }
+        let j = match st.standby.as_ref().and_then(|id| list.iter().position(|x| x == id)) {
+            None => 0,
+            Some(i) => (i as i32 + delta).clamp(0, list.len() as i32 - 1) as usize,
+        };
+        st.standby = Some(list[j].clone());
+    }
+
+    /// Pauses (or resumes) the track that started last.
+    pub fn pause_current(&self) {
+        let id = {
+            let st = self.inner.state.lock();
+            st.voices.iter().rev().find(|v| !v.stopping()).map(|v| v.track_id.clone())
+        };
+        if let Some(id) = id {
+            self.toggle_pause(&id);
+        }
+    }
+
+    /// Short description of the show for the phone remote.
+    pub fn summary(&self) -> serde_json::Value {
+        let st = self.inner.state.lock();
+        let mut numbers = std::collections::HashMap::new();
+        let mut n = 0;
+        for t in st.tracks.iter().filter(|t| !t.hidden) {
+            n += 1;
+            numbers.insert(t.id.clone(), n);
+        }
+        let name = |id: &str| -> String {
+            st.track(id)
+                .and_then(|t| t.path.as_deref())
+                .map(|p| p.rsplit(['\\', '/']).next().unwrap_or(p).to_string())
+                .unwrap_or_default()
+        };
+        let standby = st.standby.as_ref().map(|id| serde_json::json!({ "n": numbers.get(id), "name": name(id) }));
+        let playing: Vec<serde_json::Value> = st
+            .voices
+            .iter()
+            .filter(|v| !v.ended)
+            .map(|v| {
+                let tp = st.track(&v.track_id);
+                let out = tp.and_then(|t| t.out_sec).map(|o| if v.duration > 0.0 { o.min(v.duration) } else { o }).unwrap_or(v.duration);
+                serde_json::json!({
+                    "n": numbers.get(&v.track_id),
+                    "name": name(&v.track_id),
+                    "pos": v.pos,
+                    "left": (out - v.pos).max(0.0),
+                    "paused": v.paused,
+                    "fadingOut": v.fade.falling(),
+                })
+            })
+            .collect();
+        serde_json::json!({ "ready": st.status.ready, "standby": standby, "playing": playing })
+    }
+
     pub fn go(&self) -> Result<(), String> {
         let (tp, rate) = {
             let mut st = self.inner.state.lock();

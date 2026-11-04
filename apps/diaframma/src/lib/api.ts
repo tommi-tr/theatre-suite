@@ -69,7 +69,50 @@ export const api = {
   playerSetSpeed: (speed: number) => call<void>("player_set_speed", { speed }),
   playerSetDevice: (name: string | null) => call<void>("player_set_device", { name }),
   playerState: () => call<LiveState>("player_state"),
+
+  // Connections (off until the user turns them on)
+  extEnable: (on: boolean) => call<void>("ext_enable", { on }),
+  extTabs: () => call<ExtTabs>("ext_tabs"),
+  extCommand: (tabId: number, action: string, value?: number) => call<void>("ext_command", { tabId, action, value: value ?? null }),
+  phoneEnable: (on: boolean) => call<PhoneInfo>("phone_enable", { on }),
+  phoneInfo: () => call<PhoneInfo>("phone_info"),
+  phoneNewCode: () => call<PhoneInfo>("phone_new_code"),
+  phoneUpdate: (locked: boolean, favorites: unknown) => call<void>("phone_update", { locked, favorites }),
 };
+
+export interface ExtTab {
+  tabId: number;
+  title: string;
+  url: string;
+  favIconUrl: string;
+  audible: boolean;
+  muted: boolean;
+  media: null | {
+    paused: boolean;
+    currentTime: number;
+    duration: number | null;
+    volume: number;
+    playbackRate: number;
+    hasNext: boolean;
+    site: string;
+    title: string;
+    artist: string;
+  };
+}
+
+export interface ExtTabs {
+  enabled: boolean;
+  connected: boolean;
+  tabs: ExtTab[];
+}
+
+export interface PhoneInfo {
+  enabled: boolean;
+  url: string;
+  code: string;
+  qrSvg: string;
+  error: string | null;
+}
 
 export interface RhSource {
   id: string;

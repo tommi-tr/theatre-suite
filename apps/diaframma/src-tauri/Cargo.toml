@@ -25,6 +25,9 @@ cpal = "0.18.2"
 symphonia = { version = "0.5.5", features = ["all"] }
 rtrb = "0.4.1"
 log = "0.4.35"
+tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+tiny_http = "0.12.0"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [

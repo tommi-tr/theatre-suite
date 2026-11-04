@@ -6,6 +6,7 @@ import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEngineState, onEvent } from "./lib/api";
 import { confirmDiscard, flushAutosave, newDocConfirm, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave } from "./lib/files";
 import { startEngineSync } from "./lib/engineSync";
+import { startRemoteSync } from "./lib/remote";
 import { LOGO } from "./lib/logo";
 import { useSettings } from "./state/settings";
 import { useDoc } from "./state/doc";
@@ -70,6 +71,7 @@ function Shell() {
       }
       stops.push(startAutosave());
       stops.push(startEngineSync());
+      stops.push(startRemoteSync());
       const un1 = await onEngineState((live) => useDoc.getState().setLive(live));
       const un2 = await onEvent<string>("open-file", async (path) => {
         if (await confirmDiscard(t)) await openDocPath(t, path);

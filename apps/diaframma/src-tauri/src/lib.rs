@@ -5,6 +5,7 @@
 
 mod audio;
 mod rehearsal;
+mod remote;
 mod storage;
 
 use tauri::{Emitter, Manager};
@@ -38,6 +39,8 @@ pub fn run() {
             app.manage(audio::Player(audio::Engine::start(app.handle().clone(), "player-state")));
             let journal = storage::data_dir(app.handle()).map(|d| d.join("rehearsal-journal.json")).unwrap_or_default();
             app.manage(rehearsal::Rehearsal::start(journal));
+            app.manage(remote::ext::ExtBridge::start());
+            app.manage(remote::phone::Phone::start(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -76,6 +79,13 @@ pub fn run() {
             rehearsal::rh_route,
             rehearsal::rh_pause_all,
             rehearsal::rh_restore,
+            remote::ext::ext_enable,
+            remote::ext::ext_tabs,
+            remote::ext::ext_command,
+            remote::phone::phone_enable,
+            remote::phone::phone_info,
+            remote::phone::phone_new_code,
+            remote::phone::phone_update,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Diaframma");
