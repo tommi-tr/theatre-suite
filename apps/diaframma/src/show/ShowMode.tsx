@@ -1,3 +1,288 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatTime, useT } from "@theatre-suite/core";
+import { Button, HoldButton, Icon, Kbd, StatusBar } from "@theatre-suite/ui";
+import { api, appWindow } from "../lib/api";
+import { openDocDialog, pickAudioFiles } from "../lib/files";
+import { effectiveOut, numbering, trackDuration, useDoc } from "../state/doc";
+import { useSettings } from "../state/settings";
+import { useUi } from "../state/ui";
+import { GoBar } from "./GoBar";
+import { TrackRow } from "./TrackRow";
+import { ReorderDialog } from "./ReorderDialog";
+import { EditorDialog } from "./EditorDialog";
+import { othersText } from "./labels";
+
+function isTyping(el: EventTarget | null) {
+  const e = el as HTMLElement | null;
+  return !!e && (e.tagName === "INPUT" || e.tagName === "TEXTAREA" || e.tagName === "SELECT" || e.isContentEditable);
+}
+
 export function ShowMode() {
-  return <main style={{ flex: 1 }} />;
+  const t = useT();
+  const tracks = useDoc((s) => s.tracks);
+  const live = useDoc((s) => s.live);
+  const infos = useDoc((s) => s.infos);
+  const missing = useDoc((s) => s.missing);
+  const expanded = useDoc((s) => s.expanded);
+  const locked = useDoc((s) => s.locked);
+  const settings = useSettings((s) => s.settings);
+  const dialog = useUi((s) => s.dialog);
+  const [typed, setTyped] = useState("");
+  const typedTimer = useRef<number | null>(null);
+  const lastEsc = useRef(0);
+  const [devices, setDevices] = useState<string[]>([]);
+  const numbers = useMemo(() => numbering(tracks), [tracks]);
+
+  // Arm the first track when a cue list is opened and nothing is in standby.
+  const filePath = useDoc((s) => s.filePath);
+  const hasPlayable = tracks.some((x) => !x.hidden && !!x.file);
+  useEffect(() => {
+    const st = useDoc.getState();
+    if (st.live.standbyId || st.live.voices.length) return;
+    const first = st.tracks.find((x) => !x.hidden && x.file);
+    if (first) api.engineSetStandby(first.id).catch(() => {});
+  }, [filePath, hasPlayable]);
+
+  useEffect(() => {
+    api.engineDevices().then(setDevices).catch(() => {});
+  }, []);
+
+  // Files dropped onto the window.
+  useEffect(() => {
+    const un = appWindow.onDragDrop((paths, x, y) => {
+      if (useDoc.getState().locked || useUi.getState().mode !== "show") return;
+      const ratio = window.devicePixelRatio || 1;
+      const el = document.elementFromPoint(x / ratio, y / ratio) as HTMLElement | null;
+      const row = el?.closest<HTMLElement>("[data-track-id]");
+      useDoc.getState().addFiles(paths, row?.dataset.trackId);
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, []);
+
+  // Keyboard: GO, standby, stop, lock, undo.
+  useEffect(() => {
+    const playable = () => useDoc.getState().tracks.filter((x) => !x.hidden && x.file);
+    const onKey = (e: KeyboardEvent) => {
+      if (useUi.getState().dialog || useUi.getState().mode !== "show") return;
+      if (isTyping(e.target)) return;
+      const st = useDoc.getState();
+      const k = e.key;
+      if (k === " " || e.code === "Space") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.repeat) api.engineGo().catch((err) => useUi.getState().showToast(String(err), "error"));
+        return;
+      }
+      if (k === "Escape") {
+        e.preventDefault();
+        const now = Date.now();
+        const immediate = now - lastEsc.current < 900;
+        lastEsc.current = now;
+        setTyped("");
+        api.engineStopAll(immediate).catch(() => {});
+        return;
+      }
+      if (/^[0-9]$/.test(k) && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setTyped((p) => (p + k).slice(-3));
+        if (typedTimer.current) window.clearTimeout(typedTimer.current);
+        typedTimer.current = window.setTimeout(() => setTyped(""), 4000);
+        return;
+      }
+      if (k === "Backspace") {
+        setTyped((p) => p.slice(0, -1));
+        return;
+      }
+      if (k === "Enter") {
+        setTyped((p) => {
+          if (p) {
+            const n = Number(p);
+            const nums = numbering(st.tracks);
+            const target = st.tracks.find((x) => nums.get(x.id) === n);
+            if (target && target.file) api.engineSetStandby(target.id).catch(() => {});
+            else useUi.getState().showToast(t("There is no track {n}.", { n }));
+          }
+          return "";
+        });
+        e.preventDefault();
+        return;
+      }
+      if (k === "ArrowDown" || k === "ArrowUp") {
+        e.preventDefault();
+        const list = playable();
+        if (!list.length) return;
+        const i = list.findIndex((x) => x.id === st.live.standbyId);
+        const j = i < 0 ? 0 : Math.max(0, Math.min(list.length - 1, i + (k === "ArrowDown" ? 1 : -1)));
+        api.engineSetStandby(list[j].id).catch(() => {});
+        document.querySelector(`[data-track-id="${list[j].id}"]`)?.scrollIntoView({ block: "nearest" });
+        return;
+      }
+      if (e.ctrlKey && k.toLowerCase() === "l") {
+        e.preventDefault();
+        st.setLocked(!st.locked);
+        return;
+      }
+      if (st.locked) return;
+      if (e.ctrlKey && (k.toLowerCase() === "y" || (e.shiftKey && k.toLowerCase() === "z"))) {
+        e.preventDefault();
+        st.redo();
+      } else if (e.ctrlKey && k.toLowerCase() === "z") {
+        e.preventDefault();
+        st.undo();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [t]);
+
+  // Keep the standby row visible.
+  useEffect(() => {
+    if (live.standbyId) document.querySelector(`[data-track-id="${live.standbyId}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [live.standbyId]);
+
+  const voiceOf = useMemo(() => {
+    const m = new Map<string, (typeof live.voices)[number]>();
+    for (const v of live.voices) {
+      const prev = m.get(v.trackId);
+      if (!prev || (prev.fading === "out" && v.fading !== "out")) m.set(v.trackId, v);
+    }
+    return m;
+  }, [live.voices]);
+
+  const hiddenCount = tracks.filter((x) => x.hidden).length;
+  const emptyCount = tracks.filter((x) => !x.file).length;
+  const total = tracks
+    .filter((x) => !x.hidden && x.file)
+    .reduce((acc, x) => {
+      const d = trackDuration(x, infos);
+      const o = effectiveOut(x, d);
+      return acc + (o !== null ? Math.max(0, o - x.inSec) : 0);
+    }, 0);
+  const missingCount = Object.values(missing).filter(Boolean).length;
+  const outputLabel = settings.outputDevice ?? t("Windows default");
+
+  return (
+    <>
+      <div className={locked ? "df-toolbar df-toolbar--locked" : "df-toolbar"}>
+        {!locked ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Button icon="folderOpen" onClick={() => openDocDialog(t)} title="Ctrl O">
+              {t("Open cue list")}
+            </Button>
+            <Button icon="reorder" onClick={() => useUi.getState().openDialog("reorder")}>
+              {t("Reorder")}
+            </Button>
+            <Button
+              icon="plus"
+              onClick={async () => {
+                const files = await pickAudioFiles(t, true);
+                if (files.length) useDoc.getState().addFiles(files);
+                else useDoc.getState().addTrack();
+              }}
+            >
+              {t("Add track")}
+            </Button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span className="df-locked-note">
+              <Icon name="lock" size={15} />
+              {t("Show locked")}
+            </span>
+            <span className="ts-ellipsis" style={{ color: "var(--text-2)", fontSize: 12.5 }}>
+              {t("Only GO, standby, Pause, On Space and At end can be used")}
+            </span>
+          </div>
+        )}
+        <span className="ts-spacer" />
+        <label className="ts-btn ts-btn--ghost" style={{ cursor: locked ? "default" : "pointer" }} title={t("Audio output")}>
+          <Icon name="speaker" size={15} />
+          <span style={{ color: "var(--text-3)" }}>{t("Output")}</span>
+          <select
+            className="df-inline-select"
+            value={settings.outputDevice ?? ""}
+            disabled={locked}
+            onFocus={() => api.engineDevices().then(setDevices).catch(() => {})}
+            onChange={(e) => useSettings.getState().update({ outputDevice: e.currentTarget.value || null })}
+            aria-label={t("Audio output")}
+          >
+            <option value="">{t("Windows default")}</option>
+            {devices.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+            {settings.outputDevice && !devices.includes(settings.outputDevice) ? <option value={settings.outputDevice}>{outputLabel}</option> : null}
+          </select>
+        </label>
+        {!locked ? (
+          <Button icon="lock" onClick={() => useDoc.getState().setLocked(true)} kbd="Ctrl L">
+            {t("Lock")}
+          </Button>
+        ) : (
+          <HoldButton className="ts-btn ts-btn--primary" onHold={() => useDoc.getState().setLocked(false)} ariaLabel={t("Hold to unlock")}>
+            <Icon name="lock" size={15} />
+            {t("Locked")}
+            <span style={{ opacity: 0.75, fontWeight: 500 }}>· {t("hold to unlock")}</span>
+          </HoldButton>
+        )}
+      </div>
+
+      <GoBar numbers={numbers} typed={typed} />
+
+      {missingCount > 0 && !locked ? (
+        <div className="ts-banner" style={{ borderBottomColor: "var(--stop)", background: "var(--stop-soft)" }}>
+          <Icon name="alert" size={15} color="var(--stop)" />
+          {t("{n} audio files were not found. They will be skipped until you find them.", { n: missingCount })}
+        </div>
+      ) : null}
+
+      <main className="df-list" aria-label={t("Tracks")}>
+        {tracks.map((tr) => (
+          <TrackRow
+            key={tr.id}
+            track={tr}
+            number={numbers.get(tr.id) ?? null}
+            standby={live.standbyId === tr.id}
+            voice={voiceOf.get(tr.id) ?? null}
+            info={tr.file ? infos[tr.file.path] : undefined}
+            missing={!!missing[tr.id]}
+            locked={locked}
+            expanded={!!expanded[tr.id]}
+          />
+        ))}
+        {!locked ? (
+          <button type="button" className="df-add-row" onClick={() => useDoc.getState().addTrack()}>
+            <Icon name="plus" size={15} />
+            {t("Add an empty row")}
+          </button>
+        ) : null}
+      </main>
+
+      <StatusBar>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className={live.engine.ready ? "ts-dot ts-dot--go" : live.engine.error ? "ts-dot ts-dot--stop" : "ts-dot ts-dot--sb"} />
+          {live.engine.ready
+            ? `${t("Audio engine ready")} · ${live.engine.device} · ${(live.engine.sampleRate / 1000).toLocaleString()} kHz`
+            : live.engine.error ?? t("Starting the audio engine…")}
+        </span>
+        <span>
+          {t("{n} rows", { n: tracks.length })} · {t("{n} hidden", { n: hiddenCount })} · {t("{n} empty", { n: emptyCount })} · {formatTime(total)} {t("total")}
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <Icon name="info" size={12} />
+          {othersText(t, settings.othersOnGo)}
+        </span>
+        <span className="ts-spacer" />
+        <span>
+          <Kbd>0–9</Kbd> + <Kbd>Enter</Kbd> {t("standby")} · <Kbd>↑ ↓</Kbd> {t("move standby")} · <Kbd>Esc</Kbd> ×2 {t("instant stop")}
+        </span>
+      </StatusBar>
+
+      {dialog === "reorder" ? <ReorderDialog onClose={() => useUi.getState().closeDialog()} /> : null}
+      {dialog === "editor" ? <EditorDialog onClose={() => useUi.getState().closeDialog()} /> : null}
+    </>
+  );
 }

@@ -3,6 +3,7 @@
 //! The audio engine runs on its own threads, independent from the
 //! interface: if the window freezes, sound keeps playing.
 
+mod audio;
 mod storage;
 
 use tauri::{Emitter, Manager};
@@ -30,6 +31,11 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let engine = audio::Engine::start(app.handle().clone());
+            app.manage(engine);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app_info,
             storage::settings_load,
@@ -43,12 +49,24 @@ pub fn run() {
             storage::find_files,
             storage::resolve_relative,
             storage::make_relative,
+            audio::engine_devices,
+            audio::engine_set_device,
+            audio::engine_sync,
+            audio::engine_set_standby,
+            audio::engine_go,
+            audio::engine_pause,
+            audio::engine_stop_all,
+            audio::engine_state,
+            audio::engine_analyze,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Diaframma");
 
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
+            if let Some(engine) = handle.try_state::<audio::Engine>() {
+                engine.shutdown();
+            }
             storage::session_end(handle);
         }
     });
