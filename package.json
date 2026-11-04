@@ -1,0 +1,13 @@
+{
+  "name": "theatre-suite",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "diaframma:dev": "pnpm --filter diaframma tauri dev",
+    "diaframma:build": "pnpm --filter diaframma tauri build"
+  }
+}
