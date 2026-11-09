@@ -176,13 +176,13 @@ function Shell() {
           <>
             {mode !== "rehearsal" ? <FileMenu /> : null}
             <Button variant="ghost" icon="book" onClick={() => ui.openDialog("guide")} title="F1">
-              {t("Guide")}
+              <span className="df-bl">{t("Guide")}</span>
             </Button>
             <Button variant="ghost" icon="settings" onClick={() => ui.openDialog("settings")} title="Ctrl ,">
-              {t("Settings")}
+              <span className="df-bl">{t("Settings")}</span>
             </Button>
             <Button variant="ghost" icon="phone" onClick={() => ui.openDialog("phone")}>
-              {t("Phone")}
+              <span className="df-bl">{t("Phone")}</span>
               <span className={phoneOn ? "ts-dot ts-dot--go" : "ts-dot"} />
             </Button>
           </>

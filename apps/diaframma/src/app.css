@@ -1633,7 +1633,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 14px 18px 18px;
-  --kb-u: 62px;
+  --kb-u: 68px;
   --kb-gap: 6px;
 }
 .df-lpmode__top {
@@ -2032,4 +2032,19 @@
 .df-test-bad {
   color: var(--stop);
   font-weight: 600;
+}
+
+.df-kb-key__sound {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+/* Narrow windows: the title bar keeps only the icons. */
+@media (max-width: 1240px) {
+  .ts-titlebar .ts-seg__label,
+  .ts-titlebar .df-bl {
+    display: none;
+  }
+  .ts-titlebar .ts-seg__btn {
+    padding: 0 12px;
+  }
 }

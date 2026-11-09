@@ -88,7 +88,7 @@ export function Segmented<T extends string>({
       {options.map((o) => (
         <button key={o.value} type="button" className="ts-seg__btn" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
           {o.icon ? <Icon name={o.icon} size={15} /> : null}
-          {o.label}
+          <span className="ts-seg__label">{o.label}</span>
         </button>
       ))}
     </div>
