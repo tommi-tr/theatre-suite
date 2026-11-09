@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Theatre Suite — shared model of a show project (manifest, scan, copy, update checks)"
 authors = ["Theatre Suite"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 publish = false
 
 [dependencies]

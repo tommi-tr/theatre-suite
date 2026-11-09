@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Theatre Suite launcher — settings, installed apps, launching documents, update checks"
 authors = ["Theatre Suite"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 publish = false
 
 [dependencies]

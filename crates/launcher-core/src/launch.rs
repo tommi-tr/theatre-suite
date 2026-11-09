@@ -20,6 +20,18 @@ pub fn open_with(program: &Path, doc: &Path) -> Result<()> {
     cmd.spawn().map(|_| ()).map_err(|e| format!("Cannot start {}: {e}", program.display()))
 }
 
+/// Starts `program` with no document (the app opens on its own start screen).
+pub fn start(program: &Path) -> Result<()> {
+    let mut cmd = if cfg!(target_os = "macos") && program.extension().is_some_and(|e| e == "app") {
+        let mut c = Command::new("open");
+        c.arg("-a").arg(program);
+        c
+    } else {
+        Command::new(program)
+    };
+    cmd.spawn().map(|_| ()).map_err(|e| format!("Cannot start {}: {e}", program.display()))
+}
+
 /// Shows a file or folder in the system file manager.
 pub fn reveal(path: &Path) -> Result<()> {
     let r = if cfg!(windows) {

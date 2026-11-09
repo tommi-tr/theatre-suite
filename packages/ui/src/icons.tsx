@@ -89,6 +89,10 @@ export const ICONS = {
   hand: "M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0",
   toEnd: "M5 12h12M13 7l5 5-5 5M21 5v14",
   toggle: "M7 7h10a5 5 0 0 1 0 10H7A5 5 0 0 1 7 7zM7 12h.01",
+  archive: "M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4",
+  mask: "M5 5h14v6a7 7 0 0 1-14 0zM9 10h.01M15 10h.01M9.5 14c1.5 1.5 3.5 1.5 5 0",
+  image: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM21 15l-5-5L5 21",
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
 } as const;
 
 export type IconName = keyof typeof ICONS;

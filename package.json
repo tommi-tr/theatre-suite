@@ -8,6 +8,8 @@
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "diaframma:dev": "pnpm --filter diaframma tauri dev",
-    "diaframma:build": "pnpm --filter diaframma tauri build"
+    "diaframma:build": "pnpm --filter diaframma tauri build",
+    "launcher:dev": "pnpm --filter launcher tauri dev",
+    "launcher:build": "pnpm --filter launcher tauri build"
   }
 }
