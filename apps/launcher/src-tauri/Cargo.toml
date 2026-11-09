@@ -1,0 +1,29 @@
+[package]
+name = "launcher"
+version = "0.1.0"
+description = "Theatre Suite launcher — shows, documents, installations and versions"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-opener = "2.7.2"
+tauri-plugin-single-instance = "2.5.5"
+theatre-project = { path = "../../../crates/theatre-project" }
+launcher-core = { path = "../../../crates/launcher-core" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+
+[dev-dependencies]
+tempfile = "3.27.0"
