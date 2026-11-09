@@ -8,39 +8,21 @@ pub struct EnvPoint {
     pub v: f64,
 }
 
-/// How a track starts when GO plays it.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
+/// What a track does when GO starts it (optional, "Entrata").
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum OnSpace {
-    #[default]
-    Play,
+pub enum Entry {
     FadeIn,
-    /// Old files only: crossfade now belongs to "At end or Space" of the track playing before.
-    Crossfade,
-    StopAllPlay,
 }
 
-/// What happens to a playing track at its end, or when GO is pressed while it plays.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
+/// What a track does when it leaves, at GO or at its end (optional, "Uscita").
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum AtEnd {
-    #[default]
-    Stop,
-    Next,
+pub enum Exit {
     FadeOut,
     Crossfade,
-    LoopAll,
-    LoopCut,
-}
-
-impl AtEnd {
-    /// These need a GO of their own before the next track can start.
-    pub fn is_step(self) -> bool {
-        matches!(self, AtEnd::Stop | AtEnd::FadeOut | AtEnd::LoopAll | AtEnd::LoopCut)
-    }
-    pub fn is_loop(self) -> bool {
-        matches!(self, AtEnd::LoopAll | AtEnd::LoopCut)
-    }
+    /// Cut at GO; at the end of the track the next one starts exactly there.
+    Next,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
@@ -70,23 +52,52 @@ pub struct TrackParams {
     #[serde(default)]
     pub hidden: bool,
     pub path: Option<String>,
+    /// How the track starts (None = plain start).
     #[serde(default)]
-    pub on_space: OnSpace,
+    pub entry: Option<Entry>,
+    /// Length of the fade in; None = the general setting.
     #[serde(default)]
-    pub at_end: AtEnd,
+    pub entry_sec: Option<f64>,
+    /// How the track leaves at GO or at its end (None = the general setting at GO, stop at the end).
+    #[serde(default)]
+    pub exit: Option<Exit>,
+    /// Length of the fade out / crossfade; None = the general setting.
+    #[serde(default)]
+    pub exit_sec: Option<f64>,
+    /// Repeats until GO (the loop points if there are any, else the whole track).
+    #[serde(default)]
+    pub loop_on: bool,
     #[serde(default)]
     pub ignore_volume: bool,
     #[serde(default)]
     pub volume_db: f64,
     #[serde(default, deserialize_with = "de_eq")]
     pub eq: Eq5,
+    /// Balance, -1 (left) … +1 (right).
+    #[serde(default)]
+    pub pan: f64,
     #[serde(default)]
     pub in_sec: f64,
     pub out_sec: Option<f64>,
     #[serde(default)]
     pub envelope: Vec<EnvPoint>,
+    /// Pan over time, `v` -1…+1.
+    #[serde(default)]
+    pub pan_envelope: Vec<EnvPoint>,
     #[serde(rename = "loop")]
     pub loop_points: Option<LoopPoints>,
+    /// Play from 00:00 to the end of the file, keeping IN and OUT saved.
+    #[serde(default)]
+    pub ignore_cut: bool,
+    /// Volume curve bypassed (kept saved).
+    #[serde(default)]
+    pub ignore_envelope: bool,
+    /// Loop points bypassed: the loop covers the whole track.
+    #[serde(default)]
+    pub ignore_loop: bool,
+    /// Pan curve bypassed: the pan fader alone decides.
+    #[serde(default)]
+    pub ignore_pan: bool,
 }
 
 /// Accepts the five-band array, and also the old `{low, mid, high}` object.
@@ -104,6 +115,37 @@ impl TrackParams {
     pub fn playable(&self) -> bool {
         !self.hidden && self.path.is_some()
     }
+    /// Where the track starts (00:00 when the cut is ignored).
+    pub fn eff_in(&self) -> f64 {
+        if self.ignore_cut { 0.0 } else { self.in_sec.max(0.0) }
+    }
+    /// Where the track stops (None = end of the file).
+    pub fn eff_out(&self) -> Option<f64> {
+        if self.ignore_cut { None } else { self.out_sec }
+    }
+    pub fn volume_curve(&self) -> &[EnvPoint] {
+        if self.ignore_envelope { &[] } else { &self.envelope }
+    }
+    pub fn pan_curve(&self) -> &[EnvPoint] {
+        if self.ignore_pan { &[] } else { &self.pan_envelope }
+    }
+    /// Loop points in use (None = loop the whole track, or no loop).
+    pub fn cut_points(&self) -> Option<LoopPoints> {
+        if self.ignore_loop { None } else { self.loop_points.filter(|l| l.out_sec > l.in_sec) }
+    }
+    /// Plays to the end first, then repeats the loop points ("loop cut").
+    pub fn loop_cut(&self) -> bool {
+        self.loop_on && self.cut_points().is_some()
+    }
+    /// Length of the fade in, seconds.
+    pub fn entry_len(&self, cfg: &Config) -> f64 {
+        self.entry_sec.unwrap_or(cfg.fade_in_sec).max(0.0)
+    }
+    /// Length of the fade out or crossfade, seconds.
+    pub fn exit_len(&self, cfg: &Config) -> f64 {
+        let general = if self.exit == Some(Exit::Crossfade) { cfg.crossfade_sec } else { cfg.fade_out_sec };
+        self.exit_sec.unwrap_or(general).max(0.0)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
@@ -115,12 +157,15 @@ pub struct Config {
     pub fade_out_sec: f64,
     pub crossfade_sec: f64,
     pub stop_all_sec: f64,
+    /// Quick fade used when a track with no Exit is left at GO.
+    pub quick_fade_sec: f64,
     /// Main volume of this engine, dB.
     pub main_db: f64,
     /// First number of the cue list (0 or 1).
     pub number_from: u32,
-    /// Show behaviour: a playing track with Stop / Fade out / Loop needs its own GO.
-    /// Off for the internal player and the launchpad (GO just plays).
+    /// Show behaviour: the track in front leaves by its Exit, and Exit Next / Crossfade
+    /// start the attention track by themselves. Off for the internal player and the
+    /// launchpad (GO just plays).
     pub steps: bool,
 }
 
@@ -133,6 +178,7 @@ impl Default for Config {
             fade_out_sec: 3.0,
             crossfade_sec: 4.0,
             stop_all_sec: 1.5,
+            quick_fade_sec: 1.5,
             main_db: 0.0,
             number_from: 1,
             steps: true,
@@ -148,11 +194,11 @@ pub struct VoiceState {
     pub duration_sec: f64,
     pub paused: bool,
     pub fading: Option<&'static str>,
-    /// The track has At end: Loop all / Loop cut.
+    /// The track has Loop on.
     pub looping: bool,
     /// It is repeating the loop now.
     pub in_loop: bool,
-    /// This is the track the next GO acts on.
+    /// This is the track in front: the one whose Exit applies at GO.
     pub main: bool,
 }
 
@@ -168,13 +214,12 @@ pub struct EngineStatus {
 #[derive(Clone, Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveState {
-    /// The track GO will start.
+    /// The track GO will start (the attention track).
     pub standby_id: Option<String>,
-    /// The track playing "in front" (the one whose At end or Space applies).
+    /// The track playing "in front" (the one whose Exit applies).
     pub main_id: Option<String>,
-    /// A step the next GO performs on the main track before starting standby:
-    /// "stop" | "fadeOut" | "loopAll" | "loopCut".
-    pub pending: Option<&'static str>,
+    /// The attention track will start by itself (the track in front ends with Next / Crossfade).
+    pub auto_start: bool,
     /// Pause all is active: GO, P or Pause all resume.
     pub paused_all: bool,
     pub voices: Vec<VoiceState>,

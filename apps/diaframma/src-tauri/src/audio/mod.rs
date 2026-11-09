@@ -216,7 +216,7 @@ impl Engine {
             for p in prepared {
                 let ok = wanted.contains(&p.track_id)
                     && p.rate == rate
-                    && st.track(&p.track_id).map(|t| t.path.as_deref() == Some(p.path.as_str()) && (t.in_sec - p.start_sec).abs() < 1e-6).unwrap_or(false)
+                    && st.track(&p.track_id).map(|t| t.path.as_deref() == Some(p.path.as_str()) && (t.eff_in() - p.start_sec).abs() < 1e-6).unwrap_or(false)
                     && !p.h.ctl.failed.load(Ordering::Relaxed);
                 if ok {
                     keep.push(p);
@@ -228,7 +228,7 @@ impl Engine {
             let missing: Vec<(String, String, f64, FeedParams)> = wanted
                 .iter()
                 .filter(|id| !st.prepared.iter().any(|p| &p.track_id == *id))
-                .filter_map(|id| st.track(id).and_then(|t| t.path.clone().map(|p| (id.clone(), p, t.in_sec, feed_params(t)))))
+                .filter_map(|id| st.track(id).and_then(|t| t.path.clone().map(|p| (id.clone(), p, t.eff_in(), feed_params(t)))))
                 .collect();
             let mut dead = dead;
             dead.extend(dropped);
@@ -270,7 +270,7 @@ impl Engine {
                     };
                     if let Some(tp) = tp {
                         if let Some(path) = tp.path.clone() {
-                            if let Ok(mut v) = make_voice(&self.inner, &tp.id, &path, tp.in_sec, rate, feed_params(&tp), false) {
+                            if let Ok(mut v) = make_voice(&self.inner, &tp.id, &path, tp.eff_in(), rate, feed_params(&tp), false) {
                                 v.fade_in(fade_sec);
                                 let mut st = self.inner.state.lock();
                                 started(&mut st, &tp.id, v);
@@ -343,21 +343,12 @@ impl Engine {
             }
             (plan, st.rate)
         };
-        match plan {
-            GoPlan::Start(tp) => {
-                // Not prepared yet (for example just loaded): open it now.
-                let v = make_voice(&self.inner, &tp.id, tp.path.as_deref().unwrap_or_default(), tp.in_sec, rate, feed_params(&tp), false)?;
-                warm_up(&v);
-                let mut st = self.inner.state.lock();
-                apply_go(&mut st, &tp, v);
-            }
-            GoPlan::Loop { track, at } => {
-                let v = make_voice(&self.inner, &track.id, track.path.as_deref().unwrap_or_default(), at, rate, feed_params(&track), true)?;
-                warm_up(&v);
-                let mut st = self.inner.state.lock();
-                apply_loop(&mut st, &track, v);
-            }
-            _ => {}
+        if let GoPlan::Start(tp) = plan {
+            // Not prepared yet (for example just loaded): open it now.
+            let v = make_voice(&self.inner, &tp.id, tp.path.as_deref().unwrap_or_default(), tp.eff_in(), rate, feed_params(&tp), false)?;
+            warm_up(&v);
+            let mut st = self.inner.state.lock();
+            apply_go(&mut st, &tp, v);
         }
         Ok(())
     }
@@ -394,7 +385,7 @@ impl Engine {
             let st = self.inner.state.lock();
             let Some(v) = st.voices.iter().rev().find(|v| v.track_id == track_id && v.alive()) else { return Ok(()) };
             let Some(tp) = st.track(track_id).cloned() else { return Ok(()) };
-            let in_loop = v.in_loop() && tp.loop_points.map(|l| sec >= l.in_sec && sec < l.out_sec).unwrap_or(tp.at_end == AtEnd::LoopAll);
+            let in_loop = v.in_loop() && tp.loop_on && tp.cut_points().map(|l| sec >= l.in_sec && sec < l.out_sec).unwrap_or(true);
             (tp, st.rate, in_loop)
         };
         let Some(path) = tp.path.clone() else { return Ok(()) };
@@ -429,12 +420,7 @@ impl Engine {
         LiveState {
             standby_id: st.standby.clone(),
             main_id: main_idx.map(|i| st.voices[i].track_id.clone()),
-            pending: st.pending_step().map(|s| match s {
-                AtEnd::Stop => "stop",
-                AtEnd::FadeOut => "fadeOut",
-                AtEnd::LoopAll => "loopAll",
-                _ => "loopCut",
-            }),
+            auto_start: st.auto_start(),
             paused_all: st.paused_all,
             voices: st
                 .voices
@@ -455,7 +441,7 @@ impl Engine {
                         } else {
                             None
                         },
-                        looping: tp.map(|t| t.at_end.is_loop()).unwrap_or(false),
+                        looping: tp.map(|t| t.loop_on).unwrap_or(false),
                         in_loop: v.in_loop(),
                         main: main_idx == Some(i),
                     }
@@ -481,10 +467,10 @@ impl Engine {
                 .map(|p| p.rsplit(['\\', '/']).next().unwrap_or(p).to_string())
                 .unwrap_or_default()
         };
-        let at_end = |id: &str| st.track(id).map(|t| serde_json::to_value(t.at_end).unwrap_or_default()).unwrap_or_default();
-        let on_space = |id: &str| st.track(id).map(|t| serde_json::to_value(t.on_space).unwrap_or_default()).unwrap_or_default();
+        let exit = |id: &str| st.track(id).map(|t| serde_json::to_value(t.exit).unwrap_or_default()).unwrap_or_default();
+        let entry = |id: &str| st.track(id).map(|t| serde_json::to_value(t.entry).unwrap_or_default()).unwrap_or_default();
         let standby = st.standby.as_ref().filter(|id| st.track(id).map(|t| t.playable()).unwrap_or(false)).map(|id| {
-            serde_json::json!({ "n": numbers.get(id), "name": name(id), "onSpace": on_space(id) })
+            serde_json::json!({ "n": numbers.get(id), "name": name(id), "entry": entry(id) })
         });
         let playing: Vec<serde_json::Value> = live
             .voices
@@ -501,17 +487,15 @@ impl Engine {
                     "fadingOut": v.fading == Some("out"),
                     "inLoop": v.in_loop,
                     "main": v.main,
-                    "atEnd": at_end(&v.track_id),
+                    "exit": exit(&v.track_id),
                 })
             })
             .collect();
-        let main_at_end = live.main_id.as_deref().map(at_end);
         serde_json::json!({
             "ready": st.status.ready,
             "standby": standby,
             "playing": playing,
-            "pending": live.pending,
-            "mainAtEnd": main_at_end,
+            "autoStart": live.auto_start,
             "pausedAll": live.paused_all,
             "mainDb": st.config.main_db,
         })
