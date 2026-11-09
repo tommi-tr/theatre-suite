@@ -133,6 +133,7 @@ export function parseDoc(text: string): Track[] {
       envelope: curve(t.envelope, 0, 1),
       panEnvelope: curve(t.panEnvelope, -1, 1),
       loop: loop && typeof loop.inSec === "number" && typeof loop.outSec === "number" ? { inSec: loop.inSec, outSec: loop.outSec } : null,
+      cutVisible: t.cutVisible !== false,
       loopVisible: t.loopVisible !== false,
       envelopeVisible: t.envelopeVisible !== false,
       panVisible: t.panVisible !== false,

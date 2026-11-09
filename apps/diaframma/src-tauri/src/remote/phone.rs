@@ -31,6 +31,8 @@ struct State {
     levels: serde_json::Value,
     /// Main volume of Rehearsal mode (0…1).
     rh_main: f64,
+    /// Sources and outputs as the computer shows them (merged by the app, so the phone sees the same states).
+    rh: Option<serde_json::Value>,
     error: Option<String>,
     rh_cache: Option<(Instant, Snapshot)>,
 }
@@ -126,28 +128,43 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
             (Method::Get, "/api/state") => {
                 let engine = app.state::<Engine>();
                 let show = engine.summary();
-                let rh = {
-                    let cached = st.lock().rh_cache.as_ref().filter(|(t, _)| t.elapsed() < Duration::from_millis(1500)).map(|(_, s)| s.clone());
-                    match cached {
-                        Some(s) => s,
-                        None => {
-                            let s = app.state::<Rehearsal>().snapshot();
-                            st.lock().rh_cache = Some((Instant::now(), s.clone()));
-                            s
+                let pushed = st.lock().rh.clone();
+                if let Some(rh) = pushed {
+                    let s = st.lock();
+                    json(&serde_json::json!({
+                        "show": show,
+                        "locked": s.locked,
+                        "sources": rh.get("sources").cloned().unwrap_or_else(|| serde_json::json!([])),
+                        "outputs": rh.get("outputs").cloned().unwrap_or_else(|| serde_json::json!([])),
+                        "favorites": s.favorites,
+                        "rhMain": s.rh_main,
+                    }))
+                } else {
+                    // The app has not sent its view yet: what Windows reports.
+                    let rh = {
+                        let cached = st.lock().rh_cache.as_ref().filter(|(t, _)| t.elapsed() < Duration::from_millis(1500)).map(|(_, s)| s.clone());
+                        match cached {
+                            Some(s) => s,
+                            None => {
+                                let s = app.state::<Rehearsal>().snapshot();
+                                st.lock().rh_cache = Some((Instant::now(), s.clone()));
+                                s
+                            }
                         }
-                    }
-                };
-                let s = st.lock();
-                json(&serde_json::json!({
-                    "show": show,
-                    "locked": s.locked,
-                    "sources": rh.sources.iter().map(|x| {
-                        let level = s.levels.get(&x.id).and_then(|v| v.as_f64()).or(x.volume.map(|v| v as f64));
-                        serde_json::json!({"id": x.id, "app": x.app, "title": x.title, "artist": x.artist, "status": x.status, "canToggle": x.can_toggle, "canNext": x.can_next, "canPrev": x.can_prev, "volume": level, "hasVolume": x.volume.is_some()})
-                    }).collect::<Vec<_>>(),
-                    "favorites": s.favorites,
-                    "rhMain": s.rh_main,
-                }))
+                    };
+                    let s = st.lock();
+                    json(&serde_json::json!({
+                        "show": show,
+                        "locked": s.locked,
+                        "sources": rh.sources.iter().map(|x| {
+                            let level = s.levels.get(&x.id).and_then(|v| v.as_f64()).or(x.volume.map(|v| v as f64));
+                            serde_json::json!({"id": x.id, "app": x.app, "title": x.title, "artist": x.artist, "status": x.status, "canToggle": x.can_toggle, "canNext": x.can_next, "canPrev": x.can_prev, "volume": level, "hasVolume": x.volume.is_some()})
+                        }).collect::<Vec<_>>(),
+                        "outputs": [],
+                        "favorites": s.favorites,
+                        "rhMain": s.rh_main,
+                    }))
+                }
             }
             (Method::Post, "/api/cmd") => {
                 let mut body = String::new();
@@ -157,14 +174,6 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                 let engine = app.state::<Engine>();
                 let result: Result<(), String> = match action {
                     "go" => engine.go(),
-                    "up" => {
-                        engine.standby_step(-1);
-                        Ok(())
-                    }
-                    "down" => {
-                        engine.standby_step(1);
-                        Ok(())
-                    }
                     "pause" | "pauseall" => {
                         engine.pause_all();
                         Ok(())
@@ -179,15 +188,26 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                         app.state::<crate::audio::Pads>().0.stop_all(false);
                         Ok(())
                     }
+                    // Rehearsal commands go through the app, which knows the Chrome tabs and Diaframma's own player too.
                     "rh" => {
                         let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         let op = v.get("op").and_then(|x| x.as_str()).unwrap_or("toggle").to_string();
-                        st.lock().rh_cache = None;
-                        app.state::<Rehearsal>().media(id, op)
+                        let _ = app.emit("phone-rh-media", serde_json::json!({ "id": id, "op": op }));
+                        Ok(())
                     }
                     "rhpauseall" => {
-                        app.state::<Rehearsal>().pause_all();
-                        st.lock().rh_cache = None;
+                        let _ = app.emit("phone-rh-pauseall", ());
+                        Ok(())
+                    }
+                    "rhmain" => {
+                        let level = v.get("v").and_then(|x| x.as_f64()).unwrap_or(1.0).clamp(0.0, 1.0);
+                        let _ = app.emit("phone-rh-main", level);
+                        Ok(())
+                    }
+                    "rhout" => {
+                        let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                        let level = v.get("v").and_then(|x| x.as_f64()).unwrap_or(1.0).clamp(0.0, 1.0);
+                        let _ = app.emit("phone-rh-output-volume", serde_json::json!({ "id": id, "v": level }));
                         Ok(())
                     }
                     "star" => {
@@ -201,7 +221,6 @@ fn run(st: Arc<Mutex<State>>, app: AppHandle) {
                     "rhvol" => {
                         let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         let level = v.get("v").and_then(|x| x.as_f64()).unwrap_or(1.0).clamp(0.0, 1.0);
-                        st.lock().rh_cache = None;
                         let _ = app.emit("phone-rh-volume", serde_json::json!({ "id": id, "v": level }));
                         Ok(())
                     }
@@ -239,10 +258,11 @@ pub fn phone_new_code(p: tauri::State<'_, Phone>) -> PhoneInfo {
 }
 
 #[tauri::command]
-pub fn phone_update(p: tauri::State<'_, Phone>, locked: bool, favorites: serde_json::Value, levels: serde_json::Value, rh_main: f64) {
+pub fn phone_update(p: tauri::State<'_, Phone>, locked: bool, favorites: serde_json::Value, levels: serde_json::Value, rh_main: f64, rh: Option<serde_json::Value>) {
     let mut s = p.st.lock();
     s.locked = locked;
     s.favorites = favorites;
     s.levels = levels;
     s.rh_main = rh_main;
+    s.rh = rh;
 }

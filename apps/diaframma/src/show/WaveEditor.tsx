@@ -4,10 +4,16 @@ import { Icon, NumberField } from "@theatre-suite/ui";
 import type { EnvPoint, Track } from "../state/types";
 
 export type EditPhase = "start" | "move" | "end";
+/** The groups of the editor: only the one being edited answers to the mouse. */
+export type EditGroup = "cut" | "volume" | "loop" | "pan";
+export type WaveStyle = "mirror" | "bottom";
 
 const Y = (v: number) => 8 + (1 - v) * 84;
+/** Pan lane: +1 (right) at the top, −1 (left) at the bottom. */
+const PY = (v: number) => 50 - v * 42;
 
-export function wavePath(peaks: number[], bars: number, from = 0, to = bars): string {
+/** Bars of the waveform as one path (viewBox height 100). */
+export function wavePath(peaks: number[], bars: number, from = 0, to = bars, style: WaveStyle = "mirror"): string {
   if (!peaks.length) return "";
   let d = "";
   for (let i = from; i < to; i++) {
@@ -15,32 +21,37 @@ export function wavePath(peaks: number[], bars: number, from = 0, to = bars): st
     const b = Math.max(a + 1, Math.floor(((i + 1) * peaks.length) / bars));
     let m = 0;
     for (let k = a; k < b && k < peaks.length; k++) m = Math.max(m, peaks[k]);
-    const h = Math.max(1.5, Math.min(46, m * 46));
-    d += `M${(i + 0.5).toFixed(1)} ${(50 - h).toFixed(1)}V${(50 + h).toFixed(1)}`;
+    if (style === "bottom") {
+      const h = Math.max(1.5, Math.min(94, m * 94));
+      d += `M${(i + 0.5).toFixed(1)} 98V${(98 - h).toFixed(1)}`;
+    } else {
+      const h = Math.max(1.5, Math.min(46, m * 46));
+      d += `M${(i + 0.5).toFixed(1)} ${(50 - h).toFixed(1)}V${(50 + h).toFixed(1)}`;
+    }
   }
   return d;
 }
 
-function envelopePath(points: EnvPoint[], dur: number): { line: string; area: string } {
+function curvePath(points: EnvPoint[], dur: number, y: (v: number) => number): { line: string; area: string } {
   if (!points.length || dur <= 0) return { line: "", area: "" };
   const X = (t: number) => clamp((t / dur) * 1000, 0, 1000);
-  let d = `M0 ${Y(points[0].v).toFixed(1)} L${X(points[0].t).toFixed(1)} ${Y(points[0].v).toFixed(1)}`;
+  let d = `M0 ${y(points[0].v).toFixed(1)} L${X(points[0].t).toFixed(1)} ${y(points[0].v).toFixed(1)}`;
   for (let i = 1; i < points.length; i++) {
     const x0 = X(points[i - 1].t);
-    const y0 = Y(points[i - 1].v);
+    const y0 = y(points[i - 1].v);
     const x1 = X(points[i].t);
-    const y1 = Y(points[i].v);
+    const y1 = y(points[i].v);
     const mx = (x0 + x1) / 2;
     d += ` C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
   }
   const last = points[points.length - 1];
-  d += ` L1000 ${Y(last.v).toFixed(1)}`;
+  d += ` L1000 ${y(last.v).toFixed(1)}`;
   return { line: d, area: `${d} L1000 100 L0 100 Z` };
 }
 
-/** Level of the volume curve at time t (same shape as the audio engine). */
-function levelAt(points: EnvPoint[], t: number): number {
-  if (!points.length) return 1;
+/** Value of a curve at time t (same shape as the audio engine). */
+function valueAt(points: EnvPoint[], t: number, def: number): number {
+  if (!points.length) return def;
   if (t <= points[0].t) return points[0].v;
   const last = points[points.length - 1];
   if (t >= last.t) return last.v;
@@ -60,15 +71,17 @@ export function rulerTicks(dur: number, maxTicks = 6): number[] {
   return out;
 }
 
-type Drag = { kind: "in" | "out" | "lin" | "lout" } | { kind: "pt"; index: number };
+type Drag = { kind: "in" | "out" | "lin" | "lout" } | { kind: "pt"; index: number } | { kind: "pan"; index: number };
 
 export function WaveEditor({
   track,
   duration,
   peaks,
   height = 118,
+  panHeight = 0,
   playheadSec,
-  readOnly,
+  editing = null,
+  waveStyle = "mirror",
   onChange,
   onSeek,
   t,
@@ -78,8 +91,12 @@ export function WaveEditor({
   duration: number | null;
   peaks: number[] | null;
   height?: number;
+  /** Height of the pan lane under the waveform; 0 = no lane. */
+  panHeight?: number;
   playheadSec?: number | null;
-  readOnly?: boolean;
+  /** The group being edited; null = a preview that cannot be changed. */
+  editing?: EditGroup | null;
+  waveStyle?: WaveStyle;
   onChange: (patch: Partial<Track>, phase: EditPhase) => void;
   /** Given while the track is paused: a click away from the markers moves the play position. */
   onSeek?: (sec: number) => void;
@@ -88,30 +105,40 @@ export function WaveEditor({
   failed?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const panRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
-  /** Last press on a volume point, to recognise a double click. */
-  const lastDot = useRef<{ index: number; at: number } | null>(null);
+  /** Last press on a point, to recognise a double click. */
+  const lastDot = useRef<{ key: string; at: number } | null>(null);
   const dur = duration && duration > 0 ? duration : 0;
   const inSec = clamp(track.inSec, 0, dur || 0);
   const outSec = dur ? clamp(track.outSec ?? dur, 0, dur) : 0;
   const pct = (s: number) => (dur ? `${clamp((s / dur) * 100, 0, 100)}%` : "0%");
-  const bars = height > 200 ? 1000 : 260;
-  const wave = useMemo(() => (peaks ? wavePath(peaks, bars) : ""), [peaks, bars]);
-  const env = useMemo(() => envelopePath(track.envelope, dur), [track.envelope, dur]);
-  const showLoop = track.loop && track.loopVisible;
+  const big = height > 200;
+  const bars = big ? 1000 : 260;
+  const wave = useMemo(() => (peaks ? wavePath(peaks, bars, 0, bars, waveStyle) : ""), [peaks, bars, waveStyle]);
+  const env = useMemo(() => curvePath(track.envelope, dur, Y), [track.envelope, dur]);
+  const panCurve = useMemo(() => curvePath(track.panEnvelope, dur, PY), [track.panEnvelope, dur]);
+  const showLoop = !!track.loop && (track.loopVisible || editing === "loop");
+  const showCut = track.cutVisible || editing === "cut";
+  const showEnv = track.envelopeVisible || editing === "volume";
+  const showPan = panHeight > 0 && (track.panVisible || editing === "pan");
+  const can = (g: EditGroup) => editing === g && dur > 0;
 
-  const toTime = (clientX: number) => {
-    const r = ref.current!.getBoundingClientRect();
+  const toTime = (el: HTMLElement | null, clientX: number) => {
+    const r = el!.getBoundingClientRect();
     return clamp(((clientX - r.left) / r.width) * dur, 0, dur);
   };
   const toLevel = (clientY: number) => {
     const r = ref.current!.getBoundingClientRect();
-    const yPct = ((clientY - r.top) / r.height) * 100;
-    return clamp(1 - (yPct - 8) / 84, 0, 1);
+    return clamp(1 - (((clientY - r.top) / r.height) * 100 - 8) / 84, 0, 1);
+  };
+  const toPan = (clientY: number) => {
+    const r = panRef.current!.getBoundingClientRect();
+    return clamp((50 - ((clientY - r.top) / r.height) * 100) / 42, -1, 1);
   };
 
   const apply = (d: Drag, e: RPointerEvent, phase: EditPhase) => {
-    const tm = Math.round(toTime(e.clientX) * 100) / 100;
+    const tm = Math.round(toTime(d.kind === "pan" ? panRef.current : ref.current, e.clientX) * 100) / 100;
     if (d.kind === "in") onChange({ inSec: clamp(tm, 0, Math.max(0, outSec - 0.1)) }, phase);
     else if (d.kind === "out") {
       const o = clamp(tm, inSec + 0.1, dur);
@@ -124,11 +151,18 @@ export function WaveEditor({
       const hi = d.index < pts.length - 1 ? pts[d.index + 1].t - 0.01 : dur;
       pts[d.index] = { t: clamp(tm, lo, hi), v: Math.round(toLevel(e.clientY) * 100) / 100 };
       onChange({ envelope: pts }, phase);
+    } else if (d.kind === "pan") {
+      const pts = [...track.panEnvelope];
+      const lo = d.index > 0 ? pts[d.index - 1].t + 0.01 : 0;
+      const hi = d.index < pts.length - 1 ? pts[d.index + 1].t - 0.01 : dur;
+      const v = Math.round(toPan(e.clientY) * 50) / 50;
+      pts[d.index] = { t: clamp(tm, lo, hi), v: Math.abs(v) < 0.04 ? 0 : v };
+      onChange({ panEnvelope: pts }, phase);
     }
   };
 
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
-    if (readOnly || !dur || e.button !== 0) return;
+    if (!dur || e.button !== 0) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-drag]");
     let d: Drag | null = null;
     if (el) {
@@ -136,38 +170,62 @@ export function WaveEditor({
       if (k === "pt") {
         const index = Number(el.dataset.index);
         const now = Date.now();
-        // Double click on a point removes it.
-        if (lastDot.current && lastDot.current.index === index && now - lastDot.current.at < 400) {
+        if (lastDot.current && lastDot.current.key === `v${index}` && now - lastDot.current.at < 400) {
           lastDot.current = null;
-          removePoint(index);
+          onChange({ envelope: track.envelope.filter((_, i) => i !== index) }, "start");
           return;
         }
-        lastDot.current = { index, at: now };
+        lastDot.current = { key: `v${index}`, at: now };
         d = { kind: "pt", index };
       } else d = { kind: k as "in" | "out" | "lin" | "lout" };
     } else {
-      // Click on (or near) the volume line: add a point there.
-      const tm = toTime(e.clientX);
-      const r = ref.current!.getBoundingClientRect();
-      const lineY = r.top + (Y(levelAt(track.envelope, tm)) / 100) * r.height;
-      if (Math.abs(e.clientY - lineY) > 14) {
-        // Away from the line: while paused, move the play position there.
-        if (onSeek) onSeek(tm);
-        return;
+      const tm = toTime(ref.current, e.clientX);
+      if (can("volume")) {
+        const r = ref.current!.getBoundingClientRect();
+        const lineY = r.top + (Y(valueAt(track.envelope, tm, 1)) / 100) * r.height;
+        if (Math.abs(e.clientY - lineY) <= 14) {
+          const v = toLevel(e.clientY);
+          const rt = Math.round(tm * 100) / 100;
+          const pts = [...track.envelope, { t: rt, v: Math.round(v * 100) / 100 }].sort((a, b) => a.t - b.t);
+          onChange({ envelope: pts }, "start");
+          drag.current = { kind: "pt", index: pts.findIndex((p) => p.t === rt) };
+          e.currentTarget.setPointerCapture(e.pointerId);
+          return;
+        }
       }
-      const v = toLevel(e.clientY);
-      const pts = [...track.envelope, { t: Math.round(tm * 100) / 100, v: Math.round(v * 100) / 100 }].sort((a, b) => a.t - b.t);
-      const index = pts.findIndex((p) => p.t === Math.round(tm * 100) / 100);
-      onChange({ envelope: pts }, "start");
-      d = { kind: "pt", index };
-      drag.current = d;
-      e.currentTarget.setPointerCapture(e.pointerId);
+      // Away from any handle: while paused, move the play position there.
+      if (onSeek) onSeek(tm);
       return;
     }
     drag.current = d;
     e.currentTarget.setPointerCapture(e.pointerId);
     apply(d, e, "start");
   };
+
+  const onPanDown = (e: RPointerEvent<HTMLDivElement>) => {
+    if (!can("pan") || e.button !== 0) return;
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-drag='pan']");
+    if (el) {
+      const index = Number(el.dataset.index);
+      const now = Date.now();
+      if (lastDot.current && lastDot.current.key === `p${index}` && now - lastDot.current.at < 400) {
+        lastDot.current = null;
+        onChange({ panEnvelope: track.panEnvelope.filter((_, i) => i !== index) }, "start");
+        return;
+      }
+      lastDot.current = { key: `p${index}`, at: now };
+      drag.current = { kind: "pan", index };
+    } else {
+      const tm = Math.round(toTime(panRef.current, e.clientX) * 100) / 100;
+      const v = Math.round(toPan(e.clientY) * 50) / 50;
+      const pts = [...track.panEnvelope, { t: tm, v: Math.abs(v) < 0.04 ? 0 : v }].sort((a, b) => a.t - b.t);
+      onChange({ panEnvelope: pts }, "start");
+      drag.current = { kind: "pan", index: pts.findIndex((p) => p.t === tm) };
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (el) apply(drag.current!, e, "start");
+  };
+
   const onMove = (e: RPointerEvent<HTMLDivElement>) => {
     if (drag.current && e.currentTarget.hasPointerCapture(e.pointerId)) apply(drag.current, e, "move");
   };
@@ -177,45 +235,43 @@ export function WaveEditor({
       drag.current = null;
     }
   };
-  const removePoint = (i: number) => {
-    if (readOnly) return;
-    onChange({ envelope: track.envelope.filter((_, k) => k !== i) }, "start");
-  };
+
+  const fadedCut = track.ignoreCut;
+  const dim = (on: boolean) => (on ? { opacity: 0.35 } : undefined);
+  const pe = (g: EditGroup) => ({ pointerEvents: editing === g ? ("auto" as const) : ("none" as const) });
+  const cursor = !dur ? "default" : editing === "volume" ? "crosshair" : onSeek ? "pointer" : "default";
 
   return (
     <div>
       <div
         ref={ref}
-        className={height > 200 ? "df-wave df-wave--big" : "df-wave"}
-        style={{ height, cursor: readOnly || !dur ? "default" : onSeek ? "pointer" : "crosshair" }}
+        className={big ? "df-wave df-wave--big" : "df-wave"}
+        style={{ height, cursor }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        aria-label={t("Volume & cut")}
+        aria-label={t("EDITING")}
       >
         <svg viewBox={`0 0 ${bars} 100`} preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
           <path d={wave} stroke="var(--wave-hi)" strokeWidth={2} vectorEffect="non-scaling-stroke" fill="none" />
         </svg>
-        {dur ? (
+        {dur && showCut && !fadedCut ? (
           <>
             <div className="df-wave__dim" style={{ left: 0, width: pct(inSec) }} />
             <div className="df-wave__dim" style={{ left: pct(outSec), right: 0 }} />
           </>
         ) : null}
-        {!env.line && dur ? (
-          <div
-            title={t("Click the line to add a volume point")}
-            style={{ position: "absolute", left: 0, right: 0, top: "8%", borderTop: "2px dashed var(--accent-line)", pointerEvents: "none" }}
-          />
+        {!env.line && dur && editing === "volume" ? (
+          <div title={t("Click the line to add a volume point")} style={{ position: "absolute", left: 0, right: 0, top: "8%", borderTop: "2px dashed var(--accent-line)", pointerEvents: "none" }} />
         ) : null}
-        {env.line ? (
-          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} aria-hidden="true">
+        {env.line && showEnv ? (
+          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(track.ignoreEnvelope || track.ignoreVolume) }} aria-hidden="true">
             <path d={env.area} fill="var(--accent-soft)" stroke="none" />
-            <path d={env.line} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+            <path d={env.line} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeDasharray={track.ignoreEnvelope ? "5 4" : undefined} />
           </svg>
         ) : null}
-        {dur
+        {dur && showEnv
           ? track.envelope.map((p, i) => (
               <div
                 key={i}
@@ -223,32 +279,32 @@ export function WaveEditor({
                 data-drag="pt"
                 data-index={i}
                 title={t("Drag to move · double-click to remove")}
-                style={{ left: pct(p.t), top: `${Y(p.v)}%` }}
+                style={{ left: pct(p.t), top: `${Y(p.v)}%`, ...pe("volume"), ...(editing === "volume" ? undefined : { transform: "scale(0.75)", opacity: 0.8 }) }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  removePoint(i);
+                  if (can("volume")) onChange({ envelope: track.envelope.filter((_, k) => k !== i) }, "start");
                 }}
               />
             ))
           : null}
         {dur && showLoop && track.loop ? (
-          <>
-            <div className="df-wave__marker df-wave__marker--loop" data-drag="lin" style={{ left: pct(track.loop.inSec) }} title={t("Loop in")} />
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(track.ignoreLoop) }}>
+            <div className="df-wave__marker df-wave__marker--loop" data-drag="lin" style={{ left: pct(track.loop.inSec), ...pe("loop") }} title={t("Loop in")} />
             <span className="df-wave__looptag" style={{ left: pct(track.loop.inSec), marginLeft: 6 }}>
               <Icon name="repeat" size={10} strokeWidth={2.4} />
               {t("LOOP IN")}
             </span>
-            <div className="df-wave__marker df-wave__marker--loop" data-drag="lout" style={{ left: pct(track.loop.outSec) }} title={t("Loop out")} />
+            <div className="df-wave__marker df-wave__marker--loop" data-drag="lout" style={{ left: pct(track.loop.outSec), ...pe("loop") }} title={t("Loop out")} />
             <span className="df-wave__looptag" style={{ left: pct(track.loop.outSec), transform: "translateX(-100%)", marginLeft: -6 }}>
               {t("LOOP OUT")}
               <Icon name="repeat" size={10} strokeWidth={2.4} />
             </span>
-          </>
+          </div>
         ) : null}
-        {dur ? (
-          <>
-            <div className="df-wave__marker" data-drag="in" style={{ left: pct(inSec) }} title={t("Drag IN (start)")} />
-            <span className="df-wave__tag df-wave__tag--edit" style={{ left: pct(inSec), marginLeft: 5 }}>
+        {dur && showCut ? (
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(fadedCut) }}>
+            <div className="df-wave__marker" data-drag="in" style={{ left: pct(inSec), ...pe("cut") }} title={t("Drag IN (start)")} />
+            <span className={editing === "cut" ? "df-wave__tag df-wave__tag--edit" : "df-wave__tag"} style={{ left: pct(inSec), marginLeft: 5 }}>
               IN{" "}
               <NumberField
                 value={inSec}
@@ -256,12 +312,12 @@ export function WaveEditor({
                 label={t("IN (start)")}
                 min={0}
                 max={Math.max(0, outSec - 0.1)}
-                disabled={readOnly}
+                disabled={editing !== "cut"}
                 onCommit={(v) => onChange({ inSec: Math.round(v * 100) / 100 }, "start")}
               />
             </span>
-            <div className="df-wave__marker" data-drag="out" style={{ left: pct(outSec) }} title={t("Drag OUT (end)")} />
-            <span className="df-wave__tag df-wave__tag--edit" style={{ left: pct(outSec), transform: "translateX(-100%)", marginLeft: -5 }}>
+            <div className="df-wave__marker" data-drag="out" style={{ left: pct(outSec), ...pe("cut") }} title={t("Drag OUT (end)")} />
+            <span className={editing === "cut" ? "df-wave__tag df-wave__tag--edit" : "df-wave__tag"} style={{ left: pct(outSec), transform: "translateX(-100%)", marginLeft: -5 }}>
               OUT{" "}
               <NumberField
                 value={outSec}
@@ -269,11 +325,11 @@ export function WaveEditor({
                 label={t("OUT (end)")}
                 min={inSec + 0.1}
                 max={dur}
-                disabled={readOnly}
+                disabled={editing !== "cut"}
                 onCommit={(v) => onChange({ outSec: Math.abs(v - dur) < 0.02 ? null : Math.round(v * 100) / 100 }, "start")}
               />
             </span>
-          </>
+          </div>
         ) : null}
         {dur && playheadSec !== null && playheadSec !== undefined ? <div className="df-wave__playhead" style={{ left: pct(playheadSec) }} /> : null}
         {!dur ? (
@@ -282,6 +338,40 @@ export function WaveEditor({
           </div>
         ) : null}
       </div>
+      {showPan ? (
+        <div
+          ref={panRef}
+          className="df-wave df-wave--pan"
+          style={{ height: panHeight, marginTop: 4, cursor: can("pan") ? "crosshair" : "default" }}
+          onPointerDown={onPanDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          aria-label={t("Pan")}
+        >
+          <div style={{ position: "absolute", left: 0, right: 0, top: "50%", borderTop: "1px dashed var(--border)", pointerEvents: "none" }} />
+          <span className="df-wave__lane">R</span>
+          <span className="df-wave__lane df-wave__lane--bottom">L</span>
+          {panCurve.line ? (
+            <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(track.ignorePan) }} aria-hidden="true">
+              <path d={panCurve.line} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeDasharray={track.ignorePan ? "5 4" : undefined} />
+            </svg>
+          ) : null}
+          {dur
+            ? track.panEnvelope.map((p, i) => (
+                <div
+                  key={i}
+                  className="df-wave__dot"
+                  data-drag="pan"
+                  data-index={i}
+                  title={t("Drag to move · double-click to remove")}
+                  style={{ left: pct(p.t), top: `${PY(p.v)}%`, ...pe("pan") }}
+                />
+              ))
+            : null}
+          {dur && playheadSec !== null && playheadSec !== undefined ? <div className="df-wave__playhead" style={{ left: pct(playheadSec) }} /> : null}
+        </div>
+      ) : null}
       <div className="df-times" style={{ marginTop: 4 }}>
         <span style={{ left: 0 }}>00:00</span>
         {rulerTicks(dur).map((s) => (

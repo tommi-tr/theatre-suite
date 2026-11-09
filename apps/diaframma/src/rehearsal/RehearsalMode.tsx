@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
-import { basename, formatTime, uid, useT } from "@theatre-suite/core";
+import { formatTime, useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd, NumberField, Range, StatusBar, Switch, VFader, type IconName } from "@theatre-suite/ui";
 import { api, isTauri, type ExtTabs, type RhOutput, type RhSnapshot, type RhSource } from "../lib/api";
 import { pickAudioFiles } from "../lib/files";
 import { launchpadClaims } from "../lib/launchpad";
-import { useSettings, type Favorite } from "../state/settings";
+import { INTERNAL, addFavorite, mediaAction, mergeSources, pauseAllSources, tabIdOf } from "../lib/rhModel";
+import { useSettings } from "../state/settings";
 import { startPlayerEvents, usePlayer } from "../state/player";
 import { useRh } from "../state/rehearsal";
 import { useUi } from "../state/ui";
 import { EQ_BANDS, FLAT_EQ, type Eq } from "../state/types";
-import { LaunchpadPanel, LaunchpadToggle } from "../common/Launchpad";
 
-const INTERNAL = "internal";
 type T = (k: string, v?: Record<string, string | number>) => string;
 
 const KIND_ICON: Record<RhSource["kind"], IconName> = {
@@ -73,7 +72,6 @@ export function RehearsalMode() {
   const settings = useSettings((s) => s.settings);
   const player = usePlayer();
   const levels = useRh((s) => s.levels);
-  const playerVoice = player.live?.voices.find((v) => v.trackId === `player-${player.index}`) ?? null;
 
   const refresh = useCallback(() => {
     if (!isTauri) {
@@ -101,63 +99,13 @@ export function RehearsalMode() {
   const connected = useMemo(() => outputs.filter((o) => o.connected !== false), [outputs]);
   const defaultOut = useMemo(() => connected.find((o) => o.isDefault) ?? null, [connected]);
 
-  // The internal player and the Chrome tabs appear as sources like the others.
+  // The internal player and the Chrome tabs appear as sources like the others (same list as the phone).
   const chromeSource = (snap?.sources ?? []).find((x) => x.exe === "chrome.exe") ?? null;
-  const sources: RhSource[] = useMemo(() => {
-    let list = [...(snap?.sources ?? [])];
-    if (ext?.connected) {
-      list = list.filter((x) => x.exe !== "chrome.exe");
-      for (const tab of ext.tabs) {
-        const m = tab.media;
-        list.push({
-          id: `tab:${tab.tabId}`,
-          app: t("Chrome tab"),
-          exe: "chrome.exe",
-          kind: "browser",
-          title: m?.title || tab.title,
-          artist: m?.site || "",
-          thumb: null,
-          status: m ? (m.paused ? "paused" : "playing") : tab.audible ? "playing" : "stopped",
-          canToggle: !!m,
-          canNext: !!m,
-          canPrev: !!m,
-          canSpeed: !!m,
-          speed: m?.playbackRate ?? null,
-          volume: m ? m.volume : null,
-          peak: 0,
-          pids: chromeSource?.pids ?? [],
-          outputId: chromeSource?.outputId ?? null,
-          positionSec: m?.currentTime ?? null,
-          durationSec: m?.duration ?? null,
-        });
-      }
-    }
-    if (player.playlist.length) {
-      const devId = player.device ? connected.find((o) => o.name === player.device)?.id ?? null : null;
-      list.unshift({
-        id: INTERNAL,
-        app: "Diaframma",
-        exe: "diaframma.exe",
-        kind: "internal",
-        title: basename(player.playlist[player.index] ?? ""),
-        artist: player.playlist.length > 1 ? `${player.index + 1} / ${player.playlist.length}` : "",
-        thumb: null,
-        status: playerVoice ? (playerVoice.paused ? "paused" : "playing") : "stopped",
-        canToggle: true,
-        canNext: player.index + 1 < player.playlist.length,
-        canPrev: true,
-        canSpeed: true,
-        speed: player.speed,
-        volume: player.volume,
-        peak: 0,
-        pids: [],
-        outputId: devId,
-        positionSec: playerVoice?.positionSec ?? 0,
-        durationSec: playerVoice?.durationSec ?? null,
-      });
-    }
-    return list;
-  }, [snap, ext, chromeSource, player, playerVoice, connected, t]);
+  const sources: RhSource[] = useMemo(
+    () => mergeSources(snap, ext, connected, t("Chrome tab")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [snap, ext, player.playlist, player.index, player.speed, player.volume, player.device, player.live, connected, t],
+  );
 
   // Levels start from what Windows has.
   useEffect(() => useRh.getState().adopt(sources), [sources]);
@@ -184,7 +132,7 @@ export function RehearsalMode() {
     }
   }, [snap, settings.pinOutputs, defaultOut]);
 
-  const tabId = (id: string) => (id.startsWith("tab:") ? Number(id.slice(4)) : null);
+  const tabId = tabIdOf;
   const setSpeed = (s: RhSource, v: number) => {
     if (s.id === INTERNAL) usePlayer.getState().setSpeed(v);
     else if (tabId(s.id) !== null) api.extCommand(tabId(s.id)!, "speed", v).catch(() => {});
@@ -192,20 +140,8 @@ export function RehearsalMode() {
   };
 
   const media = (s: RhSource, action: "toggle" | "next" | "prev") => {
-    if (s.id === INTERNAL) {
-      const p = usePlayer.getState();
-      if (action === "toggle") p.toggle();
-      else if (action === "next") p.next();
-      else p.prev();
-      return;
-    }
-    if (tabId(s.id) !== null) {
-      api.extCommand(tabId(s.id)!, action).then(() => window.setTimeout(refresh, 300)).catch(() => {});
-      return;
-    }
-    api
-      .rhMedia(s.id, action)
-      .then(() => window.setTimeout(refresh, 250))
+    mediaAction(s.id, action)
+      .then(() => window.setTimeout(refresh, s.id === INTERNAL ? 0 : 280))
       .catch((e) => useUi.getState().showToast(String(e), "error"));
   };
 
@@ -232,25 +168,12 @@ export function RehearsalMode() {
   };
 
   const star = (s: RhSource) => {
-    const f: Favorite = {
-      id: uid(),
-      title: s.title || s.app,
-      artist: s.artist || (s.kind === "browser" ? s.app : ""),
-      source: s.id === INTERNAL ? "Diaframma" : s.app,
-      at: new Date().toISOString(),
-      positionSec: s.positionSec,
-      link: s.id === INTERNAL ? usePlayer.getState().playlist[usePlayer.getState().index] ?? null : null,
-    };
-    useSettings.getState().update({ favorites: [f, ...useSettings.getState().settings.favorites].slice(0, 500) });
+    addFavorite(s);
     useUi.getState().showToast(t("Added to favorites"));
   };
 
   const pauseAll = () => {
-    api.rhPauseAll().catch(() => {});
-    const p = usePlayer.getState();
-    const v = p.live?.voices.find((x) => !x.paused);
-    if (v) api.playerPause(v.trackId).catch(() => {});
-    ext?.tabs.forEach((tab) => tab.media && !tab.media.paused && api.extCommand(tab.tabId, "pause").catch(() => {}));
+    pauseAllSources(ext);
     window.setTimeout(refresh, 300);
   };
 
@@ -316,49 +239,64 @@ export function RehearsalMode() {
     return () => ro.disconnect();
   }, [sources, snap, settings.outputRoles]);
 
-  // Dragging the dot under a source onto an output (pointer captured by the dot).
-  const startDrag = (s: RhSource, e: React.PointerEvent<HTMLElement>) => {
+  // Dragging the dot under a source onto an output. The listeners live on the window (not on the dot)
+  // and the source is looked up again when the dot is released, so a refresh of the list in the
+  // middle of the drag (Spotify changes its data often) cannot break it.
+  const latest = useRef({ sources, outputs, route });
+  latest.current = { sources, outputs, route };
+  const startDrag = (id: string, e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     const wrap = wrapRef.current;
     if (!wrap) return;
+    const pid = e.pointerId;
     const base = wrap.getBoundingClientRect();
     const r = e.currentTarget.getBoundingClientRect();
-    const from = { id: s.id, x: r.left + r.width / 2 - base.left, y: r.top + r.height / 2 - base.top };
+    const from = { id, x: r.left + r.width / 2 - base.left, y: r.top + r.height / 2 - base.top };
     setDragFrom(from);
     setDragTo({ x: from.x, y: from.y });
-    const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
+    const hit = (ev: PointerEvent): string | null => {
+      const cards = Array.from(wrap.querySelectorAll<HTMLElement>("[data-output-id]"));
+      const pad = 10;
+      for (const c of cards) {
+        const b = c.getBoundingClientRect();
+        if (ev.clientX >= b.left - pad && ev.clientX <= b.right + pad && ev.clientY >= b.top - pad && ev.clientY <= b.bottom + pad) return c.dataset.outputId ?? null;
+      }
+      return null;
+    };
     const at = (ev: PointerEvent) => {
       const b = wrap.getBoundingClientRect();
       setDragTo({ x: ev.clientX - b.left, y: ev.clientY - b.top });
-      const hit = document.elementsFromPoint(ev.clientX, ev.clientY).find((x) => (x as HTMLElement).dataset?.outputId) as HTMLElement | undefined;
-      setHoverOut(hit?.dataset.outputId ?? null);
-      return hit?.dataset.outputId ?? null;
+      const target = hit(ev);
+      setHoverOut(target);
+      return target;
     };
-    const move = (ev: PointerEvent) => at(ev);
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("blur", end);
+      setDragFrom(null);
+      setDragTo(null);
+      setHoverOut(null);
+    };
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId === pid) at(ev);
+    };
     const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return;
       const target = at(ev);
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", cancel);
-      setDragFrom(null);
-      setDragTo(null);
-      setHoverOut(null);
-      const o = outputs.find((x) => x.id === target);
-      if (o) route(s, o);
+      end();
+      const cur = latest.current;
+      const src = cur.sources.find((x) => x.id === id);
+      const o = cur.outputs.find((x) => x.id === target);
+      if (src && o) cur.route(src, o);
     };
-    const cancel = () => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", cancel);
-      setDragFrom(null);
-      setDragTo(null);
-      setHoverOut(null);
-    };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", cancel);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", end);
+    window.addEventListener("blur", end);
   };
   const dragLine =
     dragFrom && dragTo ? `M${dragFrom.x} ${dragFrom.y} C${dragFrom.x} ${(dragFrom.y + dragTo.y) / 2} ${dragTo.x} ${(dragFrom.y + dragTo.y) / 2} ${dragTo.x} ${dragTo.y}` : null;
@@ -393,9 +331,6 @@ export function RehearsalMode() {
           {t("Pause all")}
           <Kbd>P</Kbd>
         </button>
-        <div className="df-toolbar__center">
-          <LaunchpadToggle />
-        </div>
         <span className="ts-spacer" />
         <div className="df-ctl" role="group" aria-label={t("Main volume")} title={t("Main volume: moves every source together")}>
           <Icon name="volume" size={15} />
@@ -423,9 +358,6 @@ export function RehearsalMode() {
         </div>
         <Button icon="starF" iconColor="var(--sb-fill)" onClick={() => document.getElementById("df-favs")?.scrollIntoView({ behavior: "smooth" })}>
           {t("Favorites")}
-          <span className="ts-kbd" style={{ height: 18 }}>
-            {settings.favorites.length}
-          </span>
         </Button>
       </div>
 
@@ -443,16 +375,12 @@ export function RehearsalMode() {
                   s={s}
                   t={t}
                   level={levels[s.id] ?? s.volume}
-                  outputs={connected}
-                  output={outputFor(s)}
-                  roleOf={roleOf}
                   onMedia={(a) => media(s, a)}
                   onStar={() => star(s)}
                   onLevel={(v) => useRh.getState().setLevel(s, v)}
                   onSpeed={(v) => setSpeed(s, v)}
-                  onRoute={(o) => route(s, o)}
                   onSeek={s.id === INTERNAL ? (sec) => usePlayer.getState().seek(sec) : undefined}
-                  onStartDrag={(e) => startDrag(s, e)}
+                  onStartDrag={(e) => startDrag(s.id, e)}
                   dragging={dragFrom?.id === s.id}
                 />
               ))}
@@ -468,7 +396,7 @@ export function RehearsalMode() {
             </span>
           </div>
 
-          <div className="df-section-head" style={{ height: 30 }}>
+          <div className="df-section-head">
             <span className="ts-label">{t("Outputs")}</span>
             <span style={{ fontSize: 11.5, color: "var(--text-3)" }}>
               <span style={{ color: "var(--go)", fontWeight: 600 }}>{t("LIVE")}</span> {t("everyone hears it")} ·{" "}
@@ -477,12 +405,12 @@ export function RehearsalMode() {
             <span className="ts-spacer" />
             <label className="df-pin" title={t("Every program stays on the output chosen here, even when Windows changes its default output (for example when headphones connect).")}>
               <Icon name="pin" size={13} />
-              {t("Diaframma chooses the outputs")}
-              <Switch checked={settings.pinOutputs} onChange={(v) => useSettings.getState().update({ pinOutputs: v })} label={t("Diaframma chooses the outputs")} />
+              {t("Automatic output choice")}
+              <Switch checked={settings.pinOutputs} onChange={(v) => useSettings.getState().update({ pinOutputs: v })} label={t("Automatic output choice")} />
             </label>
           </div>
           <div className="df-outputs">
-            {outputs.map((o) => (
+            {connected.map((o) => (
               <OutputCard key={o.id} o={o} t={t} role={roleOf(o)} onRole={(r) => setRole(o, r)} target={hoverOut === o.id} />
             ))}
           </div>
@@ -497,8 +425,6 @@ export function RehearsalMode() {
 
         <Favorites t={t} />
       </main>
-
-      {settings.launchpadOn ? <LaunchpadPanel /> : null}
 
       <StatusBar>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -547,7 +473,7 @@ function RhEq({ t, onClose }: { t: T; onClose: () => void }) {
           <div key={f} className="df-fader-col">
             <NumberField className="df-fader-col__val" value={eq[i]} text={signed(eq[i])} label={`${t("Equalizer")} ${f} Hz`} min={-12} max={12} onCommit={(v) => set(i, v)} />
             <VFader label={`${t("Equalizer")} ${f} Hz`} value={eq[i]} min={-12} max={12} zero={0} step={0.5} onChange={(v) => set(i, v)} onReset={() => set(i, 0)} />
-            <span className="df-fader-col__name">{f >= 1000 ? `${f / 1000}k` : f}</span>
+            <span className="df-fader-col__name">{f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`}</span>
           </div>
         ))}
       </div>
@@ -562,14 +488,10 @@ function SourceCard({
   s,
   t,
   level,
-  outputs,
-  output,
-  roleOf,
   onMedia,
   onStar,
   onLevel,
   onSpeed,
-  onRoute,
   onSeek,
   onStartDrag,
   dragging,
@@ -577,14 +499,10 @@ function SourceCard({
   s: RhSource;
   t: T;
   level: number | null;
-  outputs: RhOutput[];
-  output: RhOutput | null;
-  roleOf: (o: RhOutput) => "live" | "pre" | null;
   onMedia: (a: "toggle" | "next" | "prev") => void;
   onStar: () => void;
   onLevel: (v: number) => void;
   onSpeed: (v: number) => void;
-  onRoute: (o: RhOutput) => void;
   onSeek?: (sec: number) => void;
   onStartDrag: (e: React.PointerEvent<HTMLElement>) => void;
   dragging: boolean;
@@ -592,7 +510,6 @@ function SourceCard({
   const progress = s.durationSec && s.positionSec !== null ? Math.min(100, (s.positionSec / s.durationSec) * 100) : null;
   const speedOk = s.canSpeed;
   const speed = s.speed ?? 1;
-  const role = output ? roleOf(output) : null;
   return (
     <div className={["df-source", s.status === "playing" ? "df-source--playing" : s.status === "paused" ? "df-source--paused" : ""].join(" ")} data-source-id={s.id}>
       <div className="df-source__head">
@@ -600,7 +517,7 @@ function SourceCard({
           <Icon name={KIND_ICON[s.kind]} size={14} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="ts-ellipsis" style={{ fontSize: 12.5, fontWeight: 600 }}>
+          <div className="ts-ellipsis" style={{ fontSize: 12, fontWeight: 500, color: "var(--text-2)" }}>
             {s.app}
           </div>
           <div className="ts-ellipsis" style={{ fontSize: 11, color: "var(--text-3)" }}>
@@ -693,28 +610,6 @@ function SourceCard({
         <button type="button" className="df-srcrow__reset" disabled={!speedOk || Math.round(speed * 100) === 100} onClick={() => onSpeed(1)} title={t("Back to 100%")}>
           100
         </button>
-      </div>
-      <div className="df-srcrow">
-        <Icon name={output ? OUT_ICON[output.kind] ?? "speaker" : "speaker"} size={13} color={role === "live" ? "var(--go)" : role === "pre" ? "var(--pre)" : undefined} />
-        <span className="df-srcrow__label">{t("Output")}</span>
-        <select
-          className="ts-select df-srcrow__select"
-          value={output?.id ?? ""}
-          onChange={(e) => {
-            const o = outputs.find((x) => x.id === e.currentTarget.value);
-            if (o) onRoute(o);
-            e.currentTarget.blur();
-          }}
-          aria-label={t("Output of {name}", { name: s.app })}
-        >
-          {!output ? <option value="">—</option> : null}
-          {outputs.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-              {roleOf(o) === "live" ? ` · ${t("LIVE")}` : roleOf(o) === "pre" ? ` · ${t("PRE-LISTEN")}` : ""}
-            </option>
-          ))}
-        </select>
       </div>
       <button
         type="button"

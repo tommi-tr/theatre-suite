@@ -63,6 +63,7 @@ export interface Track {
   panEnvelope: EnvPoint[];
   loop: { inSec: number; outSec: number } | null;
   /** Shown or hidden in the editor, per group (they keep working when hidden). */
+  cutVisible: boolean;
   loopVisible: boolean;
   envelopeVisible: boolean;
   panVisible: boolean;
@@ -101,6 +102,7 @@ export function newTrack(id: string): Track {
     envelope: [],
     panEnvelope: [],
     loop: null,
+    cutVisible: true,
     loopVisible: true,
     envelopeVisible: true,
     panVisible: true,

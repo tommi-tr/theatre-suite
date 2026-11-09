@@ -7,7 +7,6 @@ import { launchpadClaims, stopEverything } from "../lib/launchpad";
 import { effectiveOut, numbering, trackDuration, useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
-import { LaunchpadPanel, LaunchpadToggle } from "../common/Launchpad";
 import { GoBar } from "./GoBar";
 import { TrackRow } from "./TrackRow";
 import { ReorderDialog } from "./ReorderDialog";
@@ -206,10 +205,10 @@ export function ShowMode() {
         {!locked ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Button icon="folderOpen" onClick={() => openDocDialog(t)} title="Ctrl O">
-              {t("Open cue list")}
+              <span className="df-bl">{t("Open cue list")}</span>
             </Button>
             <Button icon="reorder" onClick={() => useUi.getState().openDialog("reorder")}>
-              {t("Reorder")}
+              <span className="df-bl">{t("Reorder")}</span>
             </Button>
             <Button
               icon="plus"
@@ -218,7 +217,7 @@ export function ShowMode() {
                 if (files.length) useDoc.getState().addFiles(files);
               }}
             >
-              {t("Add track")}
+              <span className="df-bl">{t("Add track")}</span>
             </Button>
           </div>
         ) : (
@@ -228,17 +227,14 @@ export function ShowMode() {
               {t("Show locked")}
             </span>
             <span className="ts-ellipsis" style={{ color: "var(--text-2)", fontSize: 12.5 }}>
-              {t("Only GO, standby, Pause, Start and At end or Space can be used")}
+              {t("Only GO, attention, Pause and Stop can be used")}
             </span>
           </div>
         )}
-        <div className="df-toolbar__center">
-          <LaunchpadToggle />
-        </div>
         <span className="ts-spacer" />
         <label className="ts-btn ts-btn--ghost" style={{ cursor: locked ? "default" : "pointer" }} title={t("Audio output")}>
           <Icon name="speaker" size={15} />
-          <span style={{ color: "var(--text-3)" }}>{t("Output")}</span>
+          <span className="df-bl" style={{ color: "var(--text-3)" }}>{t("Output")}</span>
           <select
             className="df-inline-select"
             value={settings.outputDevice ?? ""}
@@ -263,6 +259,16 @@ export function ShowMode() {
         <div className="df-viewbtns" role="group" aria-label={t("Rows")}>
           <button
             type="button"
+            className={view === "compact" ? "ts-btn ts-btn--icon ts-btn--on" : "ts-btn ts-btn--icon"}
+            aria-pressed={view === "compact"}
+            aria-label={t("Very compact rows: only the chosen options, to see a long cue list at once")}
+            title={t("Very compact rows: only the chosen options, to see a long cue list at once")}
+            onClick={() => useDoc.getState().setView(view === "compact" ? "normal" : "compact")}
+          >
+            <Icon name="compact" size={15} />
+          </button>
+          <button
+            type="button"
             className="ts-btn ts-btn--icon"
             aria-label={t("Close the settings of every track")}
             title={t("Close the settings of every track")}
@@ -281,20 +287,10 @@ export function ShowMode() {
           >
             <Icon name="expand" size={15} />
           </button>
-          <button
-            type="button"
-            className={view === "compact" ? "ts-btn ts-btn--icon ts-btn--on" : "ts-btn ts-btn--icon"}
-            aria-pressed={view === "compact"}
-            aria-label={t("Very compact rows: only the chosen options, to see a long cue list at once")}
-            title={t("Very compact rows: only the chosen options, to see a long cue list at once")}
-            onClick={() => useDoc.getState().setView(view === "compact" ? "normal" : "compact")}
-          >
-            <Icon name="compact" size={15} />
-          </button>
         </div>
         {!locked ? (
           <Button icon="lock" onClick={() => useDoc.getState().setLocked(true)} kbd="Ctrl L">
-            {t("Lock")}
+            <span className="df-bl">{t("Lock")}</span>
           </Button>
         ) : (
           <HoldButton className="ts-btn ts-btn--primary" onHold={() => useDoc.getState().setLocked(false)} ariaLabel={t("Hold to unlock")}>
@@ -340,8 +336,6 @@ export function ShowMode() {
         {settings.followPlaying ? <div aria-hidden="true" style={{ flex: "none", height: "70vh" }} /> : null}
       </main>
 
-      {settings.launchpadOn ? <LaunchpadPanel /> : null}
-
       <StatusBar>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span className={live.engine.ready ? "ts-dot ts-dot--go" : live.engine.error ? "ts-dot ts-dot--stop" : "ts-dot ts-dot--sb"} />
@@ -354,7 +348,7 @@ export function ShowMode() {
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           <Icon name="info" size={12} />
-          {othersText(t, settings.othersOnGo)}
+          {t("At GO, without an exit")}: {othersText(t, settings.othersOnGo, settings)}
         </span>
         <span className="ts-spacer" />
         <span>

@@ -201,7 +201,7 @@ export async function exportCsv(t: T): Promise<void> {
   const { tracks, infos } = useDoc.getState();
   const fmt = (s: number | null | undefined) => (s === null || s === undefined ? "" : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
   let n = useSettings.getState().settings.numberFrom - 1;
-  const rows = [[t("No."), t("Track"), t("Start"), t("At end or Space"), "IN", "OUT", t("Duration"), t("Volume"), t("File")]];
+  const rows = [[t("No."), t("Track"), t("Entry"), t("Exit"), "IN", "OUT", t("Duration"), t("Volume"), t("File")]];
   for (const x of tracks) {
     if (x.hidden) continue;
     n++;
@@ -209,7 +209,7 @@ export async function exportCsv(t: T): Promise<void> {
     const info = infos[x.file.path];
     const dur = info && typeof info === "object" ? info.durationSec : x.file.durationSec ?? null;
     const out = x.outSec ?? dur;
-    rows.push([String(n), x.file.name, x.onSpace, x.atEnd, fmt(x.inSec), fmt(out), fmt(out !== null && out !== undefined ? out - x.inSec : null), `${x.volumeDb} dB`, x.file.path]);
+    rows.push([String(n), x.file.name, x.entry ?? "", `${x.exit ?? ""}${x.loopOn ? " loop" : ""}`.trim(), fmt(x.inSec), fmt(out), fmt(out !== null && out !== undefined ? out - x.inSec : null), `${x.volumeDb} dB`, x.file.path]);
   }
   const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const base = useDoc.getState().filePath?.replace(/\.diaframma$/i, "") ?? "Cue list";
