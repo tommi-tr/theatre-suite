@@ -1,0 +1,47 @@
+{
+  "name": "bardo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "icons": "node tools/make_icons.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource/courier-prime": "5.3.0",
+    "@fontsource/source-serif-4": "5.3.1",
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-clipboard-manager": "2.5.0",
+    "@tauri-apps/plugin-dialog": "2.8.4",
+    "@theatre-suite/core": "workspace:*",
+    "@theatre-suite/ui": "workspace:*",
+    "docx": "9.15.3",
+    "fflate": "0.8.3",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-history": "1.5.1",
+    "prosemirror-inputrules": "1.5.1",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-model": "1.25.13",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-transform": "1.12.5",
+    "prosemirror-view": "1.42.9",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zustand": "5.1.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "jsdom": "31.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.7",
+    "vitest": "5.1.0"
+  }
+}
