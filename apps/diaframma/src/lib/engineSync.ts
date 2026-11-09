@@ -2,7 +2,7 @@ import { api, isTauri, type EngineConfig, type EngineTrack } from "./api";
 import { useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 
-function config(): EngineConfig {
+export function engineConfig(): EngineConfig {
   const s = useSettings.getState().settings;
   return {
     othersOnGo: s.othersOnGo,
@@ -18,7 +18,7 @@ function config(): EngineConfig {
   };
 }
 
-function tracks(): EngineTrack[] {
+export function engineTracks(): EngineTrack[] {
   const { tracks, missing } = useDoc.getState();
   return tracks.map(({ file, ...rest }) => ({ ...rest, path: file && !missing[rest.id] ? file.path : null }));
 }
@@ -35,7 +35,7 @@ export function startEngineSync(): () => void {
     pending = true;
     queueMicrotask(() => {
       pending = false;
-      api.engineSync(tracks(), config()).catch((e) => console.error("engine sync failed", e));
+      api.engineSync(engineTracks(), engineConfig()).catch((e) => console.error("engine sync failed", e));
     });
   };
   push();

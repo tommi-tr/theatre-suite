@@ -158,6 +158,33 @@ pub fn file_write_text(path: String, text: String) -> Result<(), String> {
     atomic_write(Path::new(&path), text.as_bytes())
 }
 
+/// Opens a page of the project in the default browser. Only the project's own pages are allowed.
+#[tauri::command]
+pub fn open_project_page(url: String) -> Result<(), String> {
+    if !url.starts_with("https://github.com/tommi-tr/theatre-suite") {
+        return Err("This address cannot be opened from Diaframma.".into());
+    }
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("rundll32");
+        c.args(["url.dll,FileProtocolHandler", &url]);
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("open");
+        c.arg(&url);
+        c
+    };
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut cmd = {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(&url);
+        c
+    };
+    cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn paths_exist(paths: Vec<String>) -> Vec<bool> {
     paths.iter().map(|p| !p.is_empty() && Path::new(p).is_file()).collect()

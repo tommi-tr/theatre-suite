@@ -185,7 +185,7 @@ export function EditorDialog({ onClose }: { onClose: () => void }) {
                   title={t("Hidden, it keeps working")}
                   onClick={() => patch({ [KEYS[g.id].visible]: !visible } as Partial<Track>)}
                 >
-                  {visible ? t("Hide") : t("Unhide")}
+                  {visible ? t("Hide group") : t("Show group")}
                 </Button>
                 {g.id === "volume" ? (
                   <>

@@ -1960,3 +1960,76 @@
 .df-source__dot {
   user-select: none;
 }
+
+/* ---------- 0.2.0: settings and test ---------- */
+.df-settings {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+  min-height: 430px;
+}
+.df-settabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+  padding-right: 10px;
+}
+.df-settab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.df-settab:hover {
+  background: var(--surface-2);
+}
+.df-settab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.df-setpane {
+  min-width: 0;
+}
+.df-test-sum {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--go-line);
+  background: var(--go-soft);
+}
+.df-test-sum--bad {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+}
+.df-test-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.df-test-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.df-test-bad {
+  color: var(--stop);
+  font-weight: 600;
+}

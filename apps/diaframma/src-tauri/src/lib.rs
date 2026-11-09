@@ -69,6 +69,7 @@ pub fn run() {
             storage::file_read_text,
             storage::file_write_text,
             storage::paths_exist,
+            storage::open_project_page,
             storage::find_files,
             storage::resolve_relative,
             storage::make_relative,

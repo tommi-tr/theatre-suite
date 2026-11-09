@@ -45,6 +45,7 @@ export const api = {
   readText: (path: string) => call<string>("file_read_text", { path }),
   writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
   pathsExist: (paths: string[]) => call<boolean[]>("paths_exist", { paths }),
+  openProjectPage: (url: string) => call<void>("open_project_page", { url }),
   findFiles: (dir: string, names: string[]) => call<(string | null)[]>("find_files", { dir, names }),
   resolveRelative: (baseFile: string, relative: string) => call<string | null>("resolve_relative", { baseFile, relative }),
   makeRelative: (baseFile: string, target: string) => call<string | null>("make_relative", { baseFile, target }),
