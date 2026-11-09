@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  width: 176px;
+  width: 140px;
   height: 30px;
   margin-right: 4px;
   padding: 0 6px 0 9px;
@@ -1748,4 +1748,18 @@ button.bd-chip {
 }
 .b-pp-content {
   z-index: 1;
+}
+.bd-sample .b-speaker {
+  align-self: start;
+}
+.bd-inspector {
+  width: 300px;
+  overflow-x: hidden;
+}
+.bd-inspector .bd-irow__label {
+  width: 78px;
+}
+.bd-inspector .ts-seg__btn {
+  padding: 0 6px;
+  min-width: 0;
 }

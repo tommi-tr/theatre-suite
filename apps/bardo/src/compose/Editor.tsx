@@ -5,7 +5,7 @@ import { Icon } from "@theatre-suite/ui";
 import { createEditorState } from "../editor/setup";
 import { nodeViews, posById } from "../editor/nodeviews";
 import { clipboardTextParser } from "../editor/keys";
-import { getPagination, type Pagination } from "../editor/paginate";
+import { getPagination, setContinuous, type Pagination } from "../editor/paginate";
 import { DOC_WORDS } from "../editor/autoRender";
 import { formatCss, headerText } from "../format/css";
 import { getData } from "../model/defaults";
@@ -44,7 +44,7 @@ function hfContext(p: Pagination, pageIdx: number, data: DocData, index: DocInde
 }
 
 /** White sheets, headers and footers drawn behind the text. */
-function PageLayer({ p, data, index }: { p: Pagination; data: DocData; index: DocIndex }) {
+function PageLayer({ p, data, index, x, y }: { p: Pagination; data: DocData; index: DocIndex; x: number; y: number }) {
   const g = p.geom;
   const f = data.format;
   const hs = f.styles.header;
@@ -63,7 +63,7 @@ function PageLayer({ p, data, index }: { p: Pagination; data: DocData; index: Do
         const contentLeft = -left;
         const contentRight = g.pageW - contentLeft - g.contentW;
         return (
-          <div key={page.index} className="b-sheet" style={{ left, top: page.top, width: g.pageW, height: g.pageH }}>
+          <div key={page.index} className="b-sheet" style={{ left: x + left, top: y + page.top, width: g.pageW, height: g.pageH }}>
             {showHeader ? (
               <div className="b-sheet__hf" style={{ ...font, left: contentLeft, right: contentRight, top: Math.max(8, zone.top * 0.45) }}>
                 <span>{headerText(f.header.left, ctx)}</span>
@@ -233,7 +233,7 @@ export function Editor() {
     if (!view) return;
     const st = getPagination(view.state);
     if ((st?.continuous ?? false) !== continuous) {
-      import("../editor/paginate").then((m) => m.setContinuous(view, continuous));
+      setContinuous(view, continuous);
     }
   }, [view, continuous]);
 
@@ -254,7 +254,7 @@ export function Editor() {
       <div className="b-zoom" style={{ width: stackW * zoom, height: totalH * zoom }}>
         <div className="b-stack" style={{ width: stackW, height: totalH, transform: `scale(${zoom})` }}>
           {continuous ? <div className="b-sheet" style={{ left: 0, top: 0, width: pageW, height: totalH }} /> : null}
-          {pages && data && index ? <PageLayer p={pages} data={data} index={index} /> : null}
+          {pages && data && index ? <PageLayer p={pages} data={data} index={index} x={left0} y={top0} /> : null}
           <div className="b-editor-host" ref={hostRef} style={{ left: left0, top: top0, width: contentW, ["--lane-x" as string]: `${laneGap}px` }} />
           {view && !focusMode ? <NotesLayer view={view} laneLeft={laneLeft} /> : null}
         </div>

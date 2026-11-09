@@ -210,19 +210,14 @@ function Shell() {
             <Button variant="ghost" iconOnly icon="undo" aria-label={t("Undo")} title={`${t("Undo")} · Ctrl Z`} onClick={() => view && undo(view.state, view.dispatch)} />
             <Button variant="ghost" iconOnly icon="redo" aria-label={t("Redo")} title={`${t("Redo")} · Ctrl Y`} onClick={() => view && redo(view.state, view.dispatch)} />
             {phase === "compose" ? (
-              <label className="bd-search" title="Ctrl F">
+              <label className="bd-search" title={`${t("Find")} · Ctrl F`}>
                 <Icon name="search" size={14} />
                 <input aria-label={t("Find")} placeholder={t("Find")} onFocus={(e) => (e.currentTarget.blur(), ui.setFind({ open: true, replace: false }))} />
-                <kbd className="ts-kbd">Ctrl F</kbd>
               </label>
             ) : null}
             <FileMenu />
-            <Button variant="ghost" icon="book" onClick={() => ui.openDialog("guide")} title="F1">
-              {t("Guide")}
-            </Button>
-            <Button variant="ghost" icon="settings" onClick={() => ui.openDialog("settings")} title="Ctrl ,">
-              {t("Settings")}
-            </Button>
+            <Button variant="ghost" iconOnly icon="book" aria-label={t("Guide")} onClick={() => ui.openDialog("guide")} title={`${t("Guide")} · F1`} />
+            <Button variant="ghost" iconOnly icon="settings" aria-label={t("Settings")} onClick={() => ui.openDialog("settings")} title={`${t("Settings")} · Ctrl ,`} />
           </>
         }
         windowActions={{

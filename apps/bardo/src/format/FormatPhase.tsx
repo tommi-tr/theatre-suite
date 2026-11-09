@@ -9,7 +9,6 @@ import { useScript, Check, Seg } from "../compose/dialogs/common";
 import { RB, RGroup, Sep } from "../compose/Ribbon";
 import { CAT_ICONS } from "../compose/Popups";
 import type { DocData, Numbering } from "../model/types";
-import { FONT_LABELS } from "./css";
 import { PAGE_SIZES, PRESETS, type Align, type Caps, type FontKey, type FormatModel, type HeaderField, type PageSize, type StyleKey, type TextStyle } from "./model";
 import { setCatStyle, setStyle, updateFormat } from "./formatActions";
 
@@ -372,7 +371,7 @@ function Inspector({ view, data }: { view: EditorView; data: DocData }) {
       {head}
       <div className="bd-inspector__body">
         <Row label={t("Typeface")}>
-          <Seg<FontKey> label={t("Typeface")} value={s.font} onChange={(v) => set({ font: v })} options={(["serif", "sans", "mono"] as FontKey[]).map((v) => ({ value: v, label: FONT_LABELS[v].split(" ")[0] }))} />
+          <Seg<FontKey> label={t("Typeface")} value={s.font} onChange={(v) => set({ font: v })} options={(["serif", "sans", "mono"] as FontKey[]).map((v) => ({ value: v, label: { serif: "Serif", sans: "Sans", mono: "Mono" }[v] }))} />
         </Row>
         <Row label={t("Size")}>
           <Num label={t("Size")} value={s.size} unit="pt" min={6} max={72} onCommit={(v) => set({ size: v })} />

@@ -49,7 +49,7 @@ export function linesFromText(text: string): SourceLine[] {
     .replace(/^﻿/, "")
     .split(/\r\n|\r|\n/)
     .map((l) => ({ text: l.replace(/\s+$/, ""), italic: false, center: /^\s{12,}\S/.test(l), bold: false }))
-    .map((l) => ({ ...l, text: l.text.trim() }));
+    .map((l) => ({ ...l, text: l.text.trim().replace(RE_NUMBER, "") }));
 }
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -95,7 +95,7 @@ export function linesFromDocx(bytes: Uint8Array): SourceLine[] {
     }
     const visible = text.replace(/\s/g, "").length;
     for (const part of text.split("\n")) {
-      out.push({ text: part.trim(), italic: visible > 0 && italicChars / visible > 0.8, center: jc === "center", bold: visible > 0 && boldChars / visible > 0.8 });
+      out.push({ text: part.trim().replace(RE_NUMBER, ""), italic: visible > 0 && italicChars / visible > 0.8, center: jc === "center", bold: visible > 0 && boldChars / visible > 0.8 });
     }
   }
   return out;
@@ -114,6 +114,10 @@ const RE_CHAR_LIST = /^(personaggi|personaggi e interpreti|dramatis personae|cha
 /** "AMLETO: testo", "Amleto. testo", "AMLETO — testo", "AMLETO<tab>testo". */
 const RE_NAMED = /^([\p{Lu}][\p{L}'’.\s-]{0,38}?)(?:\s*\(([^)]{1,60})\))?\s*(?::|\.(?=\s)|\t+|\s[—–]\s)\s*(.+)$/u;
 const RE_DIR = /^\((.+)\)\.?$/s;
+/** Sections of the front matter that are not characters ("Cast e troupe"). */
+const RE_SKIP_SECTION = /^(cast e troupe|cast and crew|troupe|crediti|credits|note|notes|sommario|contents|indice\b.*|index\b.*)\s*:?$/i;
+/** Speech numbers written before the name ("12  AMLETO …"). */
+const RE_NUMBER = /^\d{1,4}\s{2,}(?=\p{L})/u;
 
 function isUpper(s: string) {
   return /\p{L}/u.test(s) && s === s.toLocaleUpperCase();
@@ -174,7 +178,7 @@ function nameStats(lines: SourceLine[]): Map<string, { count: number; upper: boo
   return stats;
 }
 
-function classify(l: SourceLine, next: SourceLine | undefined, isChar: (name: string) => boolean): Kind {
+function classify(l: SourceLine, next: SourceLine | undefined, isChar: (name: string) => boolean, front: boolean): Kind {
   const t = l.text;
   if (!t) return { k: "blank" };
   let m = t.match(RE_ACT);
@@ -187,9 +191,9 @@ function classify(l: SourceLine, next: SourceLine | undefined, isChar: (name: st
   if (m && (l.center || isUpper(m[1]) || wordCount(t) <= 4)) return { k: "scene", title: t };
   if (RE_CHAR_LIST.test(t)) return { k: "charList" };
   const named = t.match(RE_NAMED);
-  if (named && wordCount(named[1]) <= 4 && isChar(named[1])) return { k: "speech", name: named[1].trim(), text: named[3].trim(), inline: named[2] };
+  if (named && wordCount(named[1]) <= 4 && isChar(named[1]) && !(front && named[3].length < 3)) return { k: "speech", name: named[1].trim(), text: named[3].trim(), inline: named[2] };
   const alone = aloneName(l);
-  if (alone && isChar(alone) && next?.text) {
+  if (alone && isChar(alone) && next?.text && !front) {
     const im = t.match(/\(([^)]{1,60})\)/);
     return { k: "nameOnly", name: alone, inline: im?.[1] };
   }
@@ -240,6 +244,10 @@ export function importLines(lines: SourceLine[], fallbackTitle = ""): ImportResu
   const accepted = new Set<string>();
   for (const [key, s] of stats) if (s.count >= 2 || (s.upper && s.count >= 1 && key.length > 1)) accepted.add(key);
   const isChar = (name: string) => accepted.has(nameKey(name));
+  // Where the script starts: the first act, scene or list of characters,
+  // otherwise the first "NAME: speech". Before it there is the title page.
+  let startIdx = lines.findIndex((l) => RE_ACT.test(l.text) || RE_SCENE.test(l.text) || RE_TABLEAU.test(l.text) || RE_CHAR_LIST.test(l.text));
+  if (startIdx < 0) startIdx = Math.max(0, lines.findIndex((l) => { const m = l.text.match(RE_NAMED); return !!m && isChar(m[1]); }));
   const characters = new Map<string, Character>();
   const charFor = (raw: string): Character => {
     const key = nameKey(raw);
@@ -255,13 +263,21 @@ export function importLines(lines: SourceLine[], fallbackTitle = ""): ImportResu
   const report: ImportReport = { characters: 0, speeches: 0, directions: 0, acts: 0, scenes: 0, paragraphs: 0, title: "" };
   let started = false; // the script itself has started (first act, scene or speech)
   let inCharList = false;
+  let skipping = false;
   let pendingName: { name: string; inline?: string } | null = null;
   let lastSpeech: { node: PMNode; index: number } | null = null;
   const front: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    const kind = classify(l, lines[i + 1], isChar);
+    const kind = classify(l, lines[i + 1], isChar, i < startIdx);
+    if (!started && RE_SKIP_SECTION.test(l.text)) {
+      skipping = true;
+      inCharList = false;
+      continue;
+    }
+    if (kind.k === "act" || kind.k === "scene" || kind.k === "tableau" || kind.k === "charList") skipping = false;
+    if (skipping && !started) continue;
     if (kind.k === "blank") {
       lastSpeech = null;
       continue;
