@@ -1,12 +1,16 @@
 import { create } from "zustand";
 import { api, isTauri, onEvent, type EngineConfig, type EngineTrack } from "./api";
 import { useSettings, type Pad } from "../state/settings";
+import { useUi } from "../state/ui";
 import { newTrack, type LiveState } from "../state/types";
 
 /**
- * Launchpad: sounds fired with keys chosen by the user (or with the mouse),
- * in Show and Rehearsal mode. They play on their own engine, on the Show
- * output, on top of everything else. Space always stays GO.
+ * Launchpad: sounds fired with the keys of the keyboard (each key has two levels:
+ * the key alone, and Ctrl + the key) or with the mouse. They play on their own
+ * engine, on the Show output, on top of everything else. Space always stays GO.
+ *
+ * The keys work in Launchpad mode; with "Launchpad active" they work also in
+ * Show and Rehearsal mode (only on the keys that do not clash with the app).
  */
 
 interface PadsStore {
@@ -35,6 +39,8 @@ export const FORBIDDEN_KEYS = new Set([
   "F4",
   "ControlLeft",
   "ControlRight",
+  "ShiftLeft",
+  "ShiftRight",
   "AltLeft",
   "AltRight",
   "MetaLeft",
@@ -51,13 +57,50 @@ export const FORBIDDEN_KEYS = new Set([
 
 const DIGITS = new Set(["Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9"]);
 
-/** Why a combination cannot be used (English key of the dictionary), or null if it is fine. */
-export function comboProblem(keys: string[], pads: Pad[], selfId: string | null): string | null {
-  if (!keys.length) return null;
-  if (keys.some((k) => FORBIDDEN_KEYS.has(k))) return "This key is reserved (GO, Stop all, Pause all, standby or Windows). Choose another one.";
-  if (keys.length === 1 && DIGITS.has(keys[0])) return "The number keys alone choose the standby track. Use the numeric keypad, or a key + number.";
-  const same = pads.find((p) => p.id !== selfId && p.keys.length === keys.length && p.keys.every((k) => keys.includes(k)));
-  if (same) return "Another sound already uses these keys.";
+/** Ctrl + key that belong to Windows or to the web view: the Ctrl level of these keys is never available. */
+export const SYSTEM_CTRL_KEYS = new Set(["KeyC", "KeyV", "KeyX", "KeyA", "KeyW", "KeyQ", "KeyR", "KeyT", "KeyF", "KeyH", "KeyU", "KeyI", "KeyG", "KeyB", "KeyD", "KeyE", "KeyJ", "KeyK", "KeyM"]);
+/** Ctrl + key that are Diaframma's own shortcuts: free in Launchpad mode, the app wins in Show and Rehearsal mode. */
+export const APP_CTRL_KEYS = new Set(["KeyS", "KeyO", "KeyN", "KeyL", "KeyZ", "KeyY", "Comma"]);
+
+/** Why a key cannot hold a sound on this level (English key of the dictionary), or null if it is fine. */
+export function slotProblem(key: string, ctrl: boolean): string | null {
+  if (FORBIDDEN_KEYS.has(key)) return "This key is reserved (GO, Stop all, Pause all, standby or Windows). Choose another one.";
+  if (!ctrl && DIGITS.has(key)) return "The number keys alone choose the standby track. Use the numeric keypad, or Ctrl + number.";
+  if (ctrl && SYSTEM_CTRL_KEYS.has(key)) return "Ctrl + this key belongs to Windows. Choose another one.";
+  return null;
+}
+
+/** Ctrl level of a key the app also uses: it plays only in Launchpad mode. */
+export function slotOnlyInLaunchpad(key: string, ctrl: boolean): boolean {
+  return ctrl && APP_CTRL_KEYS.has(key);
+}
+
+/** The sound on a key level, if any. */
+export function padAt(pads: Pad[], key: string, ctrl: boolean): Pad | null {
+  return pads.find((p) => p.key === key && p.ctrl === ctrl) ?? null;
+}
+
+/**
+ * Puts a sound on a key level (null = off the keyboard). A sound that is already
+ * there goes to the place the first one leaves. Returns a problem (dictionary key) or null.
+ */
+export function assignPad(padId: string, key: string | null, ctrl: boolean): string | null {
+  const pads = useSettings.getState().settings.pads;
+  const me = pads.find((p) => p.id === padId);
+  if (!me) return null;
+  if (key) {
+    const err = slotProblem(key, ctrl);
+    if (err) return err;
+  }
+  const other = key ? pads.find((p) => p.id !== padId && p.key === key && p.ctrl === ctrl) : undefined;
+  const prev = { key: me.key, ctrl: me.ctrl };
+  useSettings.getState().update({
+    pads: pads.map((p) => {
+      if (p.id === padId) return { ...p, key, ctrl: key ? ctrl : false };
+      if (other && p.id === other.id) return { ...p, key: prev.key, ctrl: prev.key ? prev.ctrl : false };
+      return p;
+    }),
+  });
   return null;
 }
 
@@ -70,47 +113,12 @@ export function keyLabel(code: string): string {
   }
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
-  const map: Record<string, string> = {
-    ShiftLeft: "Shift",
-    ShiftRight: "Shift",
-    Minus: "-",
-    Equal: "=",
-    BracketLeft: "[",
-    BracketRight: "]",
-    Semicolon: ";",
-    Quote: "'",
-    Backquote: "`",
-    Backslash: "\\",
-    Comma: ",",
-    Period: ".",
-    Slash: "/",
-    Insert: "Ins",
-    Delete: "Del",
-    PageUp: "PgUp",
-    PageDown: "PgDn",
-  };
-  return map[code] ?? code;
+  return code;
 }
 
-export function comboLabel(keys: string[]): string {
-  return keys.map(keyLabel).join(" + ");
-}
-
-/** Suggestions offered when choosing keys: the first free combination of each family. */
-export function suggestions(pads: Pad[], selfId: string | null): { label: string; keys: string[] }[] {
-  const free = (keys: string[]) => comboProblem(keys, pads, selfId) === null;
-  const families: { label: string; list: string[][] }[] = [
-    { label: "Numeric keypad", list: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Add", "Subtract", "Multiply", "Divide", "Decimal"].map((k) => [`Numpad${k}`]) },
-    { label: "L + number", list: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((k) => ["KeyL", `Digit${k}`]) },
-    { label: "Letters", list: ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "A", "S", "D", "F", "G", "H", "J", "K", "Z", "X", "C", "V", "B", "N", "M"].map((k) => [`Key${k}`]) },
-    { label: "Shift + letter", list: ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "A", "S", "D", "F", "G", "H", "J", "K"].map((k) => ["ShiftLeft", `Key${k}`]) },
-  ];
-  return families
-    .map((f) => {
-      const k = f.list.find(free);
-      return k ? { label: f.label, keys: k } : null;
-    })
-    .filter((x): x is { label: string; keys: string[] } => x !== null);
+/** "Ctrl + C", "Num 1". */
+export function slotLabel(key: string, ctrl: boolean): string {
+  return ctrl ? `Ctrl + ${keyLabel(key)}` : keyLabel(key);
 }
 
 export function padPath(p: Pad): string | null {
@@ -120,12 +128,12 @@ export function padPath(p: Pad): string | null {
   return null;
 }
 
-const CONFIG: EngineConfig = { othersOnGo: "keep", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0.3, crossfadeSec: 0, stopAllSec: 0.4, steps: false };
+const CONFIG: EngineConfig = { othersOnGo: "keep", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0.3, crossfadeSec: 0, quickFadeSec: 0.3, stopAllSec: 0.4, steps: false };
 
 function engineTracks(pads: Pad[]): EngineTrack[] {
   return pads.map((p) => {
     const { file: _f, ...rest } = newTrack(p.id);
-    return { ...rest, path: padPath(p), atEnd: p.loop ? "loopAll" : "stop", volumeDb: p.volumeDb };
+    return { ...rest, path: padPath(p), exit: null, loopOn: p.loop, ignoreLoop: true, volumeDb: p.volumeDb };
   });
 }
 
@@ -155,29 +163,31 @@ export function stopEverything(immediate: boolean) {
 
 // ---------------- Keys ----------------
 
-const held = new Set<string>();
 /** Pads fired by the keys held now (to stop "hold" pads on release). */
 const firedBy = new Map<string, Pad>();
-
-function matchPad(e: KeyboardEvent): Pad | null {
-  const s = useSettings.getState().settings;
-  if (!s.launchpadOn || usePads.getState().capturing) return null;
-  const keys = new Set(held);
-  keys.add(e.code);
-  return s.pads.find((p) => p.keys.length > 0 && p.keys.length === keys.size && p.keys.every((k) => keys.has(k)) && p.keys.includes(e.code)) ?? null;
-}
 
 function typing(el: EventTarget | null) {
   const e = el as HTMLElement | null;
   return !!e && (e.tagName === "INPUT" || e.tagName === "TEXTAREA" || e.tagName === "SELECT" || e.isContentEditable);
 }
 
-/**
- * True if this key press belongs to the launchpad (the modes then ignore it).
- * A key that starts a combination of two keys (L in "L + 1") is not claimed alone.
- */
+/** The pad this key press plays, if the launchpad is listening and the key is free. */
+function matchPad(e: KeyboardEvent): Pad | null {
+  const s = useSettings.getState().settings;
+  const ui = useUi.getState();
+  const inLaunchpad = ui.mode === "launchpad";
+  if ((!inLaunchpad && !s.launchpadOn) || usePads.getState().capturing || ui.dialog) return null;
+  if (e.altKey || e.metaKey || e.shiftKey) return null;
+  const ctrl = e.ctrlKey;
+  if (slotProblem(e.code, ctrl)) return null;
+  if (!inLaunchpad && slotOnlyInLaunchpad(e.code, ctrl)) return null;
+  const p = padAt(s.pads, e.code, ctrl);
+  return p && padPath(p) ? p : null;
+}
+
+/** True if this key press belongs to the launchpad (the modes then ignore it). */
 export function launchpadClaims(e: KeyboardEvent): boolean {
-  if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey) return false;
+  if (typing(e.target)) return false;
   return matchPad(e) !== null;
 }
 
@@ -199,38 +209,31 @@ export function startLaunchpad(): () => void {
   let prev = useSettings.getState().settings;
   const un1 = useSettings.subscribe((st) => {
     if (st.settings.pads !== prev.pads) push();
-    if (st.settings.launchpadOn !== prev.launchpadOn && !st.settings.launchpadOn) {
-      held.clear();
-      firedBy.clear();
-    }
     prev = st.settings;
   });
   const un2 = onEvent<LiveState>("pads-state", (live) => usePads.setState({ live }));
 
   const onDown = (e: KeyboardEvent) => {
-    if (typing(e.target) || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (typing(e.target)) return;
+    const p = matchPad(e);
     if (e.repeat) {
-      if (matchPad(e)) e.preventDefault();
+      if (p) e.preventDefault();
       return;
     }
-    const p = matchPad(e);
-    held.add(e.code);
     if (!p) return;
     e.preventDefault();
+    e.stopPropagation();
     firedBy.set(e.code, p);
     padDown(p);
   };
   const onUp = (e: KeyboardEvent) => {
-    held.delete(e.code);
-    for (const [code, p] of [...firedBy]) {
-      if (code === e.code || p.keys.includes(e.code)) {
-        firedBy.delete(code);
-        padUp(p);
-      }
+    const p = firedBy.get(e.code);
+    if (p) {
+      firedBy.delete(e.code);
+      padUp(p);
     }
   };
   const onBlur = () => {
-    held.clear();
     for (const p of firedBy.values()) padUp(p);
     firedBy.clear();
   };

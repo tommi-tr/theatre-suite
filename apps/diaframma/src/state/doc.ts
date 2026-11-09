@@ -7,11 +7,12 @@ import {
   FORMAT_ID,
   FORMAT_VERSION,
   newTrack,
-  type AtEnd,
   type CueListDoc,
+  type Entry,
+  type EnvPoint,
   type Eq,
+  type Exit,
   type LiveState,
-  type OnSpace,
   type Track,
   type TrackInfo,
 } from "./types";
@@ -44,18 +45,48 @@ export function parseDoc(text: string): Track[] {
     throw new Error("This cue list was made with a newer version of Diaframma. Please update Diaframma.");
   }
   if (!Array.isArray(raw.tracks)) throw new Error("The cue list is damaged (no tracks).");
-  const onSpace: OnSpace[] = ["play", "fadeIn", "stopAllPlay"];
-  const atEnd: AtEnd[] = ["stop", "next", "fadeOut", "crossfade", "loopAll", "loopCut"];
+  const old = raw.formatVersion < 3;
   const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+  const optSec = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
   const eqOf = (v: unknown): Eq => {
     if (Array.isArray(v)) return [0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq;
     // Version 1: three bands (low shelf 200 Hz, mid 1 kHz, high shelf 5 kHz).
     const o = (v ?? {}) as Record<string, unknown>;
     return [num(o.low, 0), 0, num(o.mid, 0), 0, num(o.high, 0)];
   };
+  const curve = (v: unknown, lo: number, hi: number): EnvPoint[] =>
+    Array.isArray(v)
+      ? (v as unknown[])
+          .map((p) => p as Record<string, unknown>)
+          .filter((p) => p && typeof p.t === "number" && typeof p.v === "number")
+          .map((p) => ({ t: p.t as number, v: Math.min(hi, Math.max(lo, p.v as number)) }))
+          .sort((a, b) => a.t - b.t)
+      : [];
   const seen = new Set<string>();
   const rawTracks = raw.tracks as unknown[];
-  const tracks = rawTracks.map((t0) => {
+
+  // Version 1 and 2: what the track did "at end or Space" and "on Space".
+  type OldAtEnd = "stop" | "next" | "fadeOut" | "crossfade" | "loopAll" | "loopCut";
+  const oldAtEnd: OldAtEnd[] = ["stop", "next", "fadeOut", "crossfade", "loopAll", "loopCut"];
+  const atEnds: OldAtEnd[] = rawTracks.map((t0) => {
+    const t = (t0 ?? {}) as Record<string, unknown>;
+    return oldAtEnd.includes(t.atEnd as OldAtEnd) ? (t.atEnd as OldAtEnd) : "stop";
+  });
+  if (raw.formatVersion === 1) {
+    // "Crossfade" was chosen on the track that starts. Now the track playing before it says it.
+    rawTracks.forEach((t0, i) => {
+      const t = (t0 ?? {}) as Record<string, unknown>;
+      if (t.onSpace !== "crossfade") return;
+      for (let j = i - 1; j >= 0; j--) {
+        const pt = (rawTracks[j] ?? {}) as Record<string, unknown>;
+        if (pt.hidden === true || !pt.file) continue;
+        if (atEnds[j] === "stop" || atEnds[j] === "next") atEnds[j] = "crossfade";
+        break;
+      }
+    });
+  }
+
+  return rawTracks.map((t0, i) => {
     const t = (t0 ?? {}) as Record<string, unknown>;
     let id = typeof t.id === "string" && t.id ? t.id : uid();
     if (seen.has(id)) id = uid();
@@ -63,6 +94,19 @@ export function parseDoc(text: string): Track[] {
     const base = newTrack(id);
     const f = t.file as Record<string, unknown> | null | undefined;
     const loop = t.loop as Record<string, unknown> | null | undefined;
+    const exits: Exit[] = ["fadeOut", "crossfade", "next"];
+    let entry: Entry | null = t.entry === "fadeIn" ? "fadeIn" : null;
+    let exit: Exit | null = exits.includes(t.exit as Exit) ? (t.exit as Exit) : null;
+    let loopOn = t.loopOn === true;
+    let ignoreLoop = t.ignoreLoop === true;
+    if (old) {
+      entry = t.onSpace === "fadeIn" ? "fadeIn" : null;
+      const a = atEnds[i];
+      exit = a === "next" || a === "fadeOut" || a === "crossfade" ? a : null;
+      loopOn = a === "loopAll" || a === "loopCut";
+      // "Loop all" repeated the whole track even if loop points existed.
+      ignoreLoop = a === "loopAll";
+    }
     return {
       ...base,
       hidden: t.hidden === true,
@@ -75,36 +119,29 @@ export function parseDoc(text: string): Track[] {
               durationSec: typeof f.durationSec === "number" ? f.durationSec : null,
             }
           : null,
-      onSpace: onSpace.includes(t.onSpace as OnSpace) ? (t.onSpace as OnSpace) : "play",
-      atEnd: atEnd.includes(t.atEnd as AtEnd) ? (t.atEnd as AtEnd) : "stop",
+      entry,
+      entrySec: optSec(t.entrySec),
+      exit,
+      exitSec: optSec(t.exitSec),
+      loopOn,
       ignoreVolume: t.ignoreVolume === true,
       volumeDb: num(t.volumeDb, 0),
       eq: eqOf(t.eq),
+      pan: Math.min(1, Math.max(-1, num(t.pan, 0))),
       inSec: Math.max(0, num(t.inSec, 0)),
       outSec: typeof t.outSec === "number" ? t.outSec : null,
-      envelope: Array.isArray(t.envelope)
-        ? (t.envelope as unknown[])
-            .map((p) => p as Record<string, unknown>)
-            .filter((p) => typeof p.t === "number" && typeof p.v === "number")
-            .map((p) => ({ t: p.t as number, v: Math.min(1, Math.max(0, p.v as number)) }))
-            .sort((a, b) => a.t - b.t)
-        : [],
+      envelope: curve(t.envelope, 0, 1),
+      panEnvelope: curve(t.panEnvelope, -1, 1),
       loop: loop && typeof loop.inSec === "number" && typeof loop.outSec === "number" ? { inSec: loop.inSec, outSec: loop.outSec } : null,
       loopVisible: t.loopVisible !== false,
+      envelopeVisible: t.envelopeVisible !== false,
+      panVisible: t.panVisible !== false,
+      ignoreCut: t.ignoreCut === true,
+      ignoreEnvelope: t.ignoreEnvelope === true,
+      ignoreLoop,
+      ignorePan: t.ignorePan === true,
     };
   });
-  // Version 1: "Crossfade" was chosen on the track that starts. Now the track
-  // playing before it says "Crossfade" in At end or Space.
-  rawTracks.forEach((t0, i) => {
-    const t = (t0 ?? {}) as Record<string, unknown>;
-    if (t.onSpace !== "crossfade") return;
-    for (let j = i - 1; j >= 0; j--) {
-      if (tracks[j].hidden || !tracks[j].file) continue;
-      if (tracks[j].atEnd === "stop" || tracks[j].atEnd === "next") tracks[j] = { ...tracks[j], atEnd: "crossfade" };
-      break;
-    }
-  });
-  return tracks;
 }
 
 /** Visible (numbered) tracks, in order. `from` is the first number (0 or 1). */
@@ -163,7 +200,12 @@ function trackFromPath(path: string): Partial<Track> {
     inSec: 0,
     outSec: null,
     envelope: [],
+    panEnvelope: [],
     loop: null,
+    ignoreCut: false,
+    ignoreEnvelope: false,
+    ignoreLoop: false,
+    ignorePan: false,
   };
 }
 
@@ -228,7 +270,7 @@ export const useDoc = create<DocStore>((set, get) => {
       set({ missing: m });
       get().ensureInfo(path);
     },
-    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], loop: null }),
+    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], panEnvelope: [], loop: null, ignoreCut: false, ignoreEnvelope: false, ignoreLoop: false, ignorePan: false }),
     deleteTrack: (id) => commit(get().tracks.filter((t) => t.id !== id)),
     duplicateTrack: (id) => {
       const tracks = [...get().tracks];
@@ -309,9 +351,14 @@ export function trackDuration(t: Track, infos: Record<string, InfoState>): numbe
   return t.file.durationSec ?? null;
 }
 
-/** Effective OUT point (null outSec = end of file). */
+/** Where the track really starts (00:00 when the cut is ignored). */
+export function effectiveIn(t: Track): number {
+  return t.ignoreCut ? 0 : t.inSec;
+}
+
+/** Effective OUT point (null outSec = end of file; the end of the file when the cut is ignored). */
 export function effectiveOut(t: Track, dur: number | null): number | null {
-  if (t.outSec !== null) return dur !== null ? Math.min(t.outSec, dur) : t.outSec;
+  if (t.outSec !== null && !t.ignoreCut) return dur !== null ? Math.min(t.outSec, dur) : t.outSec;
   return dur;
 }
 
@@ -324,7 +371,7 @@ export function trackLoudness(t: Track, info: InfoState | undefined): { lufs: nu
   const bins = info.loudness.length;
   const dur = info.durationSec;
   const out = effectiveOut(t, dur) ?? dur;
-  const a = Math.max(0, Math.floor((t.inSec / dur) * bins));
+  const a = Math.max(0, Math.floor((effectiveIn(t) / dur) * bins));
   const b = Math.min(bins, Math.max(a + 1, Math.ceil((out / dur) * bins)));
   const ms = info.loudness.slice(a, b);
   const peak = Math.max(...info.peaks.slice(a, b), 1e-6);

@@ -10,6 +10,7 @@ function config(): EngineConfig {
     fadeInSec: s.fadeInSec,
     fadeOutSec: s.fadeOutSec,
     crossfadeSec: s.crossfadeSec,
+    quickFadeSec: s.quickFadeSec,
     stopAllSec: s.stopAllSec,
     mainDb: s.mainDb,
     numberFrom: s.numberFrom,

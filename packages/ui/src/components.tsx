@@ -143,10 +143,18 @@ export function Range({
   disabled?: boolean;
 }) {
   const fill = ((value - min) / (max - min)) * 100;
-  const live = useRef({ value, onChange, min, max, step });
-  live.current = { value, onChange, min, max, step };
+  const live = useRef({ value, onChange, min, max, step, disabled });
+  live.current = { value, onChange, min, max, step, disabled };
   return (
     <input
+      ref={(el) =>
+        registerWheel(el, (steps, fine) => {
+          const c = live.current;
+          if (c.disabled) return;
+          const next = Math.min(c.max, Math.max(c.min, c.value + steps * c.step * (fine ? 1 : 2)));
+          if (next !== c.value) c.onChange(Math.round(next / c.step) * c.step);
+        })
+      }
       type="range"
       className="ts-range"
       aria-label={label}
@@ -156,63 +164,53 @@ export function Range({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(Number(e.currentTarget.value))}
-      onPointerDown={(e) => {
-        const el = e.currentTarget;
-        setWheelTarget(el, (steps, fine) => {
-          const c = live.current;
-          const next = Math.min(c.max, Math.max(c.min, c.value + steps * c.step * (fine ? 1 : 2)));
-          if (next !== c.value) c.onChange(Math.round(next / c.step) * c.step);
-        });
-      }}
       style={{ width, ["--fill" as string]: `${fill}%` }}
     />
   );
 }
 
-/* ---------------- Mouse wheel on the last clicked fader ---------------- */
+/* ---------------- Mouse wheel over a fader ---------------- */
 
 type WheelFn = (steps: number, fine: boolean) => void;
-let wheelTarget: { el: HTMLElement; fn: WheelFn } | null = null;
+const wheelFns = new WeakMap<HTMLElement, WheelFn>();
 let wheelAcc = 0;
+let wheelEl: HTMLElement | null = null;
 let wheelInstalled = false;
 
 /**
- * After a click on a fader, the mouse wheel moves that fader (wherever the
- * pointer is) until something else is clicked. Shift = finer steps.
+ * Makes the mouse wheel move a fader just by passing over it (no click needed),
+ * like in Adobe programs. Shift = finer steps. Faders register themselves here.
  */
-export function setWheelTarget(el: HTMLElement | null, fn?: WheelFn) {
-  if (wheelTarget && wheelTarget.el !== el) wheelTarget.el.removeAttribute("data-wheel");
-  wheelTarget = el && fn ? { el, fn } : null;
-  wheelAcc = 0;
-  if (el && fn) el.setAttribute("data-wheel", "on");
+export function registerWheel(el: HTMLElement | null, fn: WheelFn) {
+  if (!el) return;
+  wheelFns.set(el, fn);
+  el.setAttribute("data-wheelable", "on");
   if (wheelInstalled || typeof window === "undefined") return;
   wheelInstalled = true;
   window.addEventListener(
     "wheel",
     (e) => {
-      if (!wheelTarget) return;
-      if (!wheelTarget.el.isConnected) {
-        wheelTarget = null;
+      const el = (e.target as HTMLElement | null)?.closest?.<HTMLElement>("[data-wheelable]") ?? null;
+      const fn = el ? wheelFns.get(el) : undefined;
+      if (!el || !fn) {
+        wheelEl = null;
         return;
       }
       e.preventDefault();
+      if (wheelEl !== el) {
+        wheelEl = el;
+        wheelAcc = 0;
+      }
       // A mouse notch is ~100 px; touchpads send many small deltas.
       wheelAcc += e.deltaY;
       const unit = Math.abs(e.deltaY) >= 50 ? Math.abs(e.deltaY) : 50;
       while (Math.abs(wheelAcc) >= unit * 0.99) {
         const dir = wheelAcc < 0 ? 1 : -1;
         wheelAcc += dir * unit;
-        wheelTarget.fn(dir, e.shiftKey);
+        fn(dir, e.shiftKey);
       }
     },
     { passive: false, capture: true },
-  );
-  window.addEventListener(
-    "pointerdown",
-    (e) => {
-      if (wheelTarget && !wheelTarget.el.contains(e.target as Node)) setWheelTarget(null);
-    },
-    true,
   );
 }
 
@@ -384,14 +382,16 @@ export function VFader({
       onReset();
     }
   };
-  const live = useRef({ value, onChange, min, max, step });
-  live.current = { value, onChange, min, max, step };
-  const armWheel = (el: HTMLElement) =>
-    setWheelTarget(el, (steps, fine) => {
+  const live = useRef({ value, onChange, min, max, step, disabled });
+  live.current = { value, onChange, min, max, step, disabled };
+  useEffect(() => {
+    registerWheel(ref.current, (steps, fine) => {
       const c = live.current;
+      if (c.disabled) return;
       const next = Math.min(c.max, Math.max(c.min, c.value + steps * c.step * (fine ? 1 : 2)));
       if (next !== c.value) c.onChange(Math.round(next / c.step) * c.step);
     });
+  }, []);
   const ref0 = zero ?? min;
   const yv = toY(value);
   const y0 = toY(ref0);
@@ -412,7 +412,6 @@ export function VFader({
       onPointerDown={(e) => {
         if (disabled) return;
         e.currentTarget.setPointerCapture(e.pointerId);
-        armWheel(e.currentTarget);
         // A click on the handle only takes hold of it; elsewhere it jumps there.
         const rect = ref.current?.getBoundingClientRect();
         if (rect && Math.abs(e.clientY - rect.top - yv) <= 7) return;

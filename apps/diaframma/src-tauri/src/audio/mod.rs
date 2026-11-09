@@ -15,6 +15,7 @@ pub mod core;
 pub mod decode;
 pub mod dsp;
 pub mod model;
+pub mod selftest;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -720,6 +721,19 @@ pub async fn engine_analyze(engine: tauri::State<'_, Engine>, path: String) -> R
     let info = tauri::async_runtime::spawn_blocking(move || decode::analyze(&p)).await.map_err(|e| e.to_string())??;
     engine.store_info(&path, info.clone());
     Ok(info)
+}
+
+/// Reliability test (Settings → Test): plays the cue list silently, several times in a row.
+#[tauri::command]
+pub async fn selftest_run(app: AppHandle, tracks: Vec<TrackParams>, config: Config, runs: u32) -> Result<selftest::TestReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let progress = |p: selftest::Progress| {
+            let _ = app.emit("selftest-progress", &p);
+        };
+        selftest::run(tracks, config, runs, &progress)
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 // ---------------- Internal player (Rehearsal mode) ----------------

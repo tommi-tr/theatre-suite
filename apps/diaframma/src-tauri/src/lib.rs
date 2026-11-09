@@ -84,6 +84,7 @@ pub fn run() {
             audio::engine_stop_all,
             audio::engine_state,
             audio::engine_analyze,
+            audio::selftest_run,
             audio::player_sync,
             audio::player_play,
             audio::player_pause,
