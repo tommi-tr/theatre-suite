@@ -116,20 +116,6 @@ export function ComposeRibbon() {
         </RCol>
       </RGroup>
       <Sep />
-      <RGroup label={t("Text")}>
-        <RCol>
-          <RB icon="speech" pressed={type === "speech"} title={t("Speech · type the name and press Tab")} onClick={() => block && ui.setSpeakerPicker({ pos: block.pos, mode: type === "speech" ? "change" : "convert" })}>
-            {t("Speech")}
-          </RB>
-          <RB icon="italic" pressed={type === "direction"} title={t("Stage direction · Ctrl D")} onClick={() => setBlockType(view, "direction")}>
-            {t("Direction")}
-          </RB>
-          <RB icon="parens" title={t("Inline direction · type a bracket")} disabled={type !== "speech"} onClick={() => inlineDirection(view)}>
-            {t("Inline")}
-          </RB>
-        </RCol>
-      </RGroup>
-      <Sep />
       <RGroup label={t("Division")}>
         <RCol>
           <RB icon="curtain" title="Ctrl Shift 1" onClick={() => insertPart(view, "act")}>
@@ -140,6 +126,20 @@ export function ComposeRibbon() {
           </RB>
           <RB icon="door" title="Ctrl Shift 3" onClick={() => insertPart(view, "scene")}>
             {t("Scene")}
+          </RB>
+        </RCol>
+      </RGroup>
+      <Sep />
+      <RGroup label={t("Text")}>
+        <RCol>
+          <RB icon="speech" pressed={type === "speech"} title={t("Speech · type the name and press Tab")} onClick={() => block && ui.setSpeakerPicker({ pos: block.pos, mode: type === "speech" ? "change" : "convert" })}>
+            {t("Speech")}
+          </RB>
+          <RB icon="italic" pressed={type === "direction"} title={t("Stage direction · Ctrl D")} onClick={() => setBlockType(view, "direction")}>
+            {t("Direction")}
+          </RB>
+          <RB icon="parens" title={t("Inline direction · type a bracket")} disabled={type !== "speech"} onClick={() => inlineDirection(view)}>
+            {t("Inline")}
           </RB>
         </RCol>
       </RGroup>
@@ -220,9 +220,6 @@ export function ComposeRibbon() {
           <RB icon="table" onClick={() => ui.openDialog("autolist", undefined, "presence")}>
             {t("Table")}
           </RB>
-          <RB icon="listNum" onClick={() => ui.openDialog("autolist", undefined, "index")}>
-            {t("Index")}
-          </RB>
         </RCol>
         <RCol>
           <RB icon="image" disabled title={t("Coming in the next version")}>
@@ -241,6 +238,17 @@ export function ComposeRibbon() {
           </RB>
           <RB icon="footnote" disabled title={t("Coming in the next version")}>
             {t("Footnote")}
+          </RB>
+        </RCol>
+      </RGroup>
+      <Sep />
+      <RGroup label={t("Find")}>
+        <RCol>
+          <RB icon="search" title={`${t("Find")} · Ctrl F`} onClick={() => ui.setFind({ open: true, replace: false })}>
+            {t("Find")}
+          </RB>
+          <RB icon="sync" title={`${t("Replace")} · Ctrl H`} onClick={() => ui.setFind({ open: true, replace: true })}>
+            {t("Replace")}
           </RB>
         </RCol>
       </RGroup>

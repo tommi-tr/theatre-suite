@@ -1,6 +1,6 @@
 [package]
 name = "bardo"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bardo — writing scripts for the theatre (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"

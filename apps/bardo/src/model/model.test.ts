@@ -78,7 +78,7 @@ describe("automatic lists", () => {
     const blocks = buildList(defaultListConfig("it", "index"), data, idx, () => 3);
     const entries = blocks.filter((b) => b.type === "entry");
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ name: "lanterna", refs: "I.1 · 3" });
+    expect(entries[0]).toMatchObject({ name: "lanterna", refs: "I.1 · pag. 3" });
   });
 
   it("builds a presence table characters × scenes", () => {
@@ -98,7 +98,7 @@ describe("automatic lists", () => {
   it("makes a table of contents", () => {
     const blocks = buildList({ ...defaultListConfig("it", "toc"), present: true }, data, idx, (pos) => (pos > idx.scenes[1].pos - 1 ? 6 : 3));
     const entries = blocks.filter((b) => b.type === "entry");
-    expect(entries.map((e) => e.type === "entry" && e.refs)).toEqual(["3", "6"]);
+    expect(entries.map((e) => e.type === "entry" && e.refs)).toEqual(["pag. 3", "pag. 6"]);
     expect(entries[0].type === "entry" && entries[0].present).toContain("Bernardo");
   });
 });

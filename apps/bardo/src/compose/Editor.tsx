@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorView } from "prosemirror-view";
+import { TextSelection } from "prosemirror-state";
 import { useT } from "@theatre-suite/core";
 import { Icon } from "@theatre-suite/ui";
 import { createEditorState } from "../editor/setup";
@@ -187,6 +188,28 @@ export function Editor() {
         },
         handleDOMEvents: {
           mousedown(view, e) {
+            // A click in the empty space that a page break leaves at the bottom of a page:
+            // the caret goes to the end of the text above, not to the start of the next page.
+            if (e.button === 0 && !(e.target as HTMLElement).closest(".b-part, .b-auto, .b-speech, .b-dir, .b-par, .b-section, .b-pagebreak")) {
+              for (const sp of Array.from(view.dom.querySelectorAll<HTMLElement>(".b-pb--block"))) {
+                const r = sp.getBoundingClientRect();
+                if (e.clientY >= r.top && e.clientY <= r.bottom && r.height > 2) {
+                  let pos = -1;
+                  try {
+                    pos = view.posAtDOM(sp, 0);
+                  } catch {
+                    pos = -1;
+                  }
+                  if (pos > 0) {
+                    const $pos = view.state.doc.resolve(pos);
+                    e.preventDefault();
+                    view.dispatch(view.state.tr.setSelection(TextSelection.near($pos, -1)).scrollIntoView());
+                    view.focus();
+                    return true;
+                  }
+                }
+              }
+            }
             const el = (e.target as HTMLElement).closest(".b-speaker");
             if (el && e.button === 0) {
               const sp = el.closest(".b-speech") as HTMLElement | null;

@@ -49,7 +49,11 @@ function entriesFor(cat: string, data: DocData, index: DocIndex): Entry[] {
     .filter((e) => e.occ.length > 0);
 }
 
-function refsText(e: Entry, cfg: ListConfig, index: DocIndex, pageOf: PageOf): string {
+function pageLabel(n: number, lang: string): string {
+  return `${lang === "it" ? "pag." : "p."} ${n}`;
+}
+
+function refsText(e: Entry, cfg: ListConfig, index: DocIndex, pageOf: PageOf, lang: string): string {
   if (cfg.where === "none" && !cfg.pages) return "";
   let occ = e.occ;
   if (e.character) {
@@ -66,7 +70,7 @@ function refsText(e: Entry, cfg: ListConfig, index: DocIndex, pageOf: PageOf): s
     const s = o.scene >= 0 ? index.scenes[o.scene] : null;
     const ref = cfg.where !== "none" && s ? sceneRef(s) : "";
     const page = cfg.pages ? pageOf(o.pos) : null;
-    return [ref, page !== null ? String(page) : ""].filter(Boolean).join(" · ");
+    return [ref, page !== null ? pageLabel(page, lang) : ""].filter(Boolean).join(" · ");
   });
   return parts.filter(Boolean).join(cfg.where === "firstLast" ? " … " : ", ");
 }
@@ -97,7 +101,7 @@ export function buildList(cfg: ListConfig, data: DocData, index: DocIndex, pageO
         name: (cfg.group === "none" && s.act ? `${a11yAct(s.act, it)} · ` : "") + (s.title ? `${s.label} — ${s.title}` : s.label),
         character: false,
         desc: cfg.description ? s.desc || s.place : "",
-        refs: page !== null ? String(page) : "",
+        refs: page !== null ? pageLabel(page, data.lang) : "",
         present: cfg.present ? s.present.map(nameOf).filter(Boolean).join(", ") : "",
       });
     }
@@ -135,7 +139,7 @@ export function buildList(cfg: ListConfig, data: DocData, index: DocIndex, pageO
     if (multi) out.push({ type: "group", text: catName });
     if (cfg.group === "none") {
       for (const e of entries) {
-        out.push({ type: "entry", name: e.name, character: e.character, desc: cfg.description ? e.desc : "", refs: refsText(e, cfg, index, pageOf), present: "" });
+        out.push({ type: "entry", name: e.name, character: e.character, desc: cfg.description ? e.desc : "", refs: refsText(e, cfg, index, pageOf, data.lang), present: "" });
       }
     } else {
       // Grouped by act or scene: each group lists what appears in it.

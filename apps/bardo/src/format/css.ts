@@ -62,7 +62,7 @@ export function longestNameMm(f: FormatModel, data: DocData): number {
 
 /** Name column width and the gap after it (mm). */
 export function nameColumn(f: FormatModel, data: DocData): { col: number; gap: number } {
-  const gap = 3;
+  const gap = Number.isFinite(f.speech.gap) ? f.speech.gap : 3;
   let col = Math.max(10, f.speech.indent - gap);
   if (f.speech.autoIndent) col = Math.max(col, Math.ceil(longestNameMm(f, data) + 1));
   return { col, gap };
@@ -78,7 +78,7 @@ export function formatCss(f: FormatModel, data: DocData): string {
   const extraR = Math.max(0, f.page.doc.outer - f.page.script.outer);
   const pos = f.speech.namePos;
   const indent = pos === "left" ? col + gap : pos === "above" ? 0 : 0;
-  const dirIndent = pos === "left" ? col + gap : pos === "above" ? 12 : 8;
+  const dirIndent = f.speech.dirIndent ?? (pos === "left" ? col + gap : pos === "above" ? 12 : 8);
   const rules: string[] = [];
   const r = (sel: string, decl: string) => rules.push(`${sel}{${decl}}`);
 
@@ -99,7 +99,7 @@ export function formatCss(f: FormatModel, data: DocData): string {
 
   // Speeches.
   r(".b-doc .b-speech", `position:relative;margin-top:${st.speech.before}pt;margin-bottom:${st.speech.after}pt;${pos === "left" ? `display:grid;grid-template-columns:${col}mm minmax(0,1fr);column-gap:${gap}mm` : "display:block"}`);
-  r(".b-doc .b-speaker", `${styleDecl(st.speaker, { margins: false })};${pos === "above" ? "display:block;" : pos === "inline" ? "display:inline;" : ""}overflow-wrap:anywhere`);
+  r(".b-doc .b-speaker", `${styleDecl(st.speaker, { margins: pos === "above" })};${pos === "above" ? "display:block;" : pos === "inline" ? "display:inline;" : ""}overflow-wrap:anywhere`);
   if (pos === "inline") r(".b-doc .b-speaker::after", "content:'. '");
   r(".b-doc .b-speech-text", `${pos === "inline" ? "display:inline" : `padding-left:${pos === "above" ? 0 : 0}mm`}`);
   r(".b-doc .b-inl", styleDecl(st.inline, { margins: false }).replace(/font-size:[^;]+;/, "").replace(/line-height:[^;]+;?/, ""));

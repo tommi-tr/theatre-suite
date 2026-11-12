@@ -1,9 +1,11 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { useT, type TFunc } from "@theatre-suite/core";
+import { FoldButton, FoldRail, RibbonShell } from "../common/Fold";
+import { nameColumn } from "./css";
 import { Button, Icon, StatusBar, type IconName } from "@theatre-suite/ui";
 import type { EditorView } from "prosemirror-view";
 import { useDoc } from "../store/doc";
-import { useUi } from "../store/ui";
+import { useUi, type FormatTab } from "../store/ui";
 import { useSettings } from "../store/settings";
 import { useScript, Check, Seg } from "../compose/dialogs/common";
 import { RB, RGroup, Sep } from "../compose/Ribbon";
@@ -114,9 +116,10 @@ function Num({ value, onCommit, step = 0.5, min = 0, max = 400, unit, label, wid
   );
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function Row({ label, children, flashKey }: { label: string; children: ReactNode; flashKey?: string }) {
+  const flash = useUi((s) => s.flash);
   return (
-    <div className="bd-irow">
+    <div className={`bd-irow${flashKey && flash === flashKey ? " bd-flash" : ""}`}>
       <span className="bd-irow__label">{label}</span>
       <div className="bd-irow__ctl">{children}</div>
     </div>
@@ -194,10 +197,30 @@ const SAMPLE = {
 function useElementPicker() {
   const sel = useUi((s) => s.formatElement);
   const pick = (e: MouseEvent) => {
-    const el = (e.target as HTMLElement).closest("[data-el]") as HTMLElement | null;
+    const ui = useUi.getState();
+    const target = e.target as HTMLElement;
+    const el = target.closest("[data-el]") as HTMLElement | null;
     if (el?.dataset.el) {
       e.stopPropagation();
-      useUi.getState().setFormatElement(el.dataset.el);
+      ui.setFormatElement(el.dataset.el);
+      return;
+    }
+    // The empty space between a name and its speech: show where it is set.
+    if (target.closest(".b-speech")) {
+      e.stopPropagation();
+      ui.setFormatElement("speaker");
+      ui.flashControl("gap");
+      return;
+    }
+    // The space to the left of a stage direction: its indent.
+    for (const d of Array.from((e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(".b-dir"))) {
+      const r = d.getBoundingClientRect();
+      if (e.clientY >= r.top && e.clientY <= r.bottom && e.clientX < r.left) {
+        e.stopPropagation();
+        ui.setFormatElement("direction");
+        ui.flashControl("dirIndent");
+        return;
+      }
     }
   };
   const on = (k: string) => (sel === k ? " is-on" : "");
@@ -329,16 +352,27 @@ function PageSample({ f }: { f: FormatModel }) {
 /* Inspector                                                            */
 /* ------------------------------------------------------------------ */
 
+function autoDirIndent(data: DocData): number {
+  const { col, gap } = nameColumn(data.format, data);
+  const pos = data.format.speech.namePos;
+  return pos === "left" ? col + gap : pos === "above" ? 12 : 8;
+}
+
 function Inspector({ view, data }: { view: EditorView; data: DocData }) {
   const t = useT();
   const key = useUi((s) => s.formatElement);
   const custom = t("Customised");
   const isCat = key.startsWith("cat:");
+  const folded = useUi((s) => s.hidden.inspector);
   const head = (
-    <div className="bd-format__head" style={{ padding: "12px 14px 0" }}>
-      {t("Style of")} · <span style={{ color: "var(--text)", textTransform: "none", letterSpacing: 0, fontSize: 13 }}>{elementLabel(t, key, data)}</span>
+    <div className="bd-format__head bd-panel-head" style={{ padding: "12px 10px 0 14px" }}>
+      <span>
+        {t("Style of")} · <span style={{ color: "var(--text)", textTransform: "none", letterSpacing: 0, fontSize: 13 }}>{elementLabel(t, key, data)}</span>
+      </span>
+      <FoldButton panel="inspector" side="left" />
     </div>
   );
+  if (folded) return <FoldRail panel="inspector" side="left" label={t("Style")} />;
   if (isCat) {
     const id = key.slice(4);
     const c = data.format.cats[id] ?? { caps: "normal" as Caps, italic: false, bold: false };
@@ -399,12 +433,20 @@ function Inspector({ view, data }: { view: EditorView; data: DocData }) {
             ))}
           </div>
         </Row>
-        <Row label={t("Space before")}>
-          <Num label={t("Space before")} value={s.before} unit="pt" step={1} max={120} onCommit={(v) => set({ before: v })} />
-        </Row>
-        <Row label={t("Space after")}>
-          <Num label={t("Space after")} value={s.after} unit="pt" step={1} max={120} onCommit={(v) => set({ after: v })} />
-        </Row>
+        {sk !== "speaker" || data.format.speech.namePos === "above" ? (
+          <>
+            <Row label={t("Space before")}>
+              <Num label={t("Space before")} value={s.before} unit="pt" step={1} max={120} onCommit={(v) => set({ before: v })} />
+            </Row>
+            <Row label={t("Space after")}>
+              <Num label={t("Space after")} value={s.after} unit="pt" step={1} max={120} onCommit={(v) => set({ after: v })} />
+            </Row>
+          </>
+        ) : (
+          <div className="bd-help" style={{ marginTop: 0 }}>
+            {t("With the name on the side, the spacing between speeches is set in the style “Speech”.")}
+          </div>
+        )}
         <Row label={t("Line spacing")}>
           <Num label={t("Line spacing")} value={s.lineHeight} step={0.05} min={0.8} max={3} onCommit={(v) => set({ lineHeight: v })} />
         </Row>
@@ -415,6 +457,17 @@ function Inspector({ view, data }: { view: EditorView; data: DocData }) {
             ))}
           </div>
         </Row>
+        {sk === "direction" ? (
+          <>
+            <div className="bd-section-title">{t("Position")}</div>
+            <Row label={t("Indent from the margin")} flashKey="dirIndent">
+              <Num label={t("Indent from the margin")} value={Math.round((data.format.speech.dirIndent ?? autoDirIndent(data)) * 10) / 10} unit="mm" step={1} min={0} max={90} onCommit={(v) => updateFormat(view, (f) => ({ ...f, speech: { ...f.speech, dirIndent: v } }), custom)} />
+              <Button variant="sm" disabled={data.format.speech.dirIndent == null} onClick={() => updateFormat(view, (f) => ({ ...f, speech: { ...f.speech, dirIndent: null } }), custom)}>
+                {t("Automatic")}
+              </Button>
+            </Row>
+          </>
+        ) : null}
         {sk === "speaker" ? (
           <>
             <div className="bd-section-title">{t("Character names")}</div>
@@ -436,6 +489,9 @@ function Inspector({ view, data }: { view: EditorView; data: DocData }) {
                 <Check checked={data.format.speech.autoIndent} onChange={(v) => updateFormat(view, (f) => ({ ...f, speech: { ...f.speech, autoIndent: v } }), custom)}>
                   {t("Widen to the longest name")}
                 </Check>
+                <Row label={t("Space between name and text")} flashKey="gap">
+                  <Num label={t("Space between name and text")} value={data.format.speech.gap} unit="mm" step={0.5} min={0} max={40} onCommit={(v) => updateFormat(view, (f) => ({ ...f, speech: { ...f.speech, gap: v } }), custom)} />
+                </Row>
               </>
             ) : null}
           </>
@@ -672,77 +728,134 @@ function RulesCard({ view, f }: { view: EditorView; f: FormatModel }) {
 /* Phase                                                                */
 /* ------------------------------------------------------------------ */
 
+const TABS: { key: FormatTab; label: string; icon: IconName }[] = [
+  { key: "speeches", label: "Speeches", icon: "speech" },
+  { key: "parts", label: "Acts and scenes", icon: "frame" },
+  { key: "title", label: "Title page and lists", icon: "title" },
+  { key: "page", label: "Page and margins", icon: "margins" },
+  { key: "header", label: "Header and footer", icon: "header" },
+  { key: "rules", label: "Typesetting rules", icon: "sparkle" },
+];
+
+/** The section of Formatta where an element is shown. */
+function tabOf(key: string): FormatTab {
+  if (key.startsWith("cat:")) return "speeches";
+  if (["act", "tableau", "scene", "place"].includes(key)) return "parts";
+  if (["title", "subtitle", "credits", "section", "list", "body"].includes(key)) return "title";
+  if (key === "header") return "header";
+  return "speeches";
+}
+
 export function FormatPhase() {
   const t = useT();
   const { view, data } = useScript();
   const sel = useUi((s) => s.formatElement);
+  const tab = useUi((s) => s.formatTab);
+  const navHidden = useUi((s) => s.hidden.formatNav);
   const pages = useDoc((s) => s.pages);
   if (!view || !data) return null;
   const f = data.format;
   const size = PAGE_SIZES[f.page.size] ?? PAGE_SIZES.A4;
   const catIcon = (icon: string): IconName => (CAT_ICONS as Record<string, IconName>)[icon] ?? "tags";
+  const pickElement = (key: string) => {
+    const ui = useUi.getState();
+    ui.setFormatElement(key);
+    ui.setFormatTab(tabOf(key));
+  };
   return (
     <>
-      <FormatRibbon view={view} data={data} />
+      <RibbonShell>
+        <FormatRibbon view={view} data={data} />
+      </RibbonShell>
       <div className="bd-format">
-        <nav className="bd-format__elements" aria-label={t("Elements")}>
-          {ELEMENT_GROUPS.map((g) => (
-            <div key={g.label}>
-              <div className="bd-format__head">{t(g.label)}</div>
-              {g.items.map((e) => (
-                <button key={e.key} type="button" className="bd-tree-item" aria-current={sel === e.key} onClick={() => useUi.getState().setFormatElement(e.key)}>
-                  <Icon name={e.icon} size={14} />
-                  <span className="bd-tree-item__label">{t(e.label)}</span>
-                </button>
-              ))}
+        {navHidden ? (
+          <FoldRail panel="formatNav" side="left" label={t("Elements")} />
+        ) : (
+          <nav className="bd-format__elements" aria-label={t("Elements")}>
+            <div className="bd-panel-head" style={{ padding: "4px 4px 0 8px" }}>
+              <span className="bd-format__head" style={{ padding: 0 }}>
+                {t("Elements")}
+              </span>
+              <FoldButton panel="formatNav" side="left" />
             </div>
-          ))}
-          <div className="bd-format__head">{t("Categories in the text")}</div>
-          {data.categories.map((c) => (
-            <button key={c.id} type="button" className="bd-tree-item" aria-current={sel === `cat:${c.id}`} onClick={() => useUi.getState().setFormatElement(`cat:${c.id}`)}>
-              <Icon name={catIcon(c.icon)} size={14} />
-              <span className="bd-tree-item__label">{c.name}</span>
-            </button>
-          ))}
-        </nav>
+            {ELEMENT_GROUPS.map((g) => (
+              <div key={g.label}>
+                <div className="bd-format__head">{t(g.label)}</div>
+                {g.items.map((e) => (
+                  <button key={e.key} type="button" className="bd-tree-item" aria-current={sel === e.key} onClick={() => pickElement(e.key)}>
+                    <Icon name={e.icon} size={14} />
+                    <span className="bd-tree-item__label">{t(e.label)}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+            <div className="bd-format__head">{t("Categories in the text")}</div>
+            {data.categories.map((c) => (
+              <button key={c.id} type="button" className="bd-tree-item" aria-current={sel === `cat:${c.id}`} onClick={() => pickElement(`cat:${c.id}`)}>
+                <Icon name={catIcon(c.icon)} size={14} />
+                <span className="bd-tree-item__label">{c.name}</span>
+              </button>
+            ))}
+          </nav>
+        )}
+        <Inspector view={view} data={data} />
         <main className="bd-format__main">
-          <div className="bd-format__grid">
-            <Card wide icon="speech" title={t("Speeches")} sub={t("Click any part of the example to change its style")}>
-              <SpeechSample data={data} />
-            </Card>
-            <Card icon="frame" title={t("Acts and scenes")}>
-              <PartitionSample data={data} />
-            </Card>
-            <Card icon="title" title={t("Title page and lists")}>
-              <TitleSample data={data} />
-            </Card>
-            <Card icon="margins" title={t("Page and margins")} sub={`${f.page.size} · ${size.w} × ${size.h} mm`}>
-              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                <PageSample f={f} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minWidth: 0 }}>
-                  <MarginsEditor view={view} f={f} zone="script" label={t("Script pages")} />
-                  <MarginsEditor view={view} f={f} zone="doc" label={t("Title page and lists (dashed)")} />
+          <div className="bd-format-tabs" role="tablist" aria-label={t("Sections")}>
+            {TABS.map((x) => (
+              <button key={x.key} type="button" role="tab" className="bd-format-tab" aria-selected={tab === x.key} onClick={() => useUi.getState().setFormatTab(x.key)}>
+                <Icon name={x.icon} size={14} />
+                {t(x.label)}
+              </button>
+            ))}
+          </div>
+          <div className="bd-format__grid bd-format__grid--one">
+            {tab === "speeches" ? (
+              <Card wide icon="speech" title={t("Speeches")} sub={t("Click any part of the example to change its style")}>
+                <SpeechSample data={data} />
+              </Card>
+            ) : null}
+            {tab === "parts" ? (
+              <Card wide icon="frame" title={t("Acts and scenes")} sub={t("Click any part of the example to change its style")}>
+                <PartitionSample data={data} />
+              </Card>
+            ) : null}
+            {tab === "title" ? (
+              <Card wide icon="title" title={t("Title page and lists")} sub={t("Click any part of the example to change its style")}>
+                <TitleSample data={data} />
+              </Card>
+            ) : null}
+            {tab === "page" ? (
+              <Card wide icon="margins" title={t("Page and margins")} sub={`${f.page.size} · ${size.w} × ${size.h} mm`}>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <PageSample f={f} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minWidth: 0 }}>
+                    <MarginsEditor view={view} f={f} zone="script" label={t("Script pages")} />
+                    <MarginsEditor view={view} f={f} zone="doc" label={t("Title page and lists (dashed)")} />
+                  </div>
                 </div>
-              </div>
-            </Card>
-            <Card icon="header" title={t("Header and footer")} sub={pages && !pages.continuous ? t("{n} pages", { n: pages.pages.length }) : undefined}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <HeaderEditor view={view} f={f} which="header" />
-                <Check checked={f.header.onDocPages} onChange={(v) => updateFormat(view, (x) => ({ ...x, header: { ...x.header, onDocPages: v } }), t("Customised"))}>
-                  {t("Also on the title page and lists")}
-                </Check>
-                <HeaderEditor view={view} f={f} which="footer" />
-                <Check checked={f.footer.onFirstPage} onChange={(v) => updateFormat(view, (x) => ({ ...x, footer: { ...x.footer, onFirstPage: v } }), t("Customised"))}>
-                  {t("Also on the first page")}
-                </Check>
-              </div>
-            </Card>
-            <Card wide icon="sparkle" title={t("Typesetting rules")} sub={t("Bardo applies them while you write")}>
-              <RulesCard view={view} f={f} />
-            </Card>
+              </Card>
+            ) : null}
+            {tab === "header" ? (
+              <Card wide icon="header" title={t("Header and footer")} sub={pages && !pages.continuous ? t("{n} pages", { n: pages.pages.length }) : undefined}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <HeaderEditor view={view} f={f} which="header" />
+                  <Check checked={f.header.onDocPages} onChange={(v) => updateFormat(view, (x) => ({ ...x, header: { ...x.header, onDocPages: v } }), t("Customised"))}>
+                    {t("Also on the title page and lists")}
+                  </Check>
+                  <HeaderEditor view={view} f={f} which="footer" />
+                  <Check checked={f.footer.onFirstPage} onChange={(v) => updateFormat(view, (x) => ({ ...x, footer: { ...x.footer, onFirstPage: v } }), t("Customised"))}>
+                    {t("Also on the first page")}
+                  </Check>
+                </div>
+              </Card>
+            ) : null}
+            {tab === "rules" ? (
+              <Card wide icon="sparkle" title={t("Typesetting rules")} sub={t("Bardo applies them while you write")}>
+                <RulesCard view={view} f={f} />
+              </Card>
+            ) : null}
           </div>
         </main>
-        <Inspector view={view} data={data} />
       </div>
       <StatusBar>
         <div className="bd-status" style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>

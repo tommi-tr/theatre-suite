@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { I18nProvider, basename, useApplyTheme, useT } from "@theatre-suite/core";
-import { AppLogo, Button, Icon, Segmented, TitleBar } from "@theatre-suite/ui";
+import { AppLogo, Button, Segmented, TitleBar } from "@theatre-suite/ui";
 import { redo, undo } from "prosemirror-history";
 import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEvent } from "./lib/api";
@@ -209,12 +209,6 @@ function Shell() {
           <>
             <Button variant="ghost" iconOnly icon="undo" aria-label={t("Undo")} title={`${t("Undo")} · Ctrl Z`} onClick={() => view && undo(view.state, view.dispatch)} />
             <Button variant="ghost" iconOnly icon="redo" aria-label={t("Redo")} title={`${t("Redo")} · Ctrl Y`} onClick={() => view && redo(view.state, view.dispatch)} />
-            {phase === "compose" ? (
-              <label className="bd-search" title={`${t("Find")} · Ctrl F`}>
-                <Icon name="search" size={14} />
-                <input aria-label={t("Find")} placeholder={t("Find")} onFocus={(e) => (e.currentTarget.blur(), ui.setFind({ open: true, replace: false }))} />
-              </label>
-            ) : null}
             <FileMenu />
             <Button variant="ghost" iconOnly icon="book" aria-label={t("Guide")} onClick={() => ui.openDialog("guide")} title={`${t("Guide")} · F1`} />
             <Button variant="ghost" iconOnly icon="settings" aria-label={t("Settings")} onClick={() => ui.openDialog("settings")} title={`${t("Settings")} · Ctrl ,`} />

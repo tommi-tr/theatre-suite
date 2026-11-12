@@ -3,10 +3,10 @@ import { redo, undo } from "prosemirror-history";
 import { InputRule, inputRules } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
 import { Fragment, Slice, type ResolvedPos } from "prosemirror-model";
-import { TextSelection, type Command, type EditorState } from "prosemirror-state";
+import { NodeSelection, TextSelection, type Command, type EditorState } from "prosemirror-state";
 import { getData, newId } from "../model/defaults";
 import { schema } from "../model/schema";
-import { makeSpeechByName, setBlockType, toggleMarkType } from "./commands";
+import { insertPageBreak, makeSpeechByName, setBlockType, toggleMarkType } from "./commands";
 import { useUi } from "../store/ui";
 
 const n = schema.nodes;
@@ -31,6 +31,74 @@ const enter: Command = (state, dispatch) => {
   dispatch(tr.scrollIntoView());
   return true;
 };
+
+const ATOM_BLOCKS = new Set(["auto", "page_break", "act", "tableau", "scene"]);
+
+/**
+ * Enter on a selected automatic block, heading or page break: free space after it,
+ * as in a word processor. After a heading the cursor goes to the line that follows it.
+ */
+const enterAfterAtom: Command = (state, dispatch) => {
+  const sel = state.selection;
+  if (!(sel instanceof NodeSelection) || sel.$from.depth !== 0) return false;
+  const name = sel.node.type.name;
+  if (!ATOM_BLOCKS.has(name)) return false;
+  if (!dispatch) return true;
+  const after = sel.to;
+  const nextNode = state.doc.nodeAt(after);
+  const isHeading = name === "act" || name === "tableau" || name === "scene";
+  if (isHeading && nextNode?.isTextblock) {
+    dispatch(state.tr.setSelection(TextSelection.create(state.doc, after + 1)).scrollIntoView());
+    return true;
+  }
+  const node = isHeading ? n.direction.create({ id: newId("dir") }) : n.paragraph.create();
+  const tr = state.tr.insert(after, node);
+  tr.setSelection(TextSelection.create(tr.doc, after + 1));
+  dispatch(tr.scrollIntoView());
+  return true;
+};
+
+/** Ctrl+Shift+Enter: an empty line before the current block (to write above a title page or a list). */
+const blankBefore: Command = (state, dispatch) => {
+  const sel = state.selection;
+  const idx = sel.$from.depth === 0 && sel instanceof NodeSelection ? sel.$from.index(0) : sel.$from.depth >= 1 ? sel.$from.index(0) : -1;
+  if (idx < 0) return false;
+  if (!dispatch) return true;
+  let at = 0;
+  for (let i = 0; i < idx; i++) at += state.doc.child(i).nodeSize;
+  const tr = state.tr.insert(at, n.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, at + 1));
+  dispatch(tr.scrollIntoView());
+  return true;
+};
+
+const FREE_BLOCKS = new Set(["auto", "page_break", "paragraph", "section"]);
+
+/** Alt+Up / Alt+Down: moves the current free block (list, paragraph, page break) one place. */
+function moveBlock(dir: -1 | 1): Command {
+  return (state, dispatch) => {
+    const sel = state.selection;
+    const idx = sel instanceof NodeSelection ? sel.$from.index(0) : sel.$from.depth >= 1 ? sel.$from.index(0) : -1;
+    const doc = state.doc;
+    if (idx < 0) return false;
+    const target = idx + dir;
+    if (target < 0 || target >= doc.childCount) return false;
+    const node = doc.child(idx);
+    if (!FREE_BLOCKS.has(node.type.name)) return false;
+    if (!dispatch) return true;
+    const other = doc.child(target);
+    let from = 0;
+    for (let i = 0; i < idx; i++) from += doc.child(i).nodeSize;
+    const to = from + node.nodeSize;
+    const tr = state.tr.delete(from, to);
+    const at = dir < 0 ? from - other.nodeSize : from + other.nodeSize;
+    tr.insert(at, node);
+    if (sel instanceof NodeSelection) tr.setSelection(NodeSelection.create(tr.doc, at));
+    else tr.setSelection(TextSelection.create(tr.doc, Math.min(at + (sel.from - from), at + node.nodeSize - 1)));
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
 
 /** Tab at the start of the script line: the line becomes a speech. */
 const tab: Command = (state, _dispatch, view) => {
@@ -88,7 +156,14 @@ const hardBreak: Command = chainCommands(exitCode, (state, dispatch) => {
 export function bardoKeymaps() {
   return [
     keymap({
-      Enter: enter,
+      Enter: chainCommands(enterAfterAtom, enter),
+      "Mod-Enter": (_s, _d, view) => {
+        if (view) insertPageBreak(view);
+        return true;
+      },
+      "Mod-Shift-Enter": blankBefore,
+      "Alt-ArrowUp": moveBlock(-1),
+      "Alt-ArrowDown": moveBlock(1),
       "Shift-Enter": hardBreak,
       Tab: tab,
       "Shift-Tab": shiftTab,

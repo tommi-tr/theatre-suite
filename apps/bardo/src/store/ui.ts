@@ -47,7 +47,28 @@ export interface SpeakerPicker {
   mode: "convert" | "change";
 }
 
+/** Panels the user can fold away (independent of the Focus mode, which hides everything). */
+export type PanelKey = "ribbon" | "structure" | "formatNav" | "inspector";
+export type FormatTab = "speeches" | "parts" | "title" | "page" | "header" | "rules";
+
+function loadHidden(): Record<PanelKey, boolean> {
+  const none = { ribbon: false, structure: false, formatNav: false, inspector: false };
+  try {
+    const raw = localStorage.getItem("bardo.hidden");
+    return raw ? { ...none, ...(JSON.parse(raw) as Partial<Record<PanelKey, boolean>>) } : none;
+  } catch {
+    return none;
+  }
+}
+
 interface UiStore {
+  hidden: Record<PanelKey, boolean>;
+  setHidden: (k: PanelKey, v: boolean) => void;
+  formatTab: FormatTab;
+  setFormatTab: (t: FormatTab) => void;
+  /** Control of the inspector that blinks for a moment (a click on a part of the example). */
+  flash: string | null;
+  flashControl: (k: string) => void;
   phase: Phase;
   setPhase: (p: Phase) => void;
   dialog: DialogState | null;
@@ -75,7 +96,27 @@ interface UiStore {
   setFormatElement: (k: string) => void;
 }
 
-export const useUi = create<UiStore>((set) => ({
+let flashTimer: number | undefined;
+
+export const useUi = create<UiStore>((set, get) => ({
+  hidden: loadHidden(),
+  setHidden: (k, v) => {
+    const hidden = { ...get().hidden, [k]: v };
+    try {
+      localStorage.setItem("bardo.hidden", JSON.stringify(hidden));
+    } catch {
+      /* storage not available */
+    }
+    set({ hidden });
+  },
+  formatTab: "speeches",
+  setFormatTab: (formatTab) => set({ formatTab }),
+  flash: null,
+  flashControl: (k) => {
+    window.clearTimeout(flashTimer);
+    set({ flash: k });
+    flashTimer = window.setTimeout(() => set({ flash: null }), 1800);
+  },
   phase: "compose",
   setPhase: (phase) => set({ phase, contextMenu: null, speakerPicker: null }),
   dialog: null,

@@ -1,3 +1,4 @@
+import { RibbonShell } from "../common/Fold";
 import { useUi } from "../store/ui";
 import { Editor } from "./Editor";
 import { ComposeRibbon, ManualRibbon } from "./Ribbon";
@@ -10,7 +11,7 @@ export function ComposePhase() {
   const focus = useUi((s) => s.focusMode);
   return (
     <div className="bd-compose">
-      {focus ? null : ribbon === "manual" ? <ManualRibbon /> : <ComposeRibbon />}
+      {focus ? null : <RibbonShell>{ribbon === "manual" ? <ManualRibbon /> : <ComposeRibbon />}</RibbonShell>}
       <div className="bd-compose__main">
         {focus ? null : <StructurePanel />}
         <Editor />

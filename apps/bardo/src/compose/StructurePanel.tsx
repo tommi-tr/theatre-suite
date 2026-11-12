@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { EditorView } from "prosemirror-view";
 import { useT } from "@theatre-suite/core";
 import { Icon, Segmented, type IconName } from "@theatre-suite/ui";
 import { moveBlocks, scrollToPos } from "../editor/commands";
-import { pageOfPos } from "../editor/paginate";
+import { pageOfPos, type Pagination } from "../editor/paginate";
 import { getIndex } from "../editor/plugins";
 import { useDoc } from "../store/doc";
+import { FoldButton, FoldRail } from "../common/Fold";
 import { useUi } from "../store/ui";
 
 interface Entry {
@@ -21,6 +23,64 @@ interface Entry {
   collapsible: boolean;
 }
 
+
+const THUMB_W = 150;
+
+/**
+ * Miniature of a printed page, like the side bar of a slide editor: the real blocks of
+ * the page (same stylesheet) copied into a small white sheet. Drawn only while visible.
+ */
+function PageThumb({ view, pages, page, current, onOpen, docRev }: { view: EditorView; pages: Pagination; page: number; current: boolean; onOpen: () => void; docRev: unknown }) {
+  const hostRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const g = pages.geom;
+  const p = pages.pages[page];
+  const k = THUMB_W / g.pageW;
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => setVisible(entries.some((e) => e.isIntersecting)), { rootMargin: "240px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !visible) return;
+    const draw = () => {
+      body.textContent = "";
+      const doc = view.state.doc;
+      // A page that starts in the middle of a speech skips that block (its start is on the page before).
+      const continued = page > 0 && pages.pages[page - 1].firstBlock === p.firstBlock;
+      const from = continued ? p.firstBlock + 1 : p.firstBlock;
+      const wrap = document.createElement("div");
+      wrap.className = "b-doc";
+      wrap.style.cssText = `position:absolute;left:${-p.left}px;top:${g.zones[p.zone].top}px;width:${g.contentW}px`;
+      doc.forEach((_node, offset, i) => {
+        if (i < from || pages.blockPage[i] !== page) return;
+        const dom = view.nodeDOM(offset) as HTMLElement | null;
+        if (!dom || !(dom instanceof HTMLElement)) return;
+        const copy = dom.cloneNode(true) as HTMLElement;
+        copy.querySelectorAll(".b-pb, .b-lane, .b-auto-lane").forEach((x) => x.remove());
+        copy.removeAttribute("contenteditable");
+        copy.classList.remove("ProseMirror-selectednode");
+        wrap.appendChild(copy);
+      });
+      body.appendChild(wrap);
+    };
+    const id = window.setTimeout(draw, 160);
+    return () => window.clearTimeout(id);
+  }, [visible, view, pages, page, docRev, p, g]);
+  return (
+    <button ref={hostRef} type="button" className="bd-pthumb" aria-current={current} onClick={onOpen} title={`${p.number}`}>
+      <span className="bd-pthumb__sheet" style={{ width: THUMB_W, height: Math.round(g.pageH * k) }}>
+        <div ref={bodyRef} className="bd-pthumb__body" style={{ width: g.pageW, height: g.pageH, transform: `scale(${k})` }} />
+      </span>
+      <span className="bd-pthumb__num">{p.number}</span>
+    </button>
+  );
+}
+
 /** Outline of the script (or its pages), like the side bar of a PDF reader. */
 export function StructurePanel() {
   const t = useT();
@@ -28,6 +88,7 @@ export function StructurePanel() {
   const state = useDoc((s) => s.state);
   const pages = useDoc((s) => s.pages);
   const mode = useUi((s) => s.structureView);
+  const folded = useUi((s) => s.hidden.structure);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<Entry | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -75,15 +136,23 @@ export function StructurePanel() {
   }, [doc, index, pages, t]);
 
   if (!view || !state || !index) return <aside className="bd-structure" />;
+  if (folded) return <FoldRail panel="structure" side="left" label={t("Structure of the script")} />;
   const caretBlock = state.selection.$from.index(0);
   let current: string | null = null;
   for (const e of entries) if (e.idx <= caretBlock) current = e.key;
   const totalPages = pages && !pages.continuous ? pages.pages.length : null;
+  let currentPage = -1;
+  if (pages && !pages.continuous && pages.pages.length) {
+    const b = Math.min(caretBlock, pages.blockPage.length - 1);
+    currentPage = pages.blockPage[b] ?? 0;
+    for (const sp of pages.splits) if (sp.block === b && sp.pos <= state.selection.from) currentPage = sp.page;
+  }
 
   return (
     <aside className="bd-structure" aria-label={t("Structure of the script")}>
       <div className="bd-structure__head">
-        <div className="bd-seg-full">
+        <div className="bd-panel-head">
+          <div className="bd-seg-full" style={{ flex: 1 }}>
           <Segmented
             ariaLabel={t("View")}
             small
@@ -94,6 +163,8 @@ export function StructurePanel() {
               { value: "pages", label: t("Pages"), icon: "pages" },
             ]}
           />
+          </div>
+          <FoldButton panel="structure" side="left" />
         </div>
         <div className="bd-structure__summary">
           {t("{a} acts · {s} scenes", { a: index.acts.length, s: index.scenes.length })}
@@ -158,22 +229,20 @@ export function StructurePanel() {
           {!entries.length ? <div className="bd-structure__summary">{t("Add an act or a scene from the bar above.")}</div> : null}
         </nav>
       ) : (
-        <nav className="bd-structure__list">
-          {(pages && !pages.continuous ? pages.pages : []).map((p) => {
-            const scene = p.scene >= 0 ? index.scenes[p.scene] : null;
-            const node = state.doc.child(Math.min(p.firstBlock, state.doc.childCount - 1));
-            const preview = node.isTextblock ? node.textContent.slice(0, 40) : scene?.label ?? "";
-            return (
-              <button key={p.index} type="button" className="bd-tree-item" onClick={() => scrollToPos(view, index.blockPos[p.firstBlock] ?? 0)}>
-                <Icon name="pages" size={14} color="var(--text-2)" />
-                <span className="bd-tree-item__label">
-                  {scene ? `${scene.label} · ` : ""}
-                  <span className="ts-muted">{preview}</span>
-                </span>
-                <span className="bd-tree-item__meta">{p.number}</span>
-              </button>
-            );
-          })}
+        <nav className="bd-structure__list bd-pthumbs">
+          {pages && !pages.continuous
+            ? pages.pages.map((p) => (
+                <PageThumb
+                  key={p.index}
+                  view={view}
+                  pages={pages}
+                  page={p.index}
+                  current={currentPage === p.index}
+                  docRev={state.doc}
+                  onOpen={() => scrollToPos(view, index.blockPos[p.firstBlock] ?? 0)}
+                />
+              ))
+            : null}
           {pages?.continuous ? <div className="bd-structure__summary">{t("Pages are hidden in the continuous view.")}</div> : null}
         </nav>
       )}

@@ -534,12 +534,36 @@ select.bd-select {
   font-variant-caps: normal;
   white-space: nowrap;
 }
+/* Empty speech: the hint is drawn after the text (::before carries the speech number). */
 .b-speech.b-empty::before {
-  grid-column: 2;
-  position: static;
+  content: none;
 }
-.b-speech.b-empty .b-speech-text {
+.b-speech.b-empty::after {
+  content: attr(data-hint);
   position: absolute;
+  top: 0.15em;
+  left: calc(var(--name-col) + var(--name-gap));
+  color: #8d919b;
+  font-style: italic;
+  pointer-events: none;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-caps: normal;
+  white-space: nowrap;
+}
+.b-doc[data-namepos="above"] .b-speech.b-empty::after,
+.b-doc[data-namepos="inline"] .b-speech.b-empty::after {
+  left: 0;
+  top: auto;
+  bottom: 0.1em;
+}
+.b-doc[data-namepos="inline"] .b-speech.b-empty::after {
+  left: auto;
+  position: static;
+  margin-left: 0.5em;
 }
 
 /* Non-printing signs (Segni). */
@@ -1762,4 +1786,186 @@ button.bd-chip {
 .bd-inspector .ts-seg__btn {
   padding: 0 6px;
   min-width: 0;
+}
+
+/* Pages view of the structure panel: miniatures of the printed pages. */
+.bd-pthumbs {
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0 14px;
+}
+.bd-pthumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.bd-pthumb__sheet {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: var(--paper-shadow);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.bd-pthumb:hover .bd-pthumb__sheet {
+  outline-color: var(--accent-line);
+}
+.bd-pthumb[aria-current="true"] .bd-pthumb__sheet {
+  outline-color: var(--paper-accent);
+}
+.bd-pthumb__body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  user-select: none;
+  color: #1b1c21;
+}
+.bd-pthumb__num {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.bd-pthumb[aria-current="true"] .bd-pthumb__num {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Folding panels. */
+.bd-ribbon-shell {
+  position: relative;
+  flex: none;
+}
+.bd-ribbon-shell.is-folded {
+  min-height: 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bar);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+.bd-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--r-sm, 5px);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.bd-fold:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.bd-fold--ribbon {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  z-index: 5;
+}
+.is-folded > .bd-fold--ribbon {
+  position: static;
+}
+.bd-rail {
+  flex: none;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  background: var(--bar);
+  min-height: 0;
+}
+.bd-rail--left {
+  border-right: 1px solid var(--border);
+}
+.bd-rail--right {
+  border-left: 1px solid var(--border);
+}
+.bd-rail__label {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.bd-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+/* A control of the inspector that blinks after a click on the example. */
+@keyframes bd-flash {
+  0%,
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+  20%,
+  60% {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 2px var(--paper-accent);
+  }
+}
+.bd-flash {
+  border-radius: 6px;
+  animation: bd-flash 0.9s ease-in-out 2;
+}
+.bd-format-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.bd-format-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.bd-format-tab:hover {
+  background: var(--accent-soft);
+}
+.bd-format-tab[aria-selected="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--text);
+  font-weight: 600;
+}
+.bd-format__grid--one {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bd-sample .b-speech:hover {
+  outline: 1px dashed var(--paper-line);
+  outline-offset: 1px;
+}
+
+/* Formatta: the style column sits next to the list of elements. */
+.bd-format .bd-inspector {
+  border-left: 0;
+  border-right: 1px solid var(--border);
 }

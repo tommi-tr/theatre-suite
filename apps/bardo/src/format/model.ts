@@ -92,6 +92,10 @@ export interface FormatModel {
     indent: number;
     /** Widen the name column to the longest name. */
     autoIndent: boolean;
+    /** Space between the name column and the text of the speech (mm), when the name is on the left. */
+    gap: number;
+    /** Left margin of stage directions (mm). Missing: follows the speech text. */
+    dirIndent?: number | null;
   };
   partition: {
     numbering: Numbering;
@@ -177,7 +181,7 @@ export function classico(): FormatModel {
       list: st({ size: 12, lineHeight: 1.5 }),
     },
     cats: { ...DEFAULT_CATS },
-    speech: { namePos: "left", indent: 34, autoIndent: true },
+    speech: { namePos: "left", indent: 34, autoIndent: true, gap: 3 },
     partition: { numbering: "words", actNewPage: true, sceneNewPage: false, keepLines: 3, sceneResetPerAct: true },
     options: { lineNumbers: true, lineNumbersEvery: 1, continued: true, widows: true, keepDirection: true, hyphenate: true, smartPunctuation: true },
     header: { left: "title", center: "none", right: "actScene", onDocPages: false },
@@ -202,7 +206,7 @@ export function contemporaneo(): FormatModel {
     base: "contemporaneo",
     name: "Contemporaneo",
     styles,
-    speech: { namePos: "above", indent: 34, autoIndent: false },
+    speech: { namePos: "above", indent: 34, autoIndent: false, gap: 3 },
     partition: { ...m.partition, numbering: "arabic" },
   };
 }
@@ -218,7 +222,7 @@ export function leggio(): FormatModel {
     base: "leggio",
     name: "Leggio",
     styles,
-    speech: { namePos: "left", indent: 40, autoIndent: true },
+    speech: { namePos: "left", indent: 40, autoIndent: true, gap: 3 },
     page: { ...m.page, script: { top: 18, bottom: 18, inner: 22, outer: 30 } },
   };
 }
@@ -241,7 +245,7 @@ export function dattiloscritto(): FormatModel {
     base: "dattiloscritto",
     name: "Dattiloscritto",
     styles,
-    speech: { namePos: "above", indent: 38, autoIndent: false },
+    speech: { namePos: "above", indent: 38, autoIndent: false, gap: 3 },
     partition: { ...m.partition, numbering: "arabic" },
     cats: { ...m.cats, personaggio: { caps: "upper", italic: false, bold: false } },
     options: { ...m.options, hyphenate: false },
