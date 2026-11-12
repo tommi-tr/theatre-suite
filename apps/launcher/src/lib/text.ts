@@ -13,5 +13,6 @@ export function explain(t: TFunc, e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (msg.startsWith("NOT_INSTALLED:")) return t("{name} is not installed on this computer. See “Installations and versions”.", { name: msg.slice(14) });
   if (msg.startsWith("MISSING:")) return t("The file {file} cannot be found. It may have been moved or deleted.", { file: msg.slice(8) });
+  if (msg === "NOT_FOUND") return t("The list of versions cannot be read: the GitHub repository is private or does not exist. Make it public, or publish the installers in a public repository.");
   return msg;
 }

@@ -19,7 +19,7 @@ export function LauncherMark({ size = 24 }: { size?: number }) {
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />
       <g strokeWidth="7.5" strokeLinecap="round" fill="none">
         <path d="M24 36H44" stroke="#6b5bef" />
-        <path d="M56 36H76" stroke="#d9489f" />
+        <path d="M56 36H76" stroke="#c8642c" />
         <path d="M24 64H44" stroke="#1b1c21" />
         <path d="M56 64H76" stroke="#0f9fa8" />
       </g>

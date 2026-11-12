@@ -47,13 +47,9 @@ pub struct Document {
     pub title: String,
     /// Path relative to the project folder, always with `/`.
     pub path: String,
+    /// Documents in the `Show` phase are the ones "Open everything for the show" opens.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase: Option<Phase>,
-    #[serde(default)]
-    pub archived: bool,
-    /// Opened together by "Open everything for the show".
-    #[serde(default)]
-    pub in_show: bool,
     /// Fields written by newer versions: kept untouched.
     #[serde(flatten)]
     pub extra: Map<String, Value>,

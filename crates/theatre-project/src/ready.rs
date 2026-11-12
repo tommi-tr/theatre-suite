@@ -28,7 +28,7 @@ pub struct Issue {
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
-    /// Documents marked "show" (archived ones excluded).
+    /// Documents in the `Show` phase.
     pub in_show: usize,
     pub issues: Vec<Issue>,
     /// At least one document and no issue.
@@ -42,7 +42,7 @@ pub fn document_path(dir: &Path, doc: &Document) -> PathBuf {
 pub fn check(dir: &Path, project: &Project) -> Report {
     let mut issues = vec![];
     let mut count = 0;
-    for doc in project.documents.iter().filter(|d| d.in_show && !d.archived) {
+    for doc in project.documents.iter().filter(|d| d.phase == Some(Phase::Show)) {
         count += 1;
         let path = document_path(dir, doc);
         let mk = |kind| Issue { doc_id: doc.id.clone(), doc_title: doc.title.clone(), app: doc.app.clone(), kind };
@@ -102,7 +102,7 @@ mod tests {
         fs::write(d.join("tuono.wav"), "x").unwrap();
         fs::write(d.join("a.diaframma"), r#"{"tracks":[{"hidden":false,"file":{"path":"C:/nope/tuono.wav","relativePath":"tuono.wav","name":"tuono.wav"}},{"hidden":true,"file":{"path":"C:/nope/x.wav","name":"x.wav"}},{"file":null}]}"#).unwrap();
         let mut p = manifest::create(d, "X", "").unwrap();
-        p.documents[0].in_show = true;
+        p.documents[0].phase = Some(Phase::Show);
         let r = check(d, &p);
         assert!(r.ready, "{r:?}");
         assert_eq!(r.in_show, 1);
@@ -114,7 +114,7 @@ mod tests {
         let d = tmp.path();
         fs::write(d.join("a.diaframma"), r#"{"tracks":[{"file":{"path":"C:/nope/pioggia.wav","name":"pioggia.wav"}}]}"#).unwrap();
         let mut p = manifest::create(d, "X", "").unwrap();
-        p.documents[0].in_show = true;
+        p.documents[0].phase = Some(Phase::Show);
         let r = check(d, &p);
         assert!(!r.ready);
         assert!(matches!(&r.issues[0].kind, IssueKind::FilesMissing { count: 1, .. }));
@@ -123,14 +123,15 @@ mod tests {
     }
 
     #[test]
-    fn nothing_selected_is_not_ready_and_archived_are_ignored() {
+    fn nothing_in_the_show_phase_is_not_ready() {
         let tmp = tempfile::tempdir().unwrap();
         let d = tmp.path();
         fs::write(d.join("a.diaframma"), "{}").unwrap();
         let mut p = manifest::create(d, "X", "").unwrap();
         assert!(!check(d, &p).ready);
-        p.documents[0].in_show = true;
-        p.documents[0].archived = true;
+        p.documents[0].phase = Some(Phase::Rehearsals);
         assert_eq!(check(d, &p).in_show, 0);
+        p.documents[0].phase = Some(Phase::Show);
+        assert_eq!(check(d, &p).in_show, 1);
     }
 }

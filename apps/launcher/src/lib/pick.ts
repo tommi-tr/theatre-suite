@@ -22,9 +22,9 @@ export async function pickProgram(title: string): Promise<string | null> {
   return typeof r === "string" ? r : null;
 }
 
-/** Opens a web address in the person's browser. Only https addresses. */
+/** Opens a web address (https) or a new e-mail (mailto) in the person's own browser or mail program. Nothing else. */
 export async function openLink(url: string): Promise<void> {
-  if (!/^https:\/\//i.test(url)) return;
+  if (!/^(https:\/\/|mailto:)/i.test(url)) return;
   if (!isTauri) {
     window.open(url, "_blank", "noopener");
     return;

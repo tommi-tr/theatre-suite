@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useT } from "@theatre-suite/core";
 import { Button, Dialog, Segmented, Switch } from "@theatre-suite/ui";
+import { api } from "../lib/api";
 import { pickFolder } from "../lib/pick";
 import type { Settings } from "../lib/types";
 import { useStore } from "../state/store";
@@ -8,6 +10,10 @@ export function SettingsDialog() {
   const t = useT();
   const settings = useStore((s) => s.settings)!;
   const save = useStore.getState().saveSettings;
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    void api.appInfo().then((i) => setVersion(i.version)).catch(() => {});
+  }, []);
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => void save({ [k]: v } as Partial<Settings>);
 
   return (
@@ -45,6 +51,7 @@ export function SettingsDialog() {
           <Button onClick={() => void pickFolder(t("Folder for new shows"), settings.showsDir ?? undefined).then((d) => d && set("showsDir", d))}>{t("Change…")}</Button>
         </div>
         <p className="ln-privacy">{t("Your shows stay on this computer. Nothing is sent anywhere unless you ask for it.")}</p>
+        {version ? <p className="ln-dim">{t("Theatre Suite version {v}", { v: version })}</p> : null}
       </div>
     </Dialog>
   );

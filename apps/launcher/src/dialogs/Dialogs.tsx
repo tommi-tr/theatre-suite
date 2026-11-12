@@ -3,6 +3,7 @@ import { AdoptDialog, ForgetDialog, NewShowDialog, NewDocDialog, DetailsDialog, 
 import { CopyDialog } from "./CopyDialog";
 import { CoverDialog } from "./CoverDialog";
 import { SettingsDialog } from "./SettingsDialog";
+import { FeedbackDialog } from "./FeedbackDialog";
 
 /** The one open window, if any. */
 export function Dialogs() {
@@ -18,5 +19,6 @@ export function Dialogs() {
     case "newDoc": return <NewDocDialog path={d.path} app={d.app} phase={d.phase} />;
     case "openAll": return <OpenAllDialog report={d.report} />;
     case "forget": return <ForgetDialog node={d.node} />;
+    case "feedback": return <FeedbackDialog app={d.app} />;
   }
 }

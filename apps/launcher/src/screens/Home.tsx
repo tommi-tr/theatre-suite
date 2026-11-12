@@ -5,7 +5,7 @@ import { api, errorText } from "../lib/api";
 import { APPS, appDef } from "../lib/apps";
 import { fmtDate } from "../lib/format";
 import { pickFolder } from "../lib/pick";
-import { plural } from "../lib/text";
+import { explain, plural } from "../lib/text";
 import type { AppStatus, ShowNode } from "../lib/types";
 import { useStore } from "../state/store";
 import { AppIcon } from "../components/AppLogos";
@@ -22,8 +22,26 @@ export function Home() {
     if (dir) await openShow(dir);
   };
 
+  const updates = (apps?.apps ?? []).filter((a) => a.status.state === "available").length + (apps?.launcher.status.state === "available" ? 1 : 0);
+
   return (
     <div className="ln-home">
+      <section className="ln-suite" aria-labelledby="suite-h">
+        <header className="ln-section-head">
+          <h2 id="suite-h">{t("Suite")}</h2>
+          <span className="ln-grow" />
+          <Button icon="download" onClick={() => useStore.getState().go({ name: "suite" })}>
+            {t("Explore, install and update")}
+            {updates > 0 ? <span className="ln-dot-badge" title={t("New version available")} /> : null}
+          </Button>
+        </header>
+        <div className="ln-suite-row">
+          {APPS.map((def) => (
+            <SuiteCard key={def.id} id={def.id} status={apps?.apps.find((a) => a.id === def.id) ?? null} />
+          ))}
+        </div>
+      </section>
+
       <section className="ln-shows" aria-labelledby="shows-h">
         <header className="ln-section-head">
           <h2 id="shows-h">{t("Shows")}</h2>
@@ -49,57 +67,44 @@ export function Home() {
           </div>
         )}
       </section>
-
-      <aside className="ln-suite" aria-labelledby="suite-h">
-        <header className="ln-section-head">
-          <h2 id="suite-h">{t("Suite")}</h2>
-        </header>
-        <div className="ln-suite-panel">
-          {APPS.map((def) => (
-            <SuiteRow key={def.id} id={def.id} status={apps?.apps.find((a) => a.id === def.id) ?? null} />
-          ))}
-          <button type="button" className="ln-suite-link" onClick={() => useStore.getState().go({ name: "suite" })}>
-            <Icon name="download" size={14} />
-            <span>{t("Installations and versions")}</span>
-            <Icon name="chevRight" size={14} />
-          </button>
-        </div>
-        <p className="ln-offline">
-          <Icon name="lock" size={14} />
-          {t("Works without internet. Your shows stay on your computer and do not train AI.")}
-        </p>
-      </aside>
     </div>
   );
 }
 
-function SuiteRow({ id, status }: { id: string; status: AppStatus | null }) {
+/** One app of the suite, in the row at the top: what it is and whether it can be started. */
+function SuiteCard({ id, status }: { id: string; status: AppStatus | null }) {
   const t = useT();
   const def = appDef(id)!;
   const installed = status?.installed ?? null;
   const update = status?.status.state === "available" ? status.status : null;
   return (
-    <div className="ln-suite-row" style={{ ["--app" as string]: def.accent.dark }}>
-      <AppIcon id={id} size={34} />
-      <div className="ln-suite-row__text">
-        <div className="ln-suite-row__name">{def.name}</div>
-        <div className="ln-suite-row__role">{t(def.role)}</div>
+    <div className={`ln-suite-card${installed ? "" : " ln-suite-card--off"}`} style={{ ["--app" as string]: def.accent.dark }}>
+      <AppIcon id={id} size={40} />
+      <div className="ln-suite-card__text">
+        <div className="ln-suite-card__name">{def.name}</div>
+        <div className="ln-suite-card__role">{t(def.role)}</div>
       </div>
-      {def.soon && !installed ? (
-        <span className="ln-chip">{t("Coming soon")}</span>
-      ) : installed ? (
-        <>
-          {update ? <span className="ln-chip ln-chip--update" title={t("New version available")}>{update.latest}</span> : null}
-          <Button
-            variant="sm"
-            onClick={() => void api.appLaunch(id).catch((e) => useStore.getState().showToast(errorText(e), "error"))}
-          >
-            {t("Open")}
-          </Button>
-        </>
-      ) : (
-        <span className="ln-chip ln-chip--off">{t("Not installed")}</span>
-      )}
+      <div className="ln-suite-card__end">
+        {def.soon && !installed ? (
+          <span className="ln-chip">{t("Coming soon")}</span>
+        ) : installed ? (
+          <>
+            {update ? (
+              <span className="ln-chip ln-chip--update" title={t("New version available")}>{update.latest}</span>
+            ) : installed.version ? (
+              <span className="ln-suite-card__ver">{installed.version}</span>
+            ) : null}
+            <Button
+              variant="sm"
+              onClick={() => void api.appLaunch(id).catch((e) => useStore.getState().showToast(explain(t, e), "error"))}
+            >
+              {t("Open")}
+            </Button>
+          </>
+        ) : (
+          <span className="ln-chip ln-chip--off">{t("Not installed")}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -124,7 +129,6 @@ function ShowCard({ node }: { node: ShowNode }) {
                 {node.apps.map((a) => <AppIcon key={a} id={a} size={16} />)}
               </span>
               <span>{plural(t, node.documents, "1 document", "{n} documents")}</span>
-              {node.inShow > 0 ? <span className="ln-card__show"><Icon name="star" size={12} />{node.inShow}</span> : null}
               <span className="ln-dim">· {t("modified on {date}", { date: fmtDate(node.updated, lang) })}</span>
             </div>
           )}

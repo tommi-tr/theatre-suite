@@ -241,7 +241,7 @@ fn project_set_meta(path: String, title: String, subtitle: String) -> Result<()>
     manifest::save(dir, &p).map_err(s)
 }
 
-/// `patch` may contain `phase` (string or null), `archived`, `inShow`, `title`.
+/// `patch` may contain `phase` (string or null) and `title`.
 #[tauri::command(async)]
 fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
     let dir = Path::new(&path);
@@ -254,15 +254,6 @@ fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
             Some("show") => Some(Phase::Show),
             _ => None,
         };
-    }
-    if let Some(b) = patch.get("archived").and_then(Value::as_bool) {
-        doc.archived = b;
-        if b {
-            doc.in_show = false;
-        }
-    }
-    if let Some(b) = patch.get("inShow").and_then(Value::as_bool) {
-        doc.in_show = b;
     }
     if let Some(t) = patch.get("title").and_then(Value::as_str).filter(|t| !t.trim().is_empty()) {
         doc.title = t.trim().to_string();

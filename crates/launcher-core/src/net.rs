@@ -13,7 +13,8 @@ pub fn fetch_text(url: &str, max_bytes: u64) -> Result<String> {
         .header("Accept", "application/json")
         .call()
         .map_err(|e| match e {
-            ureq::Error::StatusCode(404) => "Not found (if the repository is private its versions cannot be read)".to_string(),
+            // The interface turns this code into a sentence (the usual cause is a private repository).
+            ureq::Error::StatusCode(404) => "NOT_FOUND".to_string(),
             ureq::Error::StatusCode(c) => format!("The server answered with error {c}"),
             other => format!("Cannot reach the server: {other}"),
         })?;

@@ -49,7 +49,8 @@ pub fn status(installed: Option<&str>, latest: Option<&Latest>) -> Status {
     }
 }
 
-fn keep_newest(map: &mut HashMap<String, Latest>, app: String, l: Latest) {
+/// Adds `l` to `map` unless a newer (or equal) version of that app is already there.
+pub fn keep_newest(map: &mut HashMap<String, Latest>, app: String, l: Latest) {
     match map.get(&app) {
         Some(cur) if compare(&cur.version, &l.version) != Some(Ordering::Less) => {}
         _ => {

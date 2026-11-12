@@ -6,9 +6,14 @@ use std::collections::HashMap;
 use std::path::Path;
 use theatre_project::manifest::atomic_write;
 use theatre_project::model::now_secs;
-use theatre_project::updates::{Latest, parse_github_releases, parse_manifest};
+use theatre_project::updates::{Latest, keep_newest, parse_github_releases, parse_manifest};
 
 pub const WEEK_SECS: u64 = 7 * 24 * 3600;
+
+/// Public repository whose releases carry the installers and are read by the check.
+/// Reading releases needs no account only when the repository is public: the code
+/// repository may stay private while the installers are published here.
+pub const PUBLIC_RELEASES_REPO: &str = "tommi-tr/theatre-suite-releases";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -51,13 +56,45 @@ pub fn url_for(source: &UpdateSource) -> Result<String> {
     }
 }
 
-/// Fetches the newest version of every app. Does a network request: call it only
-/// when the user asked or the weekly check is on.
-pub fn check(source: &UpdateSource) -> Result<HashMap<String, Latest>> {
+/// The places to look, in order: the one in the settings, then the public releases
+/// repository (so the check also works when the code repository is private).
+pub fn sources_for(source: &UpdateSource) -> Vec<UpdateSource> {
+    let mut list = vec![source.clone()];
+    let fallback = UpdateSource { kind: "github".into(), value: PUBLIC_RELEASES_REPO.into() };
+    if !(source.kind == "github" && source.value.trim().eq_ignore_ascii_case(PUBLIC_RELEASES_REPO)) {
+        list.push(fallback);
+    }
+    list
+}
+
+fn check_one(source: &UpdateSource) -> Result<HashMap<String, Latest>> {
     let url = url_for(source)?;
     let text = fetch_text(&url, 4 * 1024 * 1024)?;
     let parsed = if source.kind == "github" { parse_github_releases(&text) } else { parse_manifest(&text) };
     parsed.map_err(|e| e.to_string())
+}
+
+/// Fetches the newest version of every app from every source that answers, keeping the
+/// newest of each. It fails only if no source answered (the first reason is reported).
+/// Does a network request: call it only when the user asked or the weekly check is on.
+pub fn check(source: &UpdateSource) -> Result<HashMap<String, Latest>> {
+    let mut merged: HashMap<String, Latest> = HashMap::new();
+    let mut first_error: Option<String> = None;
+    let mut answered = false;
+    for src in sources_for(source) {
+        match check_one(&src) {
+            Ok(found) => {
+                answered = true;
+                for (app, l) in found {
+                    keep_newest(&mut merged, app, l);
+                }
+            }
+            Err(e) => {
+                first_error.get_or_insert(e);
+            }
+        }
+    }
+    if answered { Ok(merged) } else { Err(first_error.unwrap_or_else(|| "NOT_FOUND".into())) }
 }
 
 /// Runs a check and stores the result next to the previous one. On failure the old
@@ -94,5 +131,16 @@ mod tests {
         assert!(url_for(&gh("../etc")).is_err());
         assert!(url_for(&gh("a/b/c")).is_err());
         assert!(fetch_text("http://example.com/x", 10).is_err());
+    }
+
+    #[test]
+    fn the_public_releases_repository_is_always_a_fallback() {
+        let gh = |v: &str| UpdateSource { kind: "github".into(), value: v.into() };
+        let l = sources_for(&gh("tommi-tr/theatre-suite"));
+        assert_eq!(l.len(), 2);
+        assert_eq!(l[1].value, PUBLIC_RELEASES_REPO);
+        assert_eq!(sources_for(&gh(PUBLIC_RELEASES_REPO)).len(), 1);
+        let own = UpdateSource { kind: "url".into(), value: "https://example.org/u.json".into() };
+        assert_eq!(sources_for(&own).len(), 2);
     }
 }

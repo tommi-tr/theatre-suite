@@ -16,7 +16,8 @@ export type DialogState =
   | { kind: "details"; path: string }
   | { kind: "newDoc"; path: string; app: string; phase: Phase | null }
   | { kind: "openAll"; report: OpenAllReport }
-  | { kind: "forget"; node: ShowNode };
+  | { kind: "forget"; node: ShowNode }
+  | { kind: "feedback"; app?: string };
 
 interface Store {
   settings: Settings | null;

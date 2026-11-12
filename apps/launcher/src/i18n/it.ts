@@ -34,6 +34,7 @@ export const it: Dict = {
   // home
   "Shows": "Spettacoli",
   "Suite": "Suite",
+  "Explore, install and update": "Esplora, installa e aggiorna",
   "New show": "Nuovo spettacolo",
   "Open a folder…": "Apri una cartella…",
   "Open a show folder": "Apri la cartella di uno spettacolo",
@@ -42,7 +43,6 @@ export const it: Dict = {
     "Crea il tuo primo spettacolo oppure apri una cartella che hai già. Tutto ciò che prepari per uno spettacolo resta insieme nella sua cartella.",
   "Works without internet. Your shows stay on your computer and do not train AI.":
     "Funziona senza internet. I tuoi spettacoli restano sul tuo computer e non addestrano le AI.",
-  "Installations and versions": "Installazioni e versioni",
   "Sound": "Suono",
   "Scripts": "Copioni",
   "Rehearsals": "Prove",
@@ -69,11 +69,12 @@ export const it: Dict = {
   "Preparation": "Preparazione",
   "Show": "Spettacolo",
   "No phase": "Senza fase",
-  "Show archived ({n})": "Mostra archiviati ({n})",
-  "Hide archived ({n})": "Nascondi archiviati ({n})",
   "Open everything for the show": "Apri tutto per lo spettacolo",
   "Everything is ready for tonight": "Tutto pronto per la serata",
-  "Mark documents with the star to prepare the show": "Segna i documenti con la stella per preparare lo spettacolo",
+  "Set a document to the Show phase to prepare the show": "Metti un documento nella fase Spettacolo per preparare lo spettacolo",
+  "Opens the documents in the Show phase": "Apre i documenti che sono nella fase Spettacolo",
+  "Double click a document to open it": "Doppio click su un documento per aprirlo",
+  "Double click to open": "Doppio click per aprire",
   "1 thing to check before the show": "1 cosa da controllare prima dello spettacolo",
   "{n} things to check before the show": "{n} cose da controllare prima dello spettacolo",
   "the file cannot be found": "il file non si trova",
@@ -84,14 +85,10 @@ export const it: Dict = {
   "New document": "Nuovo documento",
   "not found": "non trovato",
   "The file cannot be found": "Il file non si trova",
-  "Add to the show": "Aggiungi allo spettacolo",
-  "Remove from the show": "Togli dallo spettacolo",
-  "Archive": "Archivia",
-  "Restore from the archive": "Ripristina dall'archivio",
   "Opened 1 document.": "Aperto 1 documento.",
   "Opened {n} documents.": "Aperti {n} documenti.",
-  "{name} is not installed on this computer. See “Installations and versions”.":
-    "{name} non è installato su questo computer. Vedi «Installazioni e versioni».",
+  "{name} is not installed on this computer. See “Explore, install and update”.":
+    "{name} non è installato su questo computer. Vedi «Esplora, installa e aggiorna».",
   "The file {file} cannot be found. It may have been moved or deleted.": "Il file {file} non si trova. Potrebbe essere stato spostato o eliminato.",
   "The show index was damaged and has been rebuilt from the folder. Nothing was lost.":
     "L'indice dello spettacolo era danneggiato ed è stato ricostruito dalla cartella. Non si è perso nulla.",
@@ -99,28 +96,74 @@ export const it: Dict = {
   "{n} new documents found in the folder.": "Trovati {n} nuovi documenti nella cartella.",
 
   // suite page
-  "Here you see which apps of the suite are on this computer and which versions exist. You decide when to update and what to install.":
-    "Qui vedi quali app della suite sono su questo computer e quali versioni esistono. Decidi tu quando aggiornare e cosa installare.",
+  "Here you see what each app of the suite does, which ones are on this computer and which versions exist. You decide when to update and what to install.":
+    "Qui vedi di cosa si occupa ogni app della suite, quali sono su questo computer e quali versioni esistono. Decidi tu quando aggiornare e cosa installare.",
+  "Updates": "Aggiornamenti",
   "The check could not be done": "Non è stato possibile controllare",
+  "1 update available": "1 aggiornamento disponibile",
+  "{n} updates available": "{n} aggiornamenti disponibili",
+  "Everything is up to date": "Tutto aggiornato",
   "Last check: {date}": "Ultimo controllo: {date}",
   "Never checked": "Mai controllato",
   "Checking only looks for news: nothing is downloaded or installed.": "Il controllo cerca solo novità: non scarica e non installa nulla.",
-  "Check once a week": "Controlla ogni settimana",
+  "Check automatically once a week": "Controlla automaticamente ogni settimana",
   "Check now": "Controlla ora",
   "Checking…": "Controllo…",
   "this program": "questo programma",
-  "Version {v}": "Versione {v}",
+  "Installed version: {v}": "Versione installata: {v}",
   "Version unknown": "Versione sconosciuta",
   "Not installed on this computer": "Non installata su questo computer",
   "New version {v}": "Nuova versione {v}",
   "See the download": "Vai al download",
+  "Download": "Scarica",
   "Up to date": "Aggiornata",
+  "No version published": "Nessuna versione pubblicata",
   "Change location…": "Cambia posizione…",
   "It is installed: find it…": "È installata: indica dove…",
   "Detect automatically": "Rileva automaticamente",
   "Choose the program of {name}": "Scegli il programma di {name}",
+  "The program you are using now: it keeps your shows together and starts the other apps.":
+    "Il programma che stai usando: tiene insieme i tuoi spettacoli e avvia le altre app.",
+  "Plays the sound of a show: music and effects on cue, with entrances, exits, loops and a launchpad.":
+    "Suona l'audio dello spettacolo: musiche ed effetti a cue, con entrate, uscite, loop e un launchpad.",
+  "Writes and keeps the script: scenes, characters and lines, with export to PDF and Word.":
+    "Scrive e conserva il copione: scene, personaggi e battute, con esportazione in PDF e Word.",
+  "For the director's assistant during rehearsals. Still being designed.": "Per l'aiuto regia durante le prove. Ancora in progettazione.",
+  "The lighting desk: scenes and cues for the lights. Still being designed.": "Il banco luci: scene e cue per le luci. Ancora in progettazione.",
+  "The list of versions cannot be read: the GitHub repository is private or does not exist. Make it public, or publish the installers in a public repository.":
+    "Non riesco a leggere l'elenco delle versioni: il repository GitHub è privato o non esiste. Rendilo pubblico, oppure pubblica gli installer in un repository pubblico.",
   "Once a week the launcher checks whether new versions exist. It only looks: it never downloads or installs anything by itself.":
     "Una volta a settimana il launcher controlla se esistono nuove versioni. Si limita a guardare: non scarica e non installa nulla da solo.",
+  "Feedback": "Feedback",
+  "Found a problem, or have an idea? Tell us: it is the best way to make the apps better.":
+    "Hai trovato un problema o hai un'idea? Dillo a noi: è il modo migliore per migliorare le app.",
+  "Credits": "Crediti",
+  "Designed by tommi-tr, built together with Claude (Anthropic).": "Ideata da tommi-tr, costruita insieme a Claude (Anthropic).",
+  "Built with free software: Tauri, React, Rust, ProseMirror, cpal and symphonia.":
+    "Costruita con software libero: Tauri, React, Rust, ProseMirror, cpal e symphonia.",
+
+  // feedback
+  "Send feedback": "Invia un feedback",
+  "Your ideas and the problems you find help make the apps better. Write what you like: no technical words needed.":
+    "Le tue idee e i problemi che trovi aiutano a migliorare le app. Scrivi come vuoi: non servono parole tecniche.",
+  "What is it?": "Di cosa si tratta?",
+  "Idea": "Idea",
+  "Problem": "Problema",
+  "Question": "Domanda",
+  "What is it about?": "Riguarda",
+  "Whole suite": "Tutta la suite",
+  "Your message": "Il tuo messaggio",
+  "Write here…": "Scrivi qui…",
+  "What were you doing, what did you expect and what happened instead?": "Cosa stavi facendo, cosa ti aspettavi e cosa è successo invece?",
+  "Add the versions of the apps and of Windows, so I can reproduce the problem": "Aggiungi le versioni delle app e di Windows, così posso riprodurre il problema",
+  "Nothing is sent from here. Your mail program (or the GitHub page) opens with the text ready, and you decide whether to send it.":
+    "Da qui non parte nulla. Si apre il tuo programma di posta (o la pagina di GitHub) con il testo già pronto, e decidi tu se spedirlo.",
+  "Copy the text": "Copia il testo",
+  "Write it on GitHub": "Scrivilo su GitHub",
+  "Send by e-mail": "Invia per email",
+  "The message is too long for an e-mail: use “Copy the text”.": "Il messaggio è troppo lungo per un'email: usa «Copia il testo».",
+  "Text copied.": "Testo copiato.",
+  "The text could not be copied.": "Non è stato possibile copiare il testo.",
 
   // dialogs
   "A show is a folder. Everything you make for it goes inside.": "Uno spettacolo è una cartella. Tutto ciò che prepari per lui va dentro.",
@@ -184,6 +227,7 @@ export const it: Dict = {
   // settings
   "Check for new versions once a week": "Controlla le nuove versioni ogni settimana",
   "It only looks for news. It never downloads or installs anything by itself.": "Cerca solo novità. Non scarica e non installa mai nulla da solo.",
+  "Theatre Suite version {v}": "Theatre Suite, versione {v}",
   "Folder for new shows": "Cartella per i nuovi spettacoli",
   "Documents / Theatre Suite": "Documenti / Theatre Suite",
   "Your shows stay on this computer. Nothing is sent anywhere unless you ask for it.":

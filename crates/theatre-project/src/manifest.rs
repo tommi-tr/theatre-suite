@@ -46,14 +46,28 @@ pub fn load(dir: &Path) -> Result<Project> {
         return Err(Error::Damaged(format!("{} is too large to be a project index", path.display())));
     }
     let text = String::from_utf8(fs::read(&path)?).map_err(|_| Error::Damaged(format!("{} is not a text file", path.display())))?;
-    let project: Project = serde_json::from_str(&text).map_err(|e| Error::Damaged(format!("{} is damaged: {e}", path.display())))?;
+    let mut project: Project = serde_json::from_str(&text).map_err(|e| Error::Damaged(format!("{} is damaged: {e}", path.display())))?;
     if project.format != FORMAT_ID {
         return Err(Error::Damaged(format!("{} is not a Theatre Suite project index", path.display())));
     }
     if project.format_version > FORMAT_VERSION {
         return Err(Error::TooNew { found: project.format_version, supported: FORMAT_VERSION });
     }
+    migrate_old_flags(&mut project);
     Ok(project)
+}
+
+/// Early versions had a "star" (`inShow`) and an "archive" (`archived`) on every document.
+/// They are gone: what is in the `Show` phase is what opens for the show. A starred
+/// document without a phase gets the `Show` phase, so nothing the person marked is lost.
+fn migrate_old_flags(project: &mut Project) {
+    for doc in project.documents.iter_mut() {
+        let star = doc.extra.remove("inShow").and_then(|v| v.as_bool()).unwrap_or(false);
+        let archived = doc.extra.remove("archived").and_then(|v| v.as_bool()).unwrap_or(false);
+        if star && !archived && doc.phase.is_none() {
+            doc.phase = Some(Phase::Show);
+        }
+    }
 }
 
 pub fn save(dir: &Path, project: &Project) -> Result<()> {
@@ -126,7 +140,7 @@ pub fn add_document(project: &mut Project, rel_path: &str, app: Option<&str>) ->
     let ext = Path::new(&rel).extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
     let app_id = app.map(|s| s.to_string()).or_else(|| app_for_extension(&ext).map(|a| a.id.to_string()))?;
     let title = Path::new(&rel).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    project.documents.push(Document { id: new_id(), app: app_id, title, path: rel, phase: None, archived: false, in_show: false, extra: Default::default() });
+    project.documents.push(Document { id: new_id(), app: app_id, title, path: rel, phase: None, extra: Default::default() });
     Some(project.documents.len() - 1)
 }
 
@@ -150,6 +164,33 @@ mod tests {
         let again: serde_json::Value = serde_json::from_str(&fs::read_to_string(manifest_path(dir.path())).unwrap()).unwrap();
         assert_eq!(again["futureThing"]["links"][2], 3);
         assert_eq!(again["title"], "Amleto 2");
+    }
+
+    #[test]
+    fn old_star_and_archive_flags_become_the_show_phase() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.diaframma"), "{}").unwrap();
+        fs::write(dir.path().join("b.diaframma"), "{}").unwrap();
+        fs::write(dir.path().join("c.diaframma"), "{}").unwrap();
+        create(dir.path(), "X", "").unwrap();
+        let text = fs::read_to_string(manifest_path(dir.path())).unwrap();
+        let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let docs = v["documents"].as_array_mut().unwrap();
+        // a: starred, no phase → Show. b: starred but already in Rehearsals → unchanged. c: starred and archived → unchanged.
+        for (d, (star, arch, phase)) in docs.iter_mut().zip([(true, false, None), (true, false, Some("rehearsals")), (true, true, None)]) {
+            d["inShow"] = star.into();
+            d["archived"] = arch.into();
+            if let Some(p) = phase {
+                d["phase"] = p.into();
+            }
+        }
+        fs::write(manifest_path(dir.path()), serde_json::to_string(&v).unwrap()).unwrap();
+        let p = load(dir.path()).unwrap();
+        let by = |n: &str| p.documents.iter().find(|d| d.path == n).unwrap();
+        assert_eq!(by("a.diaframma").phase, Some(Phase::Show));
+        assert_eq!(by("b.diaframma").phase, Some(Phase::Rehearsals));
+        assert_eq!(by("c.diaframma").phase, None);
+        assert!(p.documents.iter().all(|d| !d.extra.contains_key("inShow") && !d.extra.contains_key("archived")));
     }
 
     #[test]

@@ -112,9 +112,9 @@ pub struct Summary {
     pub subtitle: String,
     pub cover: Cover,
     pub documents: usize,
+    /// Documents in the `Show` phase.
     pub in_show: usize,
-    pub archived: usize,
-    /// Distinct apps with at least one visible document.
+    /// Distinct apps with at least one document.
     pub apps: Vec<String>,
     pub created: u64,
     pub updated: u64,
@@ -144,7 +144,6 @@ pub fn summarize(entry: &Entry) -> Summary {
         cover: Cover::default(),
         documents: 0,
         in_show: 0,
-        archived: 0,
         apps: vec![],
         created: 0,
         updated: 0,
@@ -158,9 +157,8 @@ pub fn summarize(entry: &Entry) -> Summary {
     }
     match manifest::load(dir) {
         Ok(p) => {
-            let visible: Vec<&Document> = p.documents.iter().filter(|d| !d.archived).collect();
             let mut apps: Vec<String> = vec![];
-            for d in &visible {
+            for d in &p.documents {
                 if !apps.contains(&d.app) {
                     apps.push(d.app.clone());
                 }
@@ -170,9 +168,8 @@ pub fn summarize(entry: &Entry) -> Summary {
                 title: p.title.clone(),
                 subtitle: p.subtitle.clone(),
                 cover: p.cover.clone(),
-                documents: visible.len(),
-                in_show: visible.iter().filter(|d| d.in_show).count(),
-                archived: p.documents.len() - visible.len(),
+                documents: p.documents.len(),
+                in_show: p.documents.iter().filter(|d| d.phase == Some(Phase::Show)).count(),
                 apps,
                 created: p.created,
                 updated: p.updated,

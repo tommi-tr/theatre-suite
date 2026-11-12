@@ -37,7 +37,7 @@ impl Default for Settings {
             language: "it".into(),
             theme: "system".into(),
             weekly_check: true,
-            update_source: UpdateSource { kind: "github".into(), value: "tommi-tr/theatre-suite".into() },
+            update_source: UpdateSource { kind: "github".into(), value: crate::update_check::PUBLIC_RELEASES_REPO.into() },
             app_paths: HashMap::new(),
             last_check: 0,
             update_notice_seen: false,

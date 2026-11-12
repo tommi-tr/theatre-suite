@@ -17,21 +17,18 @@ export function ProjectScreen({ path }: { path: string }) {
   const view = useStore((s) => s.view);
   const { go, setDialog, reloadProject, showToast, refreshShows } = useStore.getState();
   const [phase, setPhase] = useState<PhaseFilter>("all");
-  const [showArchived, setShowArchived] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
 
   const docs = view?.project.documents ?? [];
-  const archivedCount = docs.filter((d) => d.archived).length;
-  const visible = useMemo(() => docs.filter((d) => showArchived || !d.archived), [docs, showArchived]);
   const counts = useMemo(() => {
-    const c: Record<PhaseFilter, number> = { all: visible.length, preparation: 0, rehearsals: 0, show: 0 };
-    for (const d of visible) if (d.phase) c[d.phase] += 1;
+    const c: Record<PhaseFilter, number> = { all: docs.length, preparation: 0, rehearsals: 0, show: 0 };
+    for (const d of docs) if (d.phase) c[d.phase] += 1;
     return c;
-  }, [visible]);
+  }, [docs]);
 
   if (!view || view.path !== path) return null;
   const p = view.project;
-  const shown = visible.filter((d) => phase === "all" || d.phase === phase);
+  const shown = docs.filter((d) => phase === "all" || d.phase === phase);
   const columns = APPS.filter((a) => !a.soon || docs.some((d) => d.app === a.id));
   const unknown = shown.filter((d) => !appDef(d.app));
 
@@ -96,14 +93,10 @@ export function ProjectScreen({ path }: { path: string }) {
 
       <div className="ln-bar">
         <Segmented<PhaseFilter> ariaLabel={t("Phase")} options={phaseOptions} value={phase} onChange={setPhase} />
-        {archivedCount > 0 ? (
-          <Button icon={showArchived ? "eyeOff" : "eye"} on={showArchived} onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? t("Hide archived ({n})", { n: archivedCount }) : t("Show archived ({n})", { n: archivedCount })}
-          </Button>
-        ) : null}
+        <span className="ln-hint">{t("Double click a document to open it")}</span>
         <span className="ln-grow" />
         <ReadyPill ready={ready.ready} inShow={ready.inShow} issues={ready.issues.length} open={showIssues} onToggle={() => setShowIssues(!showIssues)} />
-        <Button variant="primary" icon="curtain" disabled={ready.inShow === 0} onClick={() => void openAll()}>
+        <Button variant="primary" icon="curtain" disabled={ready.inShow === 0} title={t("Opens the documents in the Show phase")} onClick={() => void openAll()}>
           {t("Open everything for the show")}
         </Button>
       </div>
@@ -195,8 +188,8 @@ function ReadyPill({ ready, inShow, issues, open, onToggle }: { ready: boolean; 
   if (inShow === 0) {
     return (
       <span className="ln-ready ln-ready--none">
-        <Icon name="star" size={14} />
-        {t("Mark documents with the star to prepare the show")}
+        <Icon name="curtain" size={14} />
+        {t("Set a document to the Show phase to prepare the show")}
       </span>
     );
   }
@@ -217,6 +210,7 @@ function ReadyPill({ ready, inShow, issues, open, onToggle }: { ready: boolean; 
   );
 }
 
+/** A document of the show. One click selects it, a double click (or Enter) opens it with its app. */
 function DocRow({
   doc,
   exists,
@@ -233,8 +227,20 @@ function DocRow({
   const t = useT();
   void lang;
   return (
-    <div className={`ln-doc${doc.archived ? " ln-doc--archived" : ""}${doc.inShow ? " ln-doc--show" : ""}${exists ? "" : " ln-doc--missing"}`}>
-      <button type="button" className="ln-doc__main" onClick={onOpen} disabled={!exists} title={exists ? undefined : t("The file cannot be found")}>
+    <div className={`ln-doc${doc.phase === "show" ? " ln-doc--show" : ""}${exists ? "" : " ln-doc--missing"}`}>
+      <button
+        type="button"
+        className="ln-doc__main"
+        onDoubleClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        disabled={!exists}
+        title={exists ? t("Double click to open") : t("The file cannot be found")}
+      >
         <span className="ln-doc__title">{doc.title}</span>
         <span className="ln-doc__path">{exists ? doc.path : `${doc.path} · ${t("not found")}`}</span>
       </button>
@@ -249,29 +255,6 @@ function DocRow({
           <option key={ph} value={ph}>{t(phaseName(ph))}</option>
         ))}
       </select>
-      <div className="ln-doc__tools">
-        <button
-          type="button"
-          className={`ln-tool ln-tool--show${doc.inShow ? " is-on" : ""}`}
-          aria-pressed={doc.inShow}
-          disabled={doc.archived}
-          aria-label={doc.inShow ? t("Remove from the show") : t("Add to the show")}
-          title={doc.inShow ? t("Remove from the show") : t("Add to the show")}
-          onClick={() => onPatch({ inShow: !doc.inShow })}
-        >
-          <Icon name="star" size={15} filled={doc.inShow} />
-        </button>
-        <button
-          type="button"
-          className={`ln-tool${doc.archived ? " is-on" : ""}`}
-          aria-pressed={doc.archived}
-          aria-label={doc.archived ? t("Restore from the archive") : t("Archive")}
-          title={doc.archived ? t("Restore from the archive") : t("Archive")}
-          onClick={() => onPatch({ archived: !doc.archived })}
-        >
-          <Icon name="archive" size={15} />
-        </button>
-      </div>
     </div>
   );
 }

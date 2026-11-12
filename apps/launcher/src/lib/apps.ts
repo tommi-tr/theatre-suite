@@ -4,6 +4,8 @@ export interface AppDef {
   name: string;
   /** Short English description of what it is for (translated in the dictionary). */
   role: string;
+  /** One sentence on what the app does, shown in "Explore, install and update" (translated in the dictionary). */
+  about: string;
   /** Not released yet: shown as "coming soon". */
   soon: boolean;
   /** Can the launcher create an empty document for it? */
@@ -12,15 +14,12 @@ export interface AppDef {
   logo: { a: string; b: string; accentColor: string };
 }
 
-const bars = (rows: Array<[number, number, number]>) => ({
-  a: rows.map(([y, x1, x2]) => `M${x1} ${y}H${x2}`).join(""),
-});
-
 export const APPS: AppDef[] = [
   {
     id: "diaframma",
     name: "Diaframma",
     role: "Sound",
+    about: "Plays the sound of a show: music and effects on cue, with entrances, exits, loops and a launchpad.",
     soon: false,
     canCreate: true,
     accent: { dark: "#8e80ff", light: "#5442e0" },
@@ -34,15 +33,18 @@ export const APPS: AppDef[] = [
     id: "bardo",
     name: "Bardo",
     role: "Scripts",
-    soon: true,
+    about: "Writes and keeps the script: scenes, characters and lines, with export to PDF and Word.",
+    soon: false,
     canCreate: false,
-    accent: { dark: "#f07cc4", light: "#b02a7f" },
-    logo: { a: bars([[30, 18, 30], [50, 18, 30], [70, 18, 30]]).a, b: "M40 30H82M40 50H74M40 70H78", accentColor: "#d9489f" },
+    // Copper, as in the app itself (02_design.md). Same drawing as the app icon: character names in copper, lines in ink.
+    accent: { dark: "#f2955e", light: "#a9501f" },
+    logo: { a: "M18 28H31M18 50H29M18 72H33", b: "M41 28H82M41 36H66M41 50H82M41 58H74M41 72H78", accentColor: "#c8642c" },
   },
   {
     id: "regia",
     name: "Aiuto regia",
     role: "Rehearsals",
+    about: "For the director's assistant during rehearsals. Still being designed.",
     soon: true,
     canCreate: false,
     accent: { dark: "#d2b48c", light: "#8a6a2a" },
@@ -52,6 +54,7 @@ export const APPS: AppDef[] = [
     id: "luci",
     name: "Luci",
     role: "Lighting desk",
+    about: "The lighting desk: scenes and cues for the lights. Still being designed.",
     soon: true,
     canCreate: false,
     accent: { dark: "#3fc1c9", light: "#0f7f87" },

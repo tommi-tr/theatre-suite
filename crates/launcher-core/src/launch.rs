@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::Command;
 use theatre_project::apps::{KnownApp, app_by_id};
-use theatre_project::model::Project;
+use theatre_project::model::{Phase, Project};
 use theatre_project::ready::document_path;
 
 /// Starts `program` with the document as its only argument. The launcher does not wait for it.
@@ -61,7 +61,7 @@ pub struct OpenAllReport {
     pub skipped: Vec<Skipped>,
 }
 
-/// Opens every document marked for the show. `program_of` gives the program of an app (None = not installed).
+/// Opens every document in the `Show` phase. `program_of` gives the program of an app (None = not installed).
 /// An app that works on one document at a time is started only for the first one: the others are reported.
 pub fn open_all(
     dir: &Path,
@@ -71,7 +71,7 @@ pub fn open_all(
 ) -> OpenAllReport {
     let mut report = OpenAllReport::default();
     let mut used: Vec<String> = vec![];
-    for doc in project.documents.iter().filter(|d| d.in_show && !d.archived) {
+    for doc in project.documents.iter().filter(|d| d.phase == Some(Phase::Show)) {
         let skip = |reason: &str, detail: String| Skipped { doc_id: doc.id.clone(), title: doc.title.clone(), reason: reason.into(), detail };
         let path = document_path(dir, doc);
         if !path.is_file() {
@@ -108,16 +108,16 @@ mod tests {
     use theatre_project::manifest;
 
     #[test]
-    fn opens_marked_documents_one_per_single_document_app() {
+    fn opens_show_phase_documents_one_per_single_document_app() {
         let d = tempfile::tempdir().unwrap();
         std::fs::write(d.path().join("a.diaframma"), "{}").unwrap();
         std::fs::write(d.path().join("b.diaframma"), "{}").unwrap();
         std::fs::write(d.path().join("c.bardo"), "{}").unwrap();
         let mut p = manifest::create(d.path(), "X", "").unwrap();
         for doc in p.documents.iter_mut() {
-            doc.in_show = true;
+            doc.phase = Some(Phase::Show);
         }
-        p.documents.push(theatre_project::model::Document { id: "gone".into(), app: "diaframma".into(), title: "gone".into(), path: "gone.diaframma".into(), phase: None, archived: false, in_show: true, extra: Default::default() });
+        p.documents.push(theatre_project::model::Document { id: "gone".into(), app: "diaframma".into(), title: "gone".into(), path: "gone.diaframma".into(), phase: Some(Phase::Show), extra: Default::default() });
         let log = RefCell::new(vec![]);
         let r = open_all(
             d.path(),

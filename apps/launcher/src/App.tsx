@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { I18nProvider, useApplyTheme, useT } from "@theatre-suite/core";
 import { Button, TitleBar, Toast } from "@theatre-suite/ui";
 import { DICTS, setStaticLang } from "./i18n";
-import { appWindow } from "./lib/api";
+import { api, appWindow } from "./lib/api";
 import { useStore } from "./state/store";
 import { LauncherMark } from "./components/AppLogos";
 import { Home } from "./screens/Home";
@@ -34,6 +34,11 @@ function Shell() {
   const toast = useStore((s) => s.toast);
   const settings = useStore((s) => s.settings)!;
   const [maximized, setMaximized] = useState(false);
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    void api.appInfo().then((i) => setVersion(i.version)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const w = appWindow();
@@ -52,7 +57,7 @@ function Shell() {
     <div className="ln-shell">
       <TitleBar
         logo={<LauncherMark size={20} />}
-        appName="Theatre Suite"
+        appName={version ? `Theatre Suite ${version}` : "Theatre Suite"}
         actions={
           <>
             <Button variant="ghost" iconOnly icon="settings" aria-label={t("Settings")} title={t("Settings")} onClick={() => useStore.getState().setDialog({ kind: "settings" })} />

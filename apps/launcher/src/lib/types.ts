@@ -20,8 +20,8 @@ export interface Summary {
   subtitle: string;
   cover: Cover;
   documents: number;
+  /** Documents in the Show phase. */
   inShow: number;
-  archived: number;
   apps: string[];
   created: number;
   updated: number;
@@ -41,8 +41,6 @@ export interface Doc {
   title: string;
   path: string;
   phase?: Phase | null;
-  archived: boolean;
-  inShow: boolean;
 }
 
 export interface Project {

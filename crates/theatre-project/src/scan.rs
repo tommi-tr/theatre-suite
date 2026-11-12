@@ -59,7 +59,7 @@ pub fn sync_documents(dir: &Path, project: &mut Project) -> usize {
         if project.documents.iter().any(|d| d.path.eq_ignore_ascii_case(&f.path)) {
             continue;
         }
-        project.documents.push(Document { id: new_id(), app: f.app, title: f.title, path: f.path, phase: None, archived: false, in_show: false, extra: Default::default() });
+        project.documents.push(Document { id: new_id(), app: f.app, title: f.title, path: f.path, phase: None, extra: Default::default() });
         added += 1;
     }
     added
