@@ -47,9 +47,9 @@ apps/diaframma/
   next start after a crash, the original values are put back.
 
 ## Files
-- `.diaframma` cue list: JSON, `format: "diaframma.cuelist"`, `formatVersion: 1`,
-  absolute and relative audio paths. Older versions stay readable; newer ones are refused
-  with a clear message.
+- `.diaframma` cue list: JSON, `format: "diaframma.cuelist"`, `formatVersion: 3`,
+  absolute and relative audio paths. Only the current version is read (no compatibility with
+  older files until the suite is published); any other version is refused with a clear message.
 - App data folder (`%APPDATA%\it.theatresuite.diaframma`): `settings.json`,
   `autosave/session.json`, `session.lock` (crash marker), `rehearsal-journal.json`.
 - All writes are atomic (temporary file + rename). Damaged files are set aside, never fatal.

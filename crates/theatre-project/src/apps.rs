@@ -16,10 +16,12 @@ pub struct KnownApp {
     pub new_extension: &'static str,
 }
 
-/// An empty cue list in Diaframma's format 2 (see docs/diaframma/ARCHITECTURE.md).
+/// An empty cue list in Diaframma's current format (3; `FORMAT_VERSION` in
+/// `apps/diaframma/src/state/types.ts`). Until the suite is published Diaframma reads only
+/// its current format, so this number must change together with Diaframma's.
 const DIAFRAMMA_EMPTY: &str = r#"{
   "format": "diaframma.cuelist",
-  "formatVersion": 2,
+  "formatVersion": 3,
   "app": { "name": "Diaframma", "version": "0.0.0" },
   "tracks": []
 }
@@ -37,4 +39,19 @@ pub fn app_for_extension(ext: &str) -> Option<&'static KnownApp> {
 
 pub fn app_by_id(id: &str) -> Option<&'static KnownApp> {
     KNOWN_APPS.iter().find(|a| a.id == id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_diaframma_document_is_valid_json_in_the_current_format() {
+        let text = app_by_id("diaframma").unwrap().new_document.unwrap();
+        let v: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(v["format"], "diaframma.cuelist");
+        // Must match FORMAT_VERSION in apps/diaframma/src/state/types.ts.
+        assert_eq!(v["formatVersion"], 3);
+        assert!(v["tracks"].as_array().unwrap().is_empty());
+    }
 }

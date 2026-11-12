@@ -54,14 +54,14 @@ const apps: AppsView = {
     { id: "diaframma", name: "Diaframma", installed: { path: "C:\\Users\\tu\\AppData\\Local\\Diaframma\\Diaframma.exe", version: "1.0.0" }, status: { state: "available", latest: "1.1.0", url: "https://github.com/tommi-tr/theatre-suite/releases" }, latest: { version: "1.1.0", url: "https://github.com/tommi-tr/theatre-suite/releases", notes: "" } },
     { id: "bardo", name: "Bardo", installed: { path: "C:\\Users\\tu\\AppData\\Local\\Bardo\\Bardo.exe", version: "0.1.0" }, status: { state: "upToDate" }, latest: { version: "0.1.0", url: "https://github.com/tommi-tr/theatre-suite-releases/releases", notes: "" } },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.2.0" }, status: { state: "upToDate" }, latest: null },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.2.1" }, status: { state: "upToDate" }, latest: null },
   checkedAt: now - 3 * day,
   error: null,
 };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "app_info": return { name: "Theatre Suite", version: "0.2.0", os: "demo" };
+    case "app_info": return { name: "Theatre Suite", version: "0.2.1", os: "demo" };
     case "startup_show": return null;
     case "settings_load": return settings;
     case "settings_save": settings = args!.settings as Settings; return;
