@@ -124,7 +124,8 @@ export function parseDoc(text: string): Track[] {
       exit,
       exitSec: optSec(t.exitSec),
       loopOn,
-      ignoreVolume: t.ignoreVolume === true,
+      // "Ignore volume" is gone from the interface (the volume group of the editor has "Ignore").
+      ignoreVolume: false,
       volumeDb: num(t.volumeDb, 0),
       eq: eqOf(t.eq),
       pan: Math.min(1, Math.max(-1, num(t.pan, 0))),
@@ -133,6 +134,9 @@ export function parseDoc(text: string): Track[] {
       envelope: curve(t.envelope, 0, 1),
       panEnvelope: curve(t.panEnvelope, -1, 1),
       loop: loop && typeof loop.inSec === "number" && typeof loop.outSec === "number" ? { inSec: loop.inSec, outSec: loop.outSec } : null,
+      markers: Array.isArray(t.markers)
+        ? [...new Set((t.markers as unknown[]).filter((m): m is number => typeof m === "number" && Number.isFinite(m) && m >= 0).map((m) => Math.round(m * 100) / 100))].sort((a, b) => a - b)
+        : [],
       cutVisible: t.cutVisible !== false,
       loopVisible: t.loopVisible !== false,
       envelopeVisible: t.envelopeVisible !== false,
@@ -178,6 +182,8 @@ interface DocStore {
   loadIntoTrack: (id: string, path: string) => void;
   clearTrack: (id: string) => void;
   deleteTrack: (id: string) => void;
+  addMarker: (id: string, sec: number) => void;
+  removeMarker: (id: string, index: number) => void;
   duplicateTrack: (id: string) => void;
   toggleHidden: (id: string) => void;
   moveTrack: (from: number, to: number) => void;
@@ -203,6 +209,7 @@ function trackFromPath(path: string): Partial<Track> {
     envelope: [],
     panEnvelope: [],
     loop: null,
+    markers: [],
     ignoreCut: false,
     ignoreEnvelope: false,
     ignoreLoop: false,
@@ -271,8 +278,20 @@ export const useDoc = create<DocStore>((set, get) => {
       set({ missing: m });
       get().ensureInfo(path);
     },
-    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], panEnvelope: [], loop: null, ignoreCut: false, ignoreEnvelope: false, ignoreLoop: false, ignorePan: false }),
+    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], panEnvelope: [], loop: null, markers: [], ignoreCut: false, ignoreEnvelope: false, ignoreLoop: false, ignorePan: false }),
     deleteTrack: (id) => commit(get().tracks.filter((t) => t.id !== id)),
+    addMarker: (id, sec) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t || !Number.isFinite(sec) || sec < 0) return;
+      const m = Math.round(sec * 100) / 100;
+      if (t.markers.some((x) => Math.abs(x - m) < 0.05)) return;
+      get().patchTrack(id, { markers: [...t.markers, m].sort((a, b) => a - b) });
+    },
+    removeMarker: (id, index) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t || index < 0 || index >= t.markers.length) return;
+      get().patchTrack(id, { markers: t.markers.filter((_, i) => i !== index) });
+    },
     duplicateTrack: (id) => {
       const tracks = [...get().tracks];
       const i = tracks.findIndex((t) => t.id === id);
@@ -412,4 +431,9 @@ export function matchVolumes(): { changed: number; skipped: number } {
   }
   if (vols.size) st.setTracks((tracks) => tracks.map((t) => (vols.has(t.id) ? { ...t, volumeDb: vols.get(t.id)! } : t)));
   return { changed: vols.size, skipped };
+}
+
+/** The voice in front: the one GO acts on, else the newest that plays, else the last one (same rule as the transport bar). */
+export function frontVoice(live: LiveState) {
+  return live.voices.find((v) => v.main) ?? [...live.voices].reverse().find((v) => !v.paused && v.fading !== "out") ?? live.voices[live.voices.length - 1] ?? null;
 }

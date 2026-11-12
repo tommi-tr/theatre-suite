@@ -2,13 +2,14 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { formatDb, formatTime, useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd, Label, NumberField, VFader, type IconName } from "@theatre-suite/ui";
 import { api } from "../lib/api";
-import { pickAudioFiles, locateMissing } from "../lib/files";
+import { confirmClearTrack, confirmDeleteTrack, pickAudioFiles, locateMissing } from "../lib/files";
 import { effectiveIn, effectiveOut, useDoc, type InfoState } from "../state/doc";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
 import { EQ_BANDS, FLAT_EQ, type Entry, type Eq, type Exit, type Track, type Voice } from "../state/types";
 import { ENTRIES, EXITS, entrySeconds, exitSeconds, secs } from "./labels";
 import { WaveEditor, wavePath, type EditPhase } from "./WaveEditor";
+import { seekAllowed } from "./seek";
 
 let lastEdit = 0;
 /** Continuous edits (drags, faders) make a single undo step. */
@@ -146,7 +147,7 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
           onChange={(v: string) => doc.patchTrack(track.id, { entry: v === "none" ? null : (v as Entry) })}
           tone={standby ? "sb" : null}
         />
-        <MiniWave track={track} dur={dur} out={out} peaks={infoObj?.peaks ?? null} voice={voice} compact />
+        <MiniWave track={track} dur={dur} out={out} peaks={infoObj?.peaks ?? null} voice={voice} locked={locked} compact />
         <ChoiceChip
           label={t("Exit")}
           value={track.exit ?? "none"}
@@ -208,7 +209,7 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
           </Button>
           {track.file ? (
             <>
-              <Button variant="sm" icon="eraser" onClick={() => doc.clearTrack(track.id)} disabled={!!voice}>
+              <Button variant="sm" icon="eraser" onClick={async () => (await confirmClearTrack(t, track, number)) && doc.clearTrack(track.id)} disabled={!!voice}>
                 {t("Clear")}
               </Button>
               <Button variant="sm" icon="duplicate" onClick={() => doc.duplicateTrack(track.id)} title={t("A copy right below, with its own settings (same audio file)")}>
@@ -216,7 +217,7 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
               </Button>
             </>
           ) : null}
-          <Button variant="sm" icon="trash" iconColor="var(--stop)" onClick={() => doc.deleteTrack(track.id)} disabled={!!voice}>
+          <Button variant="sm" icon="trash" iconColor="var(--stop)" onClick={async () => (await confirmDeleteTrack(t, track, number)) && doc.deleteTrack(track.id)} disabled={!!voice}>
             {t("Delete")}
           </Button>
           <Button variant="sm" icon="eyeOff" onClick={() => doc.toggleHidden(track.id)} disabled={!!voice}>
@@ -276,7 +277,7 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
     <article className={rowClass} data-track-id={track.id} aria-label={t("Track {n}", { n: number ?? "" })} onPointerDownCapture={touch}>
       {numCol}
       {head}
-      <div className="df-col">
+      <div className="df-col df-col--entry">
         <Label className={standby ? "df-label-sb" : undefined}>{t("Entry")}</Label>
         {ENTRIES.map((o) => (
           <OptionRow
@@ -295,52 +296,60 @@ export const TrackRow = memo(function TrackRow(p: RowProps) {
       </div>
       <div className="df-col df-col--manual">
         <Label>{t("Manual")}</Label>
-        <button type="button" className="ts-opt" data-nosb aria-disabled={!voice} disabled={!voice} onClick={() => api.enginePause(track.id).catch(() => {})}>
-          <Icon name={paused ? "playF" : "pauseF"} size={12} />
-          <span>{paused ? t("Resume") : t("Pause")}</span>
-        </button>
-        <button
-          type="button"
-          className="ts-opt"
-          aria-pressed={track.ignoreVolume}
-          disabled={locked}
-          title={t("Plays at full volume, ignoring the track volume and the volume curve")}
-          onClick={() => doc.patchTrack(track.id, { ignoreVolume: !track.ignoreVolume })}
-        >
-          <Icon name="ignoreVol" size={12} />
-          <span>{t("Ignore volume")}</span>
-        </button>
+        <div className="df-grid2">
+          <button type="button" className="ts-opt" data-nosb aria-disabled={!voice} disabled={!voice} title={t("Pause this track (and resume it)")} onClick={() => api.enginePause(track.id).catch(() => {})}>
+            <Icon name={paused ? "playF" : "pauseF"} size={12} />
+            <span>{paused ? t("Resume") : t("Pause")}</span>
+          </button>
+          <button type="button" className="ts-opt" data-nosb aria-disabled={!voice} disabled={!voice} title={t("Stop this track at once")} onClick={() => api.engineStopTrack(track.id).catch(() => {})}>
+            <Icon name="stopF" size={12} />
+            <span>{t("Stop")}</span>
+          </button>
+          <button
+            type="button"
+            className="ts-opt"
+            data-nosb
+            disabled={!voice || locked}
+            title={t("Puts a marker at the play position (M). Markers help to line up IN, OUT, loop points and curve points in the editor.")}
+            onClick={() => voice && doc.addMarker(track.id, voice.positionSec)}
+          >
+            <Icon name="flag" size={12} />
+            <span>{t("Marker")}</span>
+          </button>
+        </div>
       </div>
-      <MiniWave track={track} dur={dur} out={out} peaks={infoObj?.peaks ?? null} voice={voice} />
-      <div className="df-col">
+      <MiniWave track={track} dur={dur} out={out} peaks={infoObj?.peaks ?? null} voice={voice} locked={locked} />
+      <div className="df-col df-col--exit">
         <Label className={main ? "df-label-go" : undefined}>{t("Exit")}</Label>
-        {EXITS.map((o) => (
-          <OptionRow
-            key={o.value}
-            icon={o.icon}
-            label={t(o.label)}
-            title={t(o.title)}
-            on={track.exit === o.value}
-            tone={main ? "go" : null}
-            seconds={o.value === "next" ? null : exitSeconds({ ...track, exit: o.value }, settings)}
-            locked={locked}
-            onToggle={() => doc.patchTrack(track.id, { exit: track.exit === o.value ? null : o.value })}
-            onSeconds={(v) =>
-              doc.patchTrack(track.id, { exit: o.value, exitSec: v === (o.value === "crossfade" ? settings.crossfadeSec : settings.fadeOutSec) ? null : v })
-            }
-          />
-        ))}
-        <button
-          type="button"
-          className={track.loopOn ? "ts-opt ts-opt--strong df-loopbtn df-loopbtn--on" : "ts-opt df-loopbtn"}
-          aria-pressed={track.loopOn}
-          disabled={locked}
-          title={t(track.loop ? "Repeats between the loop points until GO" : "Repeats the whole track until GO")}
-          onClick={() => doc.patchTrack(track.id, { loopOn: !track.loopOn })}
-        >
-          <Icon name="repeat" size={12} />
-          <span>{t("Loop")}</span>
-        </button>
+        <div className="df-grid2">
+          {EXITS.map((o) => (
+            <OptionRow
+              key={o.value}
+              icon={o.icon}
+              label={t(o.label)}
+              title={t(o.title)}
+              on={track.exit === o.value}
+              tone={main ? "go" : null}
+              seconds={o.value === "next" ? null : exitSeconds({ ...track, exit: o.value }, settings)}
+              locked={locked}
+              onToggle={() => doc.patchTrack(track.id, { exit: track.exit === o.value ? null : o.value })}
+              onSeconds={(v) =>
+                doc.patchTrack(track.id, { exit: o.value, exitSec: v === (o.value === "crossfade" ? settings.crossfadeSec : settings.fadeOutSec) ? null : v })
+              }
+            />
+          ))}
+          <button
+            type="button"
+            className={track.loopOn ? "ts-opt ts-opt--strong df-loopbtn df-loopbtn--on" : "ts-opt df-loopbtn"}
+            aria-pressed={track.loopOn}
+            disabled={locked}
+            title={t(track.loop ? "Repeats between the loop points until GO" : "Repeats the whole track until GO")}
+            onClick={() => doc.patchTrack(track.id, { loopOn: !track.loopOn })}
+          >
+            <Icon name="repeat" size={12} />
+            <span>{t("Loop")}</span>
+          </button>
+        </div>
       </div>
       {expanded && !locked ? <TrackPanel track={track} dur={dur} peaks={infoObj?.peaks ?? null} voice={voice} failed={info === "error"} /> : null}
     </article>
@@ -466,11 +475,12 @@ function ChoiceChip<V extends string>({
   );
 }
 
-/** The part of the waveform that will play (IN → OUT). While paused, a click moves the play position. */
-function MiniWave({ track, dur, out, peaks, voice, compact }: { track: Track; dur: number | null; out: number | null; peaks: number[] | null; voice: Voice | null; compact?: boolean }) {
+/** The part of the waveform that will play (IN → OUT). A click moves the play position (Settings → Show). */
+function MiniWave({ track, dur, out, peaks, voice, locked, compact }: { track: Track; dur: number | null; out: number | null; peaks: number[] | null; voice: Voice | null; locked: boolean; compact?: boolean }) {
   const t = useT();
   const bars = compact ? 120 : 180;
   const waveStyle = useSettings((x) => x.settings.waveStyle);
+  const seekClick = useSettings((x) => x.settings.seekClick);
   const a = effectiveIn(track);
   const b = out ?? dur ?? 0;
   const span = b > a ? b - a : 0;
@@ -486,23 +496,21 @@ function MiniWave({ track, dur, out, peaks, voice, compact }: { track: Track; du
   const split = pos !== null ? Math.round(frac(pos) * bars) : 0;
   const played = useMemo(() => (slice && split ? wavePath(slice, bars, 0, split, waveStyle) : ""), [slice, split, bars, waveStyle]);
   const rest = useMemo(() => (slice ? wavePath(slice, bars, split, bars, waveStyle) : ""), [slice, split, bars, waveStyle]);
-  const canSeek = !!voice && voice.paused && span > 0;
+  const canSeek = span > 0 && seekAllowed(voice, seekClick, locked);
   const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (canSeek) {
-      const r = e.currentTarget.getBoundingClientRect();
-      const sec = a + ((e.clientX - r.left) / r.width) * span;
-      api.engineSeek(track.id, sec).catch(() => {});
-      return;
-    }
-    if (!compact) useDoc.getState().toggleExpanded(track.id);
+    if (!canSeek) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const sec = a + ((e.clientX - r.left) / r.width) * span;
+    api.engineSeek(track.id, sec).catch(() => {});
   };
   const loopIn = track.loop && track.loopVisible && !track.ignoreLoop && track.loop.inSec >= a && track.loop.inSec <= b ? track.loop.inSec : null;
   const loopOut = track.loop && track.loopVisible && !track.ignoreLoop && track.loop.outSec >= a && track.loop.outSec <= b ? track.loop.outSec : null;
+  const marks = track.markers.filter((m) => m >= a && m <= b);
   const waveEl = (
     <div
-      className={["df-mini-wave", compact ? "df-mini-wave--compact" : "", canSeek ? "df-mini-wave--seek" : ""].join(" ")}
+      className={["df-mini-wave", compact ? "df-mini-wave--compact" : "", canSeek ? "df-mini-wave--seekable" : "", canSeek && voice?.paused ? "df-mini-wave--seek" : ""].join(" ")}
       onClick={onClick}
-      title={canSeek ? t("Paused: click to move the play position, then GO or P to go on from there") : compact ? undefined : t("Click to open the settings")}
+      title={canSeek ? (voice?.paused ? t("Paused: click to move the play position, then GO or P to go on from there") : t("Click to move the play position")) : undefined}
     >
       <svg viewBox={`0 0 ${bars} 100`} preserveAspectRatio="none" width="100%" height="100%" aria-hidden="true">
         {played ? <path d={played} stroke="var(--go)" strokeWidth={2} vectorEffect="non-scaling-stroke" /> : null}
@@ -510,6 +518,11 @@ function MiniWave({ track, dur, out, peaks, voice, compact }: { track: Track; du
       </svg>
       {loopIn !== null ? <div style={{ position: "absolute", top: 0, bottom: 0, left: pct(loopIn), borderLeft: "1.5px dashed var(--accent)" }} /> : null}
       {loopOut !== null ? <div style={{ position: "absolute", top: 0, bottom: 0, left: pct(loopOut), borderLeft: "1.5px dashed var(--accent)" }} /> : null}
+      {marks.map((m) => (
+        <div key={m} className="df-wave__mk" style={{ left: pct(m) }}>
+          <span className="df-wave__mkflag" />
+        </div>
+      ))}
       {pos !== null && span ? (
         <>
           <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: pct(pos), background: "var(--go-soft)" }} />
@@ -520,12 +533,20 @@ function MiniWave({ track, dur, out, peaks, voice, compact }: { track: Track; du
   );
   if (compact) return waveEl;
   return (
-    <div className="df-col" style={{ paddingTop: 16 }}>
+    <div className="df-col df-col--wave">
+      {/* The play position sits above the waveform; IN and OUT below it, with the length of the track between them. */}
+      <div className="df-times df-times--top">
+        {pos !== null && span ? (
+          <span style={{ left: pct(pos), transform: `translateX(-${Math.round(frac(pos) * 100)}%)`, color: "var(--go)", fontWeight: 600 }}>{formatTime(pos)}</span>
+        ) : null}
+      </div>
       {waveEl}
       <div className="df-times">
         <span style={{ left: 0 }}>{formatTime(a)}</span>
-        {pos !== null && span ? (
-          <span style={{ left: pct(pos), transform: "translateX(-50%)", color: "var(--go)", fontWeight: 600 }}>{formatTime(pos)}</span>
+        {span ? (
+          <span className="df-times__len" style={{ left: "50%", transform: "translateX(-50%)" }} title={t("Length of the track")}>
+            {formatTime(span)}
+          </span>
         ) : null}
         <span style={{ right: 0 }}>{formatTime(out)}</span>
       </div>
@@ -622,7 +643,7 @@ function TrackPanel({ track, dur, peaks, voice, failed }: { track: Track; dur: n
         <div style={{ display: "flex", alignItems: "center", gap: 10, height: 24 }}>
           <Label>{t("EDITING")}</Label>
           <span className="ts-ellipsis" style={{ fontSize: 11, color: "var(--text-3)", flex: 1, minWidth: 0 }}>
-            {voice?.paused ? t("Paused: click the waveform to move the play position") : t("Start & end cut, volume curve, loop cut and pan")}
+            {t("Click the waveform to edit it · start & end cut, volume curve, loop cut and pan")}
           </span>
           <Button variant="sm" icon="pencil" onClick={() => useUi.getState().openEditor(track.id)}>
             {t("Edit")}
@@ -638,7 +659,8 @@ function TrackPanel({ track, dur, peaks, voice, failed }: { track: Track; dur: n
           editing={null}
           waveStyle={waveStyle}
           onChange={() => {}}
-          onSeek={voice?.paused ? (sec) => api.engineSeek(track.id, sec).catch(() => {}) : undefined}
+          onOpen={() => useUi.getState().openEditor(track.id)}
+          snap={false}
           t={t}
           failed={failed}
         />

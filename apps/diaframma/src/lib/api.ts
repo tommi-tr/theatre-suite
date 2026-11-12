@@ -9,6 +9,14 @@ export interface SessionStart {
   openFile: string | null;
 }
 
+/** A saved version of a cue list (a copy in the `.versions` folder next to it). */
+export interface VersionEntry {
+  path: string;
+  name: string;
+  modifiedMs: number;
+  bytes: number;
+}
+
 export interface EngineConfig {
   othersOnGo: OthersOnGo;
   autoAdvance: boolean;
@@ -44,6 +52,8 @@ export const api = {
   autosaveClear: () => call<void>("autosave_clear"),
   readText: (path: string) => call<string>("file_read_text", { path }),
   writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
+  versionsList: (dir: string) => call<VersionEntry[]>("versions_list", { dir }),
+  versionDelete: (path: string) => call<void>("version_delete", { path }),
   pathsExist: (paths: string[]) => call<boolean[]>("paths_exist", { paths }),
   openProjectPage: (url: string) => call<void>("open_project_page", { url }),
   findFiles: (dir: string, names: string[]) => call<(string | null)[]>("find_files", { dir, names }),
@@ -61,6 +71,7 @@ export const api = {
   enginePauseAll: () => call<void>("engine_pause_all"),
   engineSeek: (trackId: string, sec: number) => call<void>("engine_seek", { trackId, sec }),
   engineStopAll: (immediate: boolean) => call<void>("engine_stop_all", { immediate }),
+  engineStopTrack: (trackId: string) => call<void>("engine_stop_track", { trackId }),
   engineAnalyze: (path: string) => call<TrackInfo>("engine_analyze", { path }),
   engineState: () => call<LiveState>("engine_state"),
   selftestRun: (tracks: EngineTrack[], config: EngineConfig, runs: number) => call<TestReport>("selftest_run", { tracks, config, runs }),

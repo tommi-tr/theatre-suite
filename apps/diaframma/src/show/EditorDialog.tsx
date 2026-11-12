@@ -3,6 +3,7 @@ import { formatTime, useT } from "@theatre-suite/core";
 import { Button, Dialog, Icon, Segmented, type IconName } from "@theatre-suite/ui";
 import { api } from "../lib/api";
 import { useDoc, trackDuration, effectiveOut } from "../state/doc";
+import { seekAllowed } from "./seek";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
 import type { EnvPoint, Track } from "../state/types";
@@ -127,12 +128,14 @@ export function EditorDialog({ onClose }: { onClose: () => void }) {
             duration={dur}
             peaks={peaks}
             height={280}
-            panHeight={track.panVisible || editing === "pan" ? 96 : 0}
+            panHeight={track.panVisible ? 96 : 0}
             playheadSec={voice?.positionSec ?? null}
             editing={editing}
             waveStyle={settings.waveStyle}
             onChange={(p, phase) => editTrack(track.id, p, phase)}
-            onSeek={voice?.paused ? (sec) => api.engineSeek(track.id, sec).catch(() => {}) : undefined}
+            onSeek={seekAllowed(voice, settings.seekClick, false) ? (sec) => api.engineSeek(track.id, sec).catch(() => {}) : undefined}
+            onRemoveMarker={(i) => useDoc.getState().removeMarker(track.id, i)}
+            snap={settings.snapMarkers}
             t={t}
           />
         </div>
@@ -183,7 +186,11 @@ export function EditorDialog({ onClose }: { onClose: () => void }) {
                   icon={visible ? "eye" : "eyeOff"}
                   aria-pressed={visible}
                   title={t("Hidden, it keeps working")}
-                  onClick={() => patch({ [KEYS[g.id].visible]: !visible } as Partial<Track>)}
+                  onClick={() => {
+                    patch({ [KEYS[g.id].visible]: !visible } as Partial<Track>);
+                    // A hidden group cannot be edited: stop editing it.
+                    if (visible && on) setEditing(null);
+                  }}
                 >
                   {visible ? t("Hide group") : t("Show group")}
                 </Button>

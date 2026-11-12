@@ -42,6 +42,7 @@ export function loadDemo() {
       volumeDb: -3,
       eq: [2, 0.5, -1.5, 0, 1],
       loop: { inSec: 80, outSec: 169.5 },
+      markers: [32.5, 120],
       envelope: [
         { t: 4.2, v: 0 },
         { t: 14, v: 0.85 },

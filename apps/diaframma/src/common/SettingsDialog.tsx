@@ -6,6 +6,7 @@ import { APP_VERSION } from "../lib/version";
 import { useSettings, DEFAULT_SETTINGS, type Settings } from "../state/settings";
 import { matchVolumes, useDoc } from "../state/doc";
 import { useUi } from "../state/ui";
+import { testOutput } from "../lib/launchpad";
 import { restoreStandardPads } from "./Launchpad";
 import { TestDialog } from "./TestDialog";
 import type { OthersOnGo } from "../state/types";
@@ -150,6 +151,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     {s.outputDevice && !devices.includes(s.outputDevice) ? <option value={s.outputDevice}>{s.outputDevice} ({t("not connected")})</option> : null}
                   </select>
                 </Row>
+                <Row label={t("Test output")} hint={t("Plays a short, soft chime on this output: left, then right, then both. Use it to check that the sound goes where it should.")}>
+                  <Button
+                    variant="sm"
+                    icon="volume"
+                    onClick={() => testOutput().catch((e) => useUi.getState().showToast(t("The test sound could not be played.") + " " + (e instanceof Error ? e.message : String(e)), "error"))}
+                  >
+                    {t("Play test sound")}
+                  </Button>
+                </Row>
                 <Row label={t("After GO, attention moves to the next track")}>
                   <Switch checked={s.autoAdvance} onChange={(v) => set({ autoAdvance: v })} label={t("After GO, attention moves to the next track")} />
                 </Row>
@@ -158,6 +168,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 </Row>
                 <Row label={t("The track that plays is the first row on screen")} hint={t("Useful with long cue lists: the list scrolls by itself at every GO.")}>
                   <Switch checked={s.followPlaying} onChange={(v) => set({ followPlaying: v })} label={t("The track that plays is the first row on screen")} />
+                </Row>
+                <Row label={t("Click on the waveform of a track")} hint={t("Moves the play position to the point you click. Choose “Only when paused” to avoid jumps by mistake during the show.")}>
+                  <Segmented
+                    small
+                    ariaLabel={t("Click on the waveform of a track")}
+                    value={s.seekClick}
+                    onChange={(v) => set({ seekClick: v })}
+                    options={[
+                      { value: "paused", label: t("Only when paused") },
+                      { value: "always", label: t("Always") },
+                      { value: "never", label: t("Never") },
+                    ]}
+                  />
+                </Row>
+                <Row label={t("Markers attract")} hint={t("While you drag IN, OUT, loop points and curve points in the editor, they stick to the markers (M puts a marker at the play position).")}>
+                  <Switch checked={s.snapMarkers} onChange={(v) => set({ snapMarkers: v })} label={t("Markers attract")} />
                 </Row>
                 <Row label={t("Automatic equalizer")} hint={t("Moves the volume fader of every track so they sound the same (it never makes a track clip). You can undo it with the undo shortcut.")}>
                   <Button

@@ -84,6 +84,9 @@ export function WaveEditor({
   waveStyle = "mirror",
   onChange,
   onSeek,
+  onOpen,
+  onRemoveMarker,
+  snap = false,
   t,
   failed,
 }: {
@@ -100,6 +103,12 @@ export function WaveEditor({
   onChange: (patch: Partial<Track>, phase: EditPhase) => void;
   /** Given while the track is paused: a click away from the markers moves the play position. */
   onSeek?: (sec: number) => void;
+  /** Given by the preview: a click away from the markers opens the large editor. */
+  onOpen?: () => void;
+  /** Given by the large editor: the marker flags can be clicked to remove the marker. */
+  onRemoveMarker?: (index: number) => void;
+  /** Dragged points stick to the markers. */
+  snap?: boolean;
   t: (k: string) => string;
   /** The file could not be read. */
   failed?: boolean;
@@ -118,11 +127,30 @@ export function WaveEditor({
   const wave = useMemo(() => (peaks ? wavePath(peaks, bars, 0, bars, waveStyle) : ""), [peaks, bars, waveStyle]);
   const env = useMemo(() => curvePath(track.envelope, dur, Y), [track.envelope, dur]);
   const panCurve = useMemo(() => curvePath(track.panEnvelope, dur, PY), [track.panEnvelope, dur]);
-  const showLoop = !!track.loop && (track.loopVisible || editing === "loop");
-  const showCut = track.cutVisible || editing === "cut";
-  const showEnv = track.envelopeVisible || editing === "volume";
-  const showPan = panHeight > 0 && (track.panVisible || editing === "pan");
-  const can = (g: EditGroup) => editing === g && dur > 0;
+  // A hidden group is hidden everywhere (it keeps working); "Edit" shows it again.
+  const showLoop = !!track.loop && track.loopVisible;
+  const showCut = track.cutVisible;
+  const showEnv = track.envelopeVisible;
+  const showPan = panHeight > 0 && track.panVisible;
+  const can = (g: EditGroup) =>
+    editing === g && dur > 0 && (g === "cut" ? showCut : g === "volume" ? showEnv : g === "loop" ? showLoop : showPan);
+  const markers = dur ? track.markers.filter((m) => m >= 0 && m <= dur) : [];
+
+  /** Sticks a time to the nearest marker (within a few pixels) when that option is on. */
+  const snapTime = (tm: number, el: HTMLElement | null) => {
+    if (!snap || !markers.length || !el || !dur) return tm;
+    const w = el.getBoundingClientRect().width || 1;
+    let best = tm;
+    let bd = (9 / w) * dur;
+    for (const m of markers) {
+      const d = Math.abs(m - tm);
+      if (d <= bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    return best;
+  };
 
   const toTime = (el: HTMLElement | null, clientX: number) => {
     const r = el!.getBoundingClientRect();
@@ -138,7 +166,8 @@ export function WaveEditor({
   };
 
   const apply = (d: Drag, e: RPointerEvent, phase: EditPhase) => {
-    const tm = Math.round(toTime(d.kind === "pan" ? panRef.current : ref.current, e.clientX) * 100) / 100;
+    const lane = d.kind === "pan" ? panRef.current : ref.current;
+    const tm = Math.round(snapTime(toTime(lane, e.clientX), lane) * 100) / 100;
     if (d.kind === "in") onChange({ inSec: clamp(tm, 0, Math.max(0, outSec - 0.1)) }, phase);
     else if (d.kind === "out") {
       const o = clamp(tm, inSec + 0.1, dur);
@@ -185,7 +214,7 @@ export function WaveEditor({
         const lineY = r.top + (Y(valueAt(track.envelope, tm, 1)) / 100) * r.height;
         if (Math.abs(e.clientY - lineY) <= 14) {
           const v = toLevel(e.clientY);
-          const rt = Math.round(tm * 100) / 100;
+          const rt = Math.round(snapTime(tm, ref.current) * 100) / 100;
           const pts = [...track.envelope, { t: rt, v: Math.round(v * 100) / 100 }].sort((a, b) => a.t - b.t);
           onChange({ envelope: pts }, "start");
           drag.current = { kind: "pt", index: pts.findIndex((p) => p.t === rt) };
@@ -193,8 +222,9 @@ export function WaveEditor({
           return;
         }
       }
-      // Away from any handle: while paused, move the play position there.
+      // Away from any handle: move the play position there (when allowed) or open the large editor.
       if (onSeek) onSeek(tm);
+      else onOpen?.();
       return;
     }
     drag.current = d;
@@ -203,7 +233,11 @@ export function WaveEditor({
   };
 
   const onPanDown = (e: RPointerEvent<HTMLDivElement>) => {
-    if (!can("pan") || e.button !== 0) return;
+    if (e.button !== 0) return;
+    if (!can("pan")) {
+      if (onOpen && !onSeek) onOpen();
+      return;
+    }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-drag='pan']");
     if (el) {
       const index = Number(el.dataset.index);
@@ -216,7 +250,7 @@ export function WaveEditor({
       lastDot.current = { key: `p${index}`, at: now };
       drag.current = { kind: "pan", index };
     } else {
-      const tm = Math.round(toTime(panRef.current, e.clientX) * 100) / 100;
+      const tm = Math.round(snapTime(toTime(panRef.current, e.clientX), panRef.current) * 100) / 100;
       const v = Math.round(toPan(e.clientY) * 50) / 50;
       const pts = [...track.panEnvelope, { t: tm, v: Math.abs(v) < 0.04 ? 0 : v }].sort((a, b) => a.t - b.t);
       onChange({ panEnvelope: pts }, "start");
@@ -239,7 +273,7 @@ export function WaveEditor({
   const fadedCut = track.ignoreCut;
   const dim = (on: boolean) => (on ? { opacity: 0.35 } : undefined);
   const pe = (g: EditGroup) => ({ pointerEvents: editing === g ? ("auto" as const) : ("none" as const) });
-  const cursor = !dur ? "default" : editing === "volume" ? "crosshair" : onSeek ? "pointer" : "default";
+  const cursor = !dur ? "default" : editing === "volume" && showEnv ? "crosshair" : onSeek || onOpen ? "pointer" : "default";
 
   return (
     <div>
@@ -331,6 +365,25 @@ export function WaveEditor({
             </span>
           </div>
         ) : null}
+        {markers.map((m) => {
+          const i = track.markers.indexOf(m);
+          return (
+            <div key={`${m}-${i}`} className="df-wave__mk" style={{ left: pct(m) }}>
+              {onRemoveMarker ? (
+                <button
+                  type="button"
+                  className="df-wave__mkflag df-wave__mkflag--btn"
+                  title={`${t("Marker")} ${formatTime(m, true)} · ${t("Click to remove")}`}
+                  aria-label={`${t("Marker")} ${formatTime(m, true)} · ${t("Click to remove")}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => onRemoveMarker(i)}
+                />
+              ) : (
+                <span className="df-wave__mkflag" />
+              )}
+            </div>
+          );
+        })}
         {dur && playheadSec !== null && playheadSec !== undefined ? <div className="df-wave__playhead" style={{ left: pct(playheadSec) }} /> : null}
         {!dur ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: 12 }}>
@@ -369,6 +422,9 @@ export function WaveEditor({
                 />
               ))
             : null}
+          {markers.map((m) => (
+            <div key={m} className="df-wave__mk df-wave__mk--lane" style={{ left: pct(m) }} />
+          ))}
           {dur && playheadSec !== null && playheadSec !== undefined ? <div className="df-wave__playhead" style={{ left: pct(playheadSec) }} /> : null}
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import { Button, Dialog, Kbd } from "@theatre-suite/ui";
 const KEYS: Array<[string, string]> = [
   ["Space", "GO: starts the attention track"],
   ["P", "Pause all / resume all"],
+  ["M", "Puts a marker at the play position of the track on air"],
   ["1 … 99 + Enter", "Puts that track in attention"],
   ["↑ ↓", "Moves the attention"],
   ["Esc", "Stop all with a quick fade"],

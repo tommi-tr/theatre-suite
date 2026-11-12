@@ -1,9 +1,11 @@
 import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import { basename, debounce } from "@theatre-suite/core";
-import { api, isTauri } from "./api";
+import { api, isTauri, type VersionEntry } from "./api";
 import { docToFile, parseDoc, useDoc, AUDIO_EXTENSIONS } from "../state/doc";
 import { useSettings } from "../state/settings";
 import type { Track } from "../state/types";
+
+const CUE_EXT = /\.diaframma$/i;
 
 type T = (k: string, v?: Record<string, string | number>) => string;
 
@@ -30,6 +32,7 @@ export async function saveDoc(t: T, saveAs = false): Promise<boolean> {
   }
   try {
     const tracks = await withRelativePaths(st.tracks, path);
+    await keepOldContentOnce(t, path);
     await api.writeText(path, JSON.stringify(docToFile(tracks), null, 2));
     useDoc.setState({ tracks });
     useDoc.getState().markSaved(path);
@@ -138,6 +141,153 @@ export async function locateMissing(t: T): Promise<number> {
   doc.setMissing(missing);
   useDoc.getState().tracks.forEach((x) => x.file && useDoc.getState().ensureInfo(x.file.path));
   return n;
+}
+
+// ---------------- Confirmations ----------------
+
+async function confirmBox(t: T, message: string, okLabel: string): Promise<boolean> {
+  if (!isTauri) return window.confirm(message);
+  return ask(message, { title: "Diaframma", kind: "warning", okLabel, cancelLabel: t("Cancel") });
+}
+
+const shown = (track: Track, number: number | null) => (number !== null ? `${number} · ${track.file?.name ?? ""}` : (track.file?.name ?? ""));
+
+/** Clearing a track loses its file and all its settings: ask first (an empty row asks nothing). */
+export async function confirmClearTrack(t: T, track: Track, number: number | null): Promise<boolean> {
+  if (!track.file) return true;
+  return confirmBox(t, t("Clear track {name}? The audio file and all its settings are removed from the row. You can bring them back with Undo.", { name: shown(track, number) }), t("Clear"));
+}
+
+/** Deleting a row removes it from the cue list: ask first (an empty row asks nothing). */
+export async function confirmDeleteTrack(t: T, track: Track, number: number | null): Promise<boolean> {
+  if (!track.file) return true;
+  return confirmBox(t, t("Delete track {name}? The row is removed from the cue list. You can bring it back with Undo.", { name: shown(track, number) }), t("Delete"));
+}
+
+// ---------------- Versions ----------------
+//
+// A version is a plain copy of the cue list in a folder next to it
+// (`Show.diaframma` → `Show.versions/`). Named versions are made by the user
+// and are never removed by Diaframma. Automatic ones (`…_auto.diaframma`) are
+// made before the first save of a session and before a restore; the newest 30 are kept.
+
+const AUTO_KEEP = 30;
+const autoDone = new Set<string>();
+
+export const versionsDirOf = (filePath: string) => filePath.replace(CUE_EXT, "") + ".versions";
+const sepOf = (p: string) => (p.includes("\\") ? "\\" : "/");
+const two = (n: number) => String(n).padStart(2, "0");
+const stampOf = (d = new Date()) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}_${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+
+export type VersionKind = "named" | "auto";
+
+export interface VersionInfo extends VersionEntry {
+  kind: VersionKind;
+  note: string;
+  tracks: number;
+  appVersion: string;
+}
+
+/** Text of a cue list with the note and kind of a version added (readers of the format ignore them). */
+function versionText(docText: string, kind: VersionKind, note: string): string {
+  const raw = JSON.parse(docText) as Record<string, unknown>;
+  return JSON.stringify({ ...raw, versionKind: kind, versionNote: note }, null, 2);
+}
+
+async function pruneAuto(dir: string): Promise<void> {
+  const all = await api.versionsList(dir);
+  const autos = all.filter((v) => /_auto(-\d+)?\.diaframma$/i.test(v.name));
+  for (const old of autos.slice(AUTO_KEEP)) await api.versionDelete(old.path).catch(() => {});
+}
+
+/** Writes a version of `docText` (the text of a cue list file) next to `filePath`. Returns its path. */
+export async function writeVersion(filePath: string, docText: string, kind: VersionKind, note: string): Promise<string> {
+  const dir = versionsDirOf(filePath);
+  const base = `${stampOf()}${kind === "auto" ? "_auto" : ""}`;
+  let path = `${dir}${sepOf(filePath)}${base}.diaframma`;
+  for (let i = 2; (await api.pathsExist([path]))[0]; i++) path = `${dir}${sepOf(filePath)}${base}-${i}.diaframma`;
+  await api.writeText(path, versionText(docText, kind, note));
+  if (kind === "auto") await pruneAuto(dir).catch(() => {});
+  return path;
+}
+
+/** Before the first save of a session over an existing file, its old content is kept as an automatic version. */
+async function keepOldContentOnce(t: T, path: string): Promise<void> {
+  if (autoDone.has(path)) return;
+  autoDone.add(path);
+  try {
+    if (!(await api.pathsExist([path]))[0]) return;
+    await writeVersion(path, await api.readText(path), "auto", t("Before the first save of this session"));
+  } catch {
+    // A version that cannot be kept must never stop the save.
+  }
+}
+
+/** Saves the cue list, then keeps this state as a named version. Returns false if the save was cancelled or failed. */
+export async function saveNamedVersion(t: T, note: string): Promise<boolean> {
+  if (!(await saveDoc(t))) return false;
+  const st = useDoc.getState();
+  if (!st.filePath) return false;
+  try {
+    await writeVersion(st.filePath, await api.readText(st.filePath), "named", note.trim());
+    return true;
+  } catch (e) {
+    await message(t("Could not save the version.") + "\n" + String(e), { title: "Diaframma", kind: "error" });
+    return false;
+  }
+}
+
+/** The versions kept for a cue list, newest first, with their note and size read from each file. */
+export async function listVersions(filePath: string): Promise<VersionInfo[]> {
+  const entries = await api.versionsList(versionsDirOf(filePath));
+  return Promise.all(
+    entries.map(async (e) => {
+      let note = "";
+      let tracks = 0;
+      let appVersion = "";
+      let kind: VersionKind = /_auto(-\d+)?\.diaframma$/i.test(e.name) ? "auto" : "named";
+      try {
+        const raw = JSON.parse(await api.readText(e.path)) as Record<string, unknown>;
+        if (typeof raw.versionNote === "string") note = raw.versionNote;
+        if (raw.versionKind === "auto" || raw.versionKind === "named") kind = raw.versionKind;
+        if (Array.isArray(raw.tracks)) tracks = (raw.tracks as { file?: unknown }[]).filter((x) => x && x.file).length;
+        const app = raw.app as { version?: unknown } | undefined;
+        if (app && typeof app.version === "string") appVersion = app.version;
+      } catch {
+        // A damaged version is still listed (it can be deleted).
+      }
+      return { ...e, kind, note, tracks, appVersion };
+    }),
+  );
+}
+
+/**
+ * Goes back to a version: the current state is kept as an automatic version first, then the version is
+ * loaded into the cue list as unsaved changes (the file on disk changes only when the user saves).
+ */
+export async function restoreVersion(t: T, v: VersionEntry): Promise<boolean> {
+  const st = useDoc.getState();
+  if (!st.filePath) return false;
+  try {
+    const parsed = parseDoc(await api.readText(v.path));
+    await writeVersion(st.filePath, JSON.stringify(docToFile(st.tracks)), "auto", t("Before going back to another version"));
+    const { tracks, missing } = await resolveFiles(parsed, st.filePath);
+    const doc = useDoc.getState();
+    doc.replaceDoc(tracks, st.filePath, true);
+    doc.setMissing(missing);
+    return true;
+  } catch (e) {
+    await message(t("Could not open {name}.", { name: v.name }) + "\n" + (e instanceof Error ? e.message : String(e)), { title: "Diaframma", kind: "error" });
+    return false;
+  }
+}
+
+export async function confirmRestoreVersion(t: T): Promise<boolean> {
+  return confirmBox(t, t("Go back to this version? What you have now is kept as an automatic version first, and this one is loaded as unsaved changes."), t("Go back"));
+}
+
+export async function confirmDeleteVersion(t: T): Promise<boolean> {
+  return confirmBox(t, t("Delete this version? It cannot be brought back."), t("Delete"));
 }
 
 // ---------------- Autosave ----------------

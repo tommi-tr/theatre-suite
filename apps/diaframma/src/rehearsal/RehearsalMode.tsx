@@ -730,9 +730,6 @@ function Favorites({ t }: { t: T }) {
         >
           {t("Copy")}
         </Button>
-        <Button variant="sm" icon="phone" disabled={!favorites.length} onClick={() => useUi.getState().openDialog("phone")} title={t("Open the phone page to see the favorites on your phone")}>
-          {t("Send to phone")}
-        </Button>
       </div>
       {favorites.length ? (
         <table>

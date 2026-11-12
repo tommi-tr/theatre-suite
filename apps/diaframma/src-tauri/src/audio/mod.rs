@@ -702,6 +702,12 @@ pub async fn engine_seek(engine: tauri::State<'_, Engine>, track_id: String, sec
     engine.seek(&track_id, sec)
 }
 
+/// Stops one track of the cue list at once (a few milliseconds of fade, so it never clicks).
+#[tauri::command]
+pub fn engine_stop_track(engine: tauri::State<'_, Engine>, track_id: String) {
+    engine.stop_track(&track_id, 0.0);
+}
+
 #[tauri::command]
 pub fn engine_stop_all(engine: tauri::State<'_, Engine>, immediate: bool) {
     engine.stop_all(immediate);

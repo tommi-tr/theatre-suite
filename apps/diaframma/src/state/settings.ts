@@ -83,6 +83,10 @@ export interface Settings {
   guideSeen: boolean;
   /** First number of the cue list. */
   numberFrom: 0 | 1;
+  /** A click on the waveform of a row moves the play position: only when the track is paused, whenever it plays, or never. */
+  seekClick: "paused" | "always" | "never";
+  /** Dragged points (IN, OUT, loop, curves) stick to the markers. */
+  snapMarkers: boolean;
   /** Show mode: the track that plays is kept as the first row on screen. */
   followPlaying: boolean;
   /** Main volume of Show mode (dB). */
@@ -129,6 +133,8 @@ export const DEFAULT_SETTINGS: Settings = {
   favorites: [],
   guideSeen: false,
   numberFrom: 1,
+  seekClick: "paused",
+  snapMarkers: false,
   followPlaying: false,
   mainDb: 0,
   rhMain: 1,
@@ -153,6 +159,8 @@ function sanitize(raw: unknown): Settings {
   // "Pause" is no longer offered: a quick fade out is the default.
   if (r.waveStyle === "mirror" || r.waveStyle === "bottom") s.waveStyle = r.waveStyle;
   if (r.numberFrom === 0 || r.numberFrom === 1) s.numberFrom = r.numberFrom;
+  if (r.seekClick === "paused" || r.seekClick === "always" || r.seekClick === "never") s.seekClick = r.seekClick;
+  if (typeof r.snapMarkers === "boolean") s.snapMarkers = r.snapMarkers;
   if (typeof r.followPlaying === "boolean") s.followPlaying = r.followPlaying;
   if (typeof r.pinOutputs === "boolean") s.pinOutputs = r.pinOutputs;
   if (typeof r.launchpadOn === "boolean") s.launchpadOn = r.launchpadOn;

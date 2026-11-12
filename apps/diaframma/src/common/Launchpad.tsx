@@ -44,7 +44,7 @@ const NUM_ROWS: KeyDef[][] = [
   [{ code: "Numpad0", w: 2 }, { code: "NumpadDecimal" }],
 ];
 
-const RESERVED_NAMES: Record<string, string> = { Space: "GO", Escape: "Stop all", KeyP: "Pause" };
+const RESERVED_NAMES: Record<string, string> = { Space: "GO", Escape: "Stop all", KeyP: "Pause all", KeyM: "Marker" };
 
 interface Drag {
   padId: string;

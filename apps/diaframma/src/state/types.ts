@@ -62,6 +62,8 @@ export interface Track {
   /** Pan over time; `v` is -1…+1. */
   panEnvelope: EnvPoint[];
   loop: { inSec: number; outSec: number } | null;
+  /** Markers (seconds from the start of the file): they help to line up IN, OUT, loop points and curve points. */
+  markers: number[];
   /** Shown or hidden in the editor, per group (they keep working when hidden). */
   cutVisible: boolean;
   loopVisible: boolean;
@@ -102,6 +104,7 @@ export function newTrack(id: string): Track {
     envelope: [],
     panEnvelope: [],
     loop: null,
+    markers: [],
     cutVisible: true,
     loopVisible: true,
     envelopeVisible: true,

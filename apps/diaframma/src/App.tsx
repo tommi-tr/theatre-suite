@@ -19,6 +19,7 @@ import { LaunchpadMode } from "./common/Launchpad";
 import { SettingsDialog } from "./common/SettingsDialog";
 import { GuideDialog } from "./common/GuideDialog";
 import { PhoneDialog } from "./common/PhoneDialog";
+import { VersionsDialog } from "./common/VersionsDialog";
 import { FileMenu } from "./common/FileMenu";
 
 export function App() {
@@ -223,6 +224,7 @@ function Shell() {
       {dialog === "settings" ? <SettingsDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "guide" ? <GuideDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "phone" ? <PhoneDialog onClose={() => ui.closeDialog()} /> : null}
+      {dialog === "versions" ? <VersionsDialog onClose={() => ui.closeDialog()} /> : null}
       {toast ? <Toast message={toast.message} kind={toast.kind} onDone={() => useUi.getState().clearToast()} /> : null}
     </div>
   );

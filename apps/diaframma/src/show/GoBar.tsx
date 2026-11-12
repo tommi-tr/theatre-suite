@@ -79,7 +79,7 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
         >
           <span className="df-stopall__label">
             <Icon name={pausedAll ? "playF" : "pauseF"} size={14} />
-            <span className="df-bl">{pausedAll ? t("Resume") : t("Pause")}</span>
+            <span className="df-bl">{pausedAll ? t("Resume all") : t("Pause all")}</span>
           </span>
           <span className="df-kbd-pause">P</span>
         </button>

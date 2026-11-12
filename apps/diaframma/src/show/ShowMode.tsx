@@ -4,7 +4,7 @@ import { Button, HoldButton, Icon, Kbd, StatusBar } from "@theatre-suite/ui";
 import { api, appWindow } from "../lib/api";
 import { openDocDialog, pickAudioFiles } from "../lib/files";
 import { launchpadClaims, stopEverything } from "../lib/launchpad";
-import { effectiveOut, numbering, trackDuration, useDoc } from "../state/doc";
+import { effectiveOut, frontVoice, numbering, trackDuration, useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
 import { GoBar } from "./GoBar";
@@ -93,6 +93,20 @@ export function ShowMode() {
       if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         if (!e.repeat) api.enginePauseAll().catch(() => {});
+        return;
+      }
+      if (e.code === "KeyM" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        // Marker at the play position of the track in front (like the M of a video editor).
+        e.preventDefault();
+        if (e.repeat || st.locked) return;
+        const v = frontVoice(st.live);
+        if (!v) {
+          useUi.getState().showToast(t("Nothing is playing: there is no position to mark."));
+          return;
+        }
+        st.addMarker(v.trackId, v.positionSec);
+        const n = numbering(st.tracks, useSettings.getState().settings.numberFrom).get(v.trackId);
+        useUi.getState().showToast(t("Marker on track {n} at {time}", { n: n ?? "", time: formatTime(v.positionSec, true) }));
         return;
       }
       if (/^[0-9]$/.test(k) && !e.ctrlKey && !e.altKey) {
@@ -352,7 +366,7 @@ export function ShowMode() {
         </span>
         <span className="ts-spacer" />
         <span>
-          <Kbd>0–9</Kbd> + <Kbd>Enter</Kbd> {t("standby")} · <Kbd>↑ ↓</Kbd> {t("move standby")} · <Kbd>P</Kbd> {t("pause all")} · <Kbd>Esc</Kbd> ×2 {t("instant stop")}
+          <Kbd>0–9</Kbd> + <Kbd>Enter</Kbd> {t("standby")} · <Kbd>↑ ↓</Kbd> {t("move standby")} · <Kbd>P</Kbd> {t("pause all")} · <Kbd>M</Kbd> {t("marker")} · <Kbd>Esc</Kbd> ×2 {t("instant stop")}
         </span>
       </StatusBar>
 

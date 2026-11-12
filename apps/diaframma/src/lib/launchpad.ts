@@ -35,6 +35,7 @@ export const FORBIDDEN_KEYS = new Set([
   "ArrowLeft",
   "ArrowRight",
   "KeyP",
+  "KeyM",
   "F1",
   "F4",
   "ControlLeft",
@@ -64,7 +65,7 @@ export const APP_CTRL_KEYS = new Set(["KeyS", "KeyO", "KeyN", "KeyL", "KeyZ", "K
 
 /** Why a key cannot hold a sound on this level (English key of the dictionary), or null if it is fine. */
 export function slotProblem(key: string, ctrl: boolean): string | null {
-  if (FORBIDDEN_KEYS.has(key)) return "This key is reserved (GO, Stop all, Pause all, standby or Windows). Choose another one.";
+  if (FORBIDDEN_KEYS.has(key)) return "This key is reserved (GO, Stop all, Pause all, markers, standby or Windows). Choose another one.";
   if (!ctrl && DIGITS.has(key)) return "The number keys alone choose the standby track. Use the numeric keypad, or Ctrl + number.";
   if (ctrl && SYSTEM_CTRL_KEYS.has(key)) return "Ctrl + this key belongs to Windows. Choose another one.";
   return null;
@@ -130,11 +131,28 @@ export function padPath(p: Pad): string | null {
 
 const CONFIG: EngineConfig = { othersOnGo: "keep", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0.3, crossfadeSec: 0, quickFadeSec: 0.3, stopAllSec: 0.4, steps: false };
 
+/** The soft sound of "Test output" (Settings → Show). It is not a pad: it never shows on the keyboard. */
+const OUTPUT_CHECK_ID = "__output-check__";
+
 function engineTracks(pads: Pad[]): EngineTrack[] {
-  return pads.map((p) => {
+  const list: EngineTrack[] = pads.map((p) => {
     const { file: _f, ...rest } = newTrack(p.id);
     return { ...rest, path: padPath(p), exit: null, loopOn: p.loop, ignoreLoop: true, volumeDb: p.volumeDb };
   });
+  const dir = usePads.getState().dir;
+  const { file: _f, ...check } = newTrack(OUTPUT_CHECK_ID);
+  list.push({ ...check, path: dir ? `${dir}${dir.includes("\\") ? "\\" : "/"}output-check.ogg` : null, exit: null, loopOn: false, ignoreLoop: true, volumeDb: 0 });
+  return list;
+}
+
+/**
+ * Plays a short, soft chime on the Show output: left, then right, then both.
+ * Throws if the sound is not available (for example outside the app).
+ */
+export async function testOutput(): Promise<void> {
+  if (!isTauri || !usePads.getState().dir) throw new Error("The test sound is not available here.");
+  await api.padsSetDevice(useSettings.getState().settings.outputDevice).catch(() => {});
+  await api.padsPlay(OUTPUT_CHECK_ID);
 }
 
 export function isPadPlaying(id: string): boolean {
