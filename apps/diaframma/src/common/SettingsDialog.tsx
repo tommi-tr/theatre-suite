@@ -207,7 +207,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   </Button>
                 </Row>
                 <Row label={t("At GO, a track on air that has no exit")} hint={t("GO always starts the attention track. A track on air with its own exit (Fade out, Crossfade, Next) follows it; the others do this.")}>
-                  <Segmented small ariaLabel={t("At GO, a track on air that has no exit")} value={s.othersOnGo === "pause" ? "fadeOut" : s.othersOnGo} onChange={(v) => set({ othersOnGo: v })} options={others} />
+                  <Segmented small ariaLabel={t("At GO, a track on air that has no exit")} value={s.othersOnGo} onChange={(v) => set({ othersOnGo: v })} options={others} />
                 </Row>
                 <Row label={t("Quick fade")} hint={t("The short fade of the tracks that leave at GO without an exit.")}>
                   <Seconds label={t("Quick fade")} value={s.quickFadeSec} onChange={(v) => set({ quickFadeSec: v })} />

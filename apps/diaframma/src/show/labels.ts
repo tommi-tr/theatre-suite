@@ -55,8 +55,6 @@ export function othersText(t: T, others: OthersOnGo, s?: Settings): string {
       return t("Stop");
     case "keep":
       return t("Keep playing");
-    case "pause":
-      return t("Pause");
   }
 }
 
@@ -82,11 +80,9 @@ export function transition(t: T, live: LiveState, tracks: Track[], s: Settings, 
     ? exitIcon(exit)
     : s.othersOnGo === "fadeOut"
       ? "fadeOut"
-      : s.othersOnGo === "pause"
-        ? "pauseF"
-        : s.othersOnGo === "keep"
-          ? "playF"
-          : "stopF";
+      : s.othersOnGo === "keep"
+        ? "playF"
+        : "stopF";
   const when = auto && leftSec !== null ? `${t("at the end")} · ${fmt(leftSec)}` : t("at GO");
   return { icon, name, when, auto };
 }

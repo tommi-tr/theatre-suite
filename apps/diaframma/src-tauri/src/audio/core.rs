@@ -246,7 +246,7 @@ pub fn render(st: &mut State, out: &mut [f32], channels: usize) {
         let is_main = main_idx == Some(vi) && config.steps;
         let tp = tracks.iter().find(|t| t.id == v.track_id);
         let (target_gain, ignore, env): (f32, bool, &[EnvPoint]) = match tp {
-            Some(tp) if !tp.ignore_volume => (db_to_gain(tp.volume_db as f32), false, tp.volume_curve()),
+            Some(tp) => (db_to_gain(tp.volume_db as f32), false, tp.volume_curve()),
             _ => (1.0, true, &[]),
         };
         let (pan_fader, pan_curve): (f32, &[EnvPoint]) = match tp {
@@ -461,7 +461,6 @@ pub fn apply_go(st: &mut State, tp: &TrackParams, mut v: Voice) {
         }
         // No Exit (or not the track in front): the general setting.
         match cfg.others_on_go {
-            OthersOnGo::Pause => o.set_paused(true),
             OthersOnGo::FadeOut => o.fade_to(0.0, cfg.quick_fade_sec.max(QUICK_STOP_SEC), AfterFade::Stop),
             OthersOnGo::Keep => {}
             OthersOnGo::Stop => o.fade_to(0.0, QUICK_STOP_SEC, AfterFade::Stop),
@@ -601,7 +600,6 @@ mod tests {
             exit: None,
             exit_sec: None,
             loop_on: false,
-            ignore_volume: false,
             volume_db: 0.0,
             eq: Default::default(),
             pan: 0.0,

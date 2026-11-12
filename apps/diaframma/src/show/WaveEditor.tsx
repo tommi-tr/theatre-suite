@@ -300,7 +300,7 @@ export function WaveEditor({
           <div title={t("Click the line to add a volume point")} style={{ position: "absolute", left: 0, right: 0, top: "8%", borderTop: "2px dashed var(--accent-line)", pointerEvents: "none" }} />
         ) : null}
         {env.line && showEnv ? (
-          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(track.ignoreEnvelope || track.ignoreVolume) }} aria-hidden="true">
+          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...dim(track.ignoreEnvelope) }} aria-hidden="true">
             <path d={env.area} fill="var(--accent-soft)" stroke="none" />
             <path d={env.line} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeDasharray={track.ignoreEnvelope ? "5 4" : undefined} />
           </svg>

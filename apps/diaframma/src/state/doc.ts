@@ -37,23 +37,26 @@ export function docToFile(tracks: Track[]): CueListDoc {
   };
 }
 
-/** Reads any known version of the file format and returns valid tracks. Throws on unknown files. */
+/**
+ * Reads a cue list and returns valid tracks. Only the current format is read:
+ * until the suite is published there is no compatibility with older files.
+ * Throws a clear message on any other file.
+ */
 export function parseDoc(text: string): Track[] {
   const raw = JSON.parse(text) as Partial<CueListDoc> & { tracks?: unknown };
   if (!raw || raw.format !== FORMAT_ID) throw new Error("This is not a Diaframma cue list.");
-  if (typeof raw.formatVersion !== "number" || raw.formatVersion > FORMAT_VERSION) {
-    throw new Error("This cue list was made with a newer version of Diaframma. Please update Diaframma.");
+  if (raw.formatVersion !== FORMAT_VERSION) {
+    throw new Error(
+      typeof raw.formatVersion === "number" && raw.formatVersion > FORMAT_VERSION
+        ? "This cue list was made with a newer version of Diaframma. Please update Diaframma."
+        : "This cue list was made with a different version of Diaframma and cannot be opened.",
+    );
   }
   if (!Array.isArray(raw.tracks)) throw new Error("The cue list is damaged (no tracks).");
-  const old = raw.formatVersion < 3;
   const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
   const optSec = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
-  const eqOf = (v: unknown): Eq => {
-    if (Array.isArray(v)) return [0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq;
-    // Version 1: three bands (low shelf 200 Hz, mid 1 kHz, high shelf 5 kHz).
-    const o = (v ?? {}) as Record<string, unknown>;
-    return [num(o.low, 0), 0, num(o.mid, 0), 0, num(o.high, 0)];
-  };
+  const eqOf = (v: unknown): Eq =>
+    Array.isArray(v) ? ([0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq) : [0, 0, 0, 0, 0];
   const curve = (v: unknown, lo: number, hi: number): EnvPoint[] =>
     Array.isArray(v)
       ? (v as unknown[])
@@ -65,28 +68,7 @@ export function parseDoc(text: string): Track[] {
   const seen = new Set<string>();
   const rawTracks = raw.tracks as unknown[];
 
-  // Version 1 and 2: what the track did "at end or Space" and "on Space".
-  type OldAtEnd = "stop" | "next" | "fadeOut" | "crossfade" | "loopAll" | "loopCut";
-  const oldAtEnd: OldAtEnd[] = ["stop", "next", "fadeOut", "crossfade", "loopAll", "loopCut"];
-  const atEnds: OldAtEnd[] = rawTracks.map((t0) => {
-    const t = (t0 ?? {}) as Record<string, unknown>;
-    return oldAtEnd.includes(t.atEnd as OldAtEnd) ? (t.atEnd as OldAtEnd) : "stop";
-  });
-  if (raw.formatVersion === 1) {
-    // "Crossfade" was chosen on the track that starts. Now the track playing before it says it.
-    rawTracks.forEach((t0, i) => {
-      const t = (t0 ?? {}) as Record<string, unknown>;
-      if (t.onSpace !== "crossfade") return;
-      for (let j = i - 1; j >= 0; j--) {
-        const pt = (rawTracks[j] ?? {}) as Record<string, unknown>;
-        if (pt.hidden === true || !pt.file) continue;
-        if (atEnds[j] === "stop" || atEnds[j] === "next") atEnds[j] = "crossfade";
-        break;
-      }
-    });
-  }
-
-  return rawTracks.map((t0, i) => {
+  return rawTracks.map((t0) => {
     const t = (t0 ?? {}) as Record<string, unknown>;
     let id = typeof t.id === "string" && t.id ? t.id : uid();
     if (seen.has(id)) id = uid();
@@ -95,18 +77,8 @@ export function parseDoc(text: string): Track[] {
     const f = t.file as Record<string, unknown> | null | undefined;
     const loop = t.loop as Record<string, unknown> | null | undefined;
     const exits: Exit[] = ["fadeOut", "crossfade", "next"];
-    let entry: Entry | null = t.entry === "fadeIn" ? "fadeIn" : null;
-    let exit: Exit | null = exits.includes(t.exit as Exit) ? (t.exit as Exit) : null;
-    let loopOn = t.loopOn === true;
-    let ignoreLoop = t.ignoreLoop === true;
-    if (old) {
-      entry = t.onSpace === "fadeIn" ? "fadeIn" : null;
-      const a = atEnds[i];
-      exit = a === "next" || a === "fadeOut" || a === "crossfade" ? a : null;
-      loopOn = a === "loopAll" || a === "loopCut";
-      // "Loop all" repeated the whole track even if loop points existed.
-      ignoreLoop = a === "loopAll";
-    }
+    const entry: Entry | null = t.entry === "fadeIn" ? "fadeIn" : null;
+    const exit: Exit | null = exits.includes(t.exit as Exit) ? (t.exit as Exit) : null;
     return {
       ...base,
       hidden: t.hidden === true,
@@ -123,9 +95,7 @@ export function parseDoc(text: string): Track[] {
       entrySec: optSec(t.entrySec),
       exit,
       exitSec: optSec(t.exitSec),
-      loopOn,
-      // "Ignore volume" is gone from the interface (the volume group of the editor has "Ignore").
-      ignoreVolume: false,
+      loopOn: t.loopOn === true,
       volumeDb: num(t.volumeDb, 0),
       eq: eqOf(t.eq),
       pan: Math.min(1, Math.max(-1, num(t.pan, 0))),
@@ -143,7 +113,7 @@ export function parseDoc(text: string): Track[] {
       panVisible: t.panVisible !== false,
       ignoreCut: t.ignoreCut === true,
       ignoreEnvelope: t.ignoreEnvelope === true,
-      ignoreLoop,
+      ignoreLoop: t.ignoreLoop === true,
       ignorePan: t.ignorePan === true,
     };
   });

@@ -28,7 +28,6 @@ pub enum Exit {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum OthersOnGo {
-    Pause,
     #[default]
     FadeOut,
     Keep,
@@ -68,8 +67,6 @@ pub struct TrackParams {
     #[serde(default)]
     pub loop_on: bool,
     #[serde(default)]
-    pub ignore_volume: bool,
-    #[serde(default)]
     pub volume_db: f64,
     #[serde(default, deserialize_with = "de_eq")]
     pub eq: Eq5,
@@ -100,13 +97,12 @@ pub struct TrackParams {
     pub ignore_pan: bool,
 }
 
-/// Accepts the five-band array, and also the old `{low, mid, high}` object.
+/// Reads the five-band array (gains clamped to ±24 dB); anything else is a flat EQ.
 fn de_eq<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Eq5, D::Error> {
     let v = serde_json::Value::deserialize(d)?;
     let num = |x: Option<&serde_json::Value>| x.and_then(|x| x.as_f64()).filter(|x| x.is_finite()).unwrap_or(0.0).clamp(-24.0, 24.0);
     Ok(match &v {
         serde_json::Value::Array(a) => [num(a.first()), num(a.get(1)), num(a.get(2)), num(a.get(3)), num(a.get(4))],
-        serde_json::Value::Object(o) => [num(o.get("low")), 0.0, num(o.get("mid")), 0.0, num(o.get("high"))],
         _ => [0.0; 5],
     })
 }

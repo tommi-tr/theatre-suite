@@ -2,10 +2,9 @@
 
 export const FORMAT_ID = "diaframma.cuelist";
 /**
- * 1: first version.
- * 2: five-band EQ (array), crossfade moved from "On Space" to "At end or Space".
- * 3: one attention track; optional Entry / Exit per track; Loop is a switch;
- *    pan (fader and curve); every group of the editor can be ignored or hidden.
+ * Current format: one attention track; optional Entry / Exit per track; Loop is a switch;
+ * five-band EQ; pan (fader and curve); every group of the editor can be ignored or hidden.
+ * Until the suite is published, only this version is read (no migrations from older ones).
  */
 export const FORMAT_VERSION = 3;
 
@@ -14,7 +13,7 @@ export type Entry = "fadeIn";
 /** How the track leaves, at GO or at its end (optional). */
 export type Exit = "fadeOut" | "crossfade" | "next";
 /** What happens to a track that plays and has no Exit when GO is pressed. */
-export type OthersOnGo = "pause" | "fadeOut" | "keep" | "stop";
+export type OthersOnGo = "fadeOut" | "keep" | "stop";
 
 /** Bands of the equalizer (Hz). 60 Hz and 14 kHz are shelves. */
 export const EQ_BANDS = [60, 230, 910, 4000, 14000] as const;
@@ -51,7 +50,6 @@ export interface Track {
   exitSec: number | null;
   /** Repeats until GO: between the loop points if there are any, else the whole track. */
   loopOn: boolean;
-  ignoreVolume: boolean;
   volumeDb: number;
   eq: Eq;
   /** Balance, -1 (left) … +1 (right). */
@@ -95,7 +93,6 @@ export function newTrack(id: string): Track {
     exit: null,
     exitSec: null,
     loopOn: false,
-    ignoreVolume: false,
     volumeDb: 0,
     eq: [...FLAT_EQ],
     pan: 0,

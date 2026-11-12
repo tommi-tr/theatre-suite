@@ -156,7 +156,6 @@ function sanitize(raw: unknown): Settings {
   if (r.theme === "dark" || r.theme === "light" || r.theme === "system") s.theme = r.theme;
   if (typeof r.autoAdvance === "boolean") s.autoAdvance = r.autoAdvance;
   if (r.othersOnGo === "fadeOut" || r.othersOnGo === "keep" || r.othersOnGo === "stop") s.othersOnGo = r.othersOnGo;
-  // "Pause" is no longer offered: a quick fade out is the default.
   if (r.waveStyle === "mirror" || r.waveStyle === "bottom") s.waveStyle = r.waveStyle;
   if (r.numberFrom === 0 || r.numberFrom === 1) s.numberFrom = r.numberFrom;
   if (r.seekClick === "paused" || r.seekClick === "always" || r.seekClick === "never") s.seekClick = r.seekClick;
@@ -176,8 +175,7 @@ function sanitize(raw: unknown): Settings {
         name: typeof p.name === "string" ? p.name : null,
         builtin: typeof p.builtin === "string" ? p.builtin : null,
         path: typeof p.path === "string" ? p.path : null,
-        // Version 2 saved combinations of keys: a single key carries over, longer ones are left unassigned.
-        key: typeof p.key === "string" ? p.key : Array.isArray(p.keys) && p.keys.length === 1 && typeof p.keys[0] === "string" ? (p.keys[0] as string) : null,
+        key: typeof p.key === "string" ? p.key : null,
         ctrl: p.ctrl === true,
         mode: modes.includes(p.mode as PadMode) ? (p.mode as PadMode) : "toEnd",
         loop: p.loop === true,
