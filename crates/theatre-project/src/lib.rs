@@ -15,6 +15,7 @@
 
 pub mod apps;
 pub mod copy;
+pub mod exports;
 pub mod manifest;
 pub mod model;
 pub mod ready;

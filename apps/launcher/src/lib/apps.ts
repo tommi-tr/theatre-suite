@@ -35,20 +35,22 @@ export const APPS: AppDef[] = [
     role: "Scripts",
     about: "Writes and keeps the script: scenes, characters and lines, with export to PDF and Word.",
     soon: false,
-    canCreate: false,
+    canCreate: true,
     // Copper, as in the app itself (02_design.md). Same drawing as the app icon: character names in copper, lines in ink.
     accent: { dark: "#f2955e", light: "#a9501f" },
     logo: { a: "M18 28H31M18 50H29M18 72H33", b: "M41 28H82M41 36H66M41 50H82M41 58H74M41 72H78", accentColor: "#c8642c" },
   },
   {
-    id: "regia",
-    name: "Aiuto regia",
-    role: "Rehearsals",
-    about: "For the director's assistant during rehearsals. Still being designed.",
+    // Name not chosen yet: "Produzione" is a placeholder.
+    id: "produzione",
+    name: "Produzione",
+    role: "Production and logistics",
+    about: "For the production and logistics of the show. Still being designed.",
     soon: true,
     canCreate: false,
     accent: { dark: "#d2b48c", light: "#8a6a2a" },
-    logo: { a: "M30 52L42 64L68 34", b: "M26 24H74V80H26ZM38 24V16H62V24", accentColor: "#c48a12" },
+    // A calendar: days in sand, frame in ink.
+    logo: { a: "M33 52H41M50 52H58M67 52H71M33 66H41M50 66H58", b: "M22 26H78V80H22ZM22 40H78M36 18V30M64 18V30", accentColor: "#c48a12" },
   },
   {
     id: "luci",

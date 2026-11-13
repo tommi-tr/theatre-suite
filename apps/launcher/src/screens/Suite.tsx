@@ -1,19 +1,30 @@
+import { type ReactNode, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { Button, Icon, Switch } from "@theatre-suite/ui";
 import { api } from "../lib/api";
-import { APPS, appDef } from "../lib/apps";
+import { APPS, type AppDef, appDef } from "../lib/apps";
 import { fmtDate } from "../lib/format";
-import { openLink, pickProgram } from "../lib/pick";
 import { explain, plural } from "../lib/text";
-import type { AppStatus } from "../lib/types";
+import type { AppStatus, InstallProgress, VersionInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { AppIcon, LauncherMark } from "../components/AppLogos";
 
-/** Who made the suite and what it stands on. Plain text: change it here. */
-const CREDITS = {
-  made: "Designed by tommi-tr, built together with Claude (Anthropic).",
-  libraries: "Built with free software: Tauri, React, Rust, ProseMirror, cpal and symphonia.",
+/** Who made the suite. Plain text: change it here. */
+const CREDITS = "Designed by Tommaso Ruscitti, built together with Claude (Anthropic).";
+
+const LAUNCHER_DEF: AppDef = {
+  id: "launcher",
+  name: "Theatre Suite",
+  role: "Shows and apps",
+  about: "The program you are using now: it keeps your shows together and starts the other apps.",
+  soon: false,
+  canCreate: false,
+  accent: { dark: "#a7aab3", light: "#4a4e58" },
+  logo: { a: "", b: "", accentColor: "#6b5bef" },
 };
+
+/** "2026-11-12T…" → seconds, for fmtDate. */
+const isoSecs = (iso: string) => (iso ? Math.floor(Date.parse(iso) / 1000) : 0);
 
 export function SuiteScreen() {
   const t = useT();
@@ -22,79 +33,72 @@ export function SuiteScreen() {
   const checking = useStore((s) => s.checking);
   const settings = useStore((s) => s.settings)!;
   const { go, checkUpdates, saveSettings, setDialog } = useStore.getState();
-  const everyApp = apps ? [apps.launcher, ...APPS.map((d) => apps.apps.find((a) => a.id === d.id)).filter((a): a is AppStatus => !!a)] : [];
+  const everyApp = apps ? [apps.launcher, ...apps.apps] : [];
   const waiting = everyApp.filter((a) => a.status.state === "available").length;
+  const me = apps?.launcher.installed?.version ?? "";
 
   return (
     <div className="ln-suitepage">
-      <header className="ln-pagehead">
-        <button type="button" className="ln-back ln-back--plain" onClick={() => go({ name: "home" })}>
-          <Icon name="arrowLeft" size={15} />
-          {t("Back")}
-        </button>
-        <h1>{t("Explore, install and update")}</h1>
-        <p>{t("Here you see what each app of the suite does, which ones are on this computer and which versions exist. You decide when to update and what to install.")}</p>
+      <button type="button" className="ln-back ln-back--plain" onClick={() => go({ name: "home" })}>
+        <Icon name="arrowLeft" size={15} />
+        {t("Back")}
+      </button>
+
+      <header className="ln-store-hero">
+        <LauncherMark size={64} />
+        <div className="ln-store-hero__titles">
+          <h1>Theatre Suite</h1>
+          <p>{t("Apps for the theatre: sound, scripts and more. Install them, update them, or go back to an earlier version when you need it.")}</p>
+        </div>
+        <div className="ln-store-hero__check">
+          <div className={`ln-checkstate${apps?.error ? " ln-checkstate--err" : waiting > 0 ? " ln-checkstate--new" : ""}`}>
+            <strong>
+              {apps?.error
+                ? t("The check could not be done")
+                : waiting > 0
+                  ? plural(t, waiting, "1 update available", "{n} updates available")
+                  : settings.lastCheck
+                    ? t("Everything is up to date")
+                    : t("Never checked")}
+            </strong>
+            <span>
+              {apps?.error
+                ? explain(t, apps.error)
+                : settings.lastCheck
+                  ? t("Last check: {date}", { date: fmtDate(settings.lastCheck, lang) })
+                  : t("Press “Check now” to see the versions available.")}
+            </span>
+          </div>
+          <div className="ln-store-hero__actions">
+            <Button variant="primary" icon="download" disabled={checking} onClick={() => void checkUpdates()}>
+              {checking ? t("Checking…") : t("Check now")}
+            </Button>
+            <label className="ln-weekly">
+              <Switch checked={settings.weeklyCheck} onChange={(v) => void saveSettings({ weeklyCheck: v, updateNoticeSeen: true })} label={t("Check automatically once a week")} />
+              <span>{t("Check automatically once a week")}</span>
+            </label>
+          </div>
+        </div>
       </header>
 
-      <section className="ln-checkbar" aria-label={t("Updates")}>
-        <div className="ln-checkbar__text">
-          <strong>
-            {apps?.error
-              ? t("The check could not be done")
-              : waiting > 0
-                ? plural(t, waiting, "1 update available", "{n} updates available")
-                : settings.lastCheck
-                  ? t("Everything is up to date")
-                  : t("Never checked")}
-          </strong>
-          {apps?.error ? (
-            <span className="ln-dim">{explain(t, apps.error)}</span>
-          ) : (
-            <span className="ln-dim">
-              {settings.lastCheck ? `${t("Last check: {date}", { date: fmtDate(settings.lastCheck, lang) })} · ` : ""}
-              {t("Checking only looks for news: nothing is downloaded or installed.")}
-            </span>
-          )}
-        </div>
-        <label className="ln-checkbar__weekly">
-          <Switch checked={settings.weeklyCheck} onChange={(v) => void saveSettings({ weeklyCheck: v, updateNoticeSeen: true })} label={t("Check automatically once a week")} />
-          <span>{t("Check automatically once a week")}</span>
-        </label>
-        <Button icon="download" disabled={checking} onClick={() => void checkUpdates()}>
-          {checking ? t("Checking…") : t("Check now")}
-        </Button>
-      </section>
-
-      <div className="ln-approws">
-        {apps ? <AppRow status={apps.launcher} launcher checked={settings.lastCheck > 0 && !apps.error} /> : null}
-        {apps
-          ? APPS.map((def) => {
-              // Apps still being designed are listed too, so the whole suite can be explored.
-              const st = apps.apps.find((a) => a.id === def.id) ?? { id: def.id, name: def.name, installed: null, status: { state: "notInstalled" as const }, latest: null };
-              return <AppRow key={def.id} status={st} checked={settings.lastCheck > 0 && !apps.error} />;
-            })
-          : null}
+      <div className="ln-store-grid">
+        {apps ? <AppCard def={LAUNCHER_DEF} status={apps.launcher} /> : null}
+        {APPS.map((def) => {
+          const st: AppStatus = apps?.apps.find((a) => a.id === def.id) ?? { id: def.id, name: def.name, installed: null, status: { state: "notInstalled" }, latest: null, versions: [], held: null };
+          return <AppCard key={def.id} def={def} status={st} />;
+        })}
       </div>
 
       <div className="ln-aboutgrid">
         <section className="ln-aboutcard">
-          <h3>
-            <Icon name="message" size={15} />
-            {t("Feedback")}
-          </h3>
+          <h3><Icon name="message" size={15} />{t("Feedback")}</h3>
           <p>{t("Found a problem, or have an idea? Tell us: it is the best way to make the apps better.")}</p>
-          <Button variant="primary" icon="message" onClick={() => setDialog({ kind: "feedback" })}>
-            {t("Send feedback")}
-          </Button>
+          <Button icon="message" onClick={() => setDialog({ kind: "feedback" })}>{t("Send feedback")}</Button>
         </section>
         <section className="ln-aboutcard">
-          <h3>
-            <Icon name="info" size={15} />
-            {t("Credits")}
-          </h3>
-          <p>{t(CREDITS.made)}</p>
-          <p className="ln-dim">{t(CREDITS.libraries)}</p>
-          <p className="ln-dim">© 2026 Theatre Suite</p>
+          <h3><Icon name="info" size={15} />{t("Credits")}</h3>
+          <p>{t(CREDITS)}</p>
+          <p className="ln-dim">© 2026 Theatre Suite{me ? ` · ${t("version {v}", { v: me })}` : ""}</p>
         </section>
       </div>
 
@@ -106,80 +110,186 @@ export function SuiteScreen() {
   );
 }
 
-const LAUNCHER_ABOUT = "The program you are using now: it keeps your shows together and starts the other apps.";
-
-function AppRow({ status, launcher, checked }: { status: AppStatus; launcher?: boolean; checked: boolean }) {
+function ProgressLine({ p }: { p: InstallProgress }) {
   const t = useT();
-  const def = appDef(status.id);
-  const { showToast, refreshApps } = useStore.getState();
+  const pct = p.total > 0 ? Math.min(100, Math.round((p.received / p.total) * 100)) : null;
+  const busy = p.step !== "download" || pct === null;
+  return (
+    <div className="ln-progress" role="status">
+      <div className="ln-progress__bar">
+        <span className={busy ? "ln-progress--busy" : ""} style={busy ? undefined : { width: `${pct}%` }} />
+      </div>
+      <span>
+        {p.step === "download"
+          ? pct !== null
+            ? t("Downloading {v}… {p}%", { v: p.version, p: pct })
+            : t("Downloading {v}…", { v: p.version })
+          : t("Installing {v}…", { v: p.version })}
+      </span>
+    </div>
+  );
+}
+
+function AppCard({ def, status }: { def: AppDef; status: AppStatus }) {
+  const t = useT();
+  const lang = useLang();
+  const installing = useStore((s) => s.installing);
+  const checked = useStore((s) => (s.settings?.lastCheck ?? 0) > 0 && !s.apps?.error);
+  const { setDialog, hold, showToast } = useStore.getState();
+  const [open, setOpen] = useState(false);
+  const isLauncher = def.id === "launcher";
   const installed = status.installed;
   const st = status.status;
+  const newest = status.versions.find((v) => v.installable) ?? null;
+  const busyHere = installing?.app === def.id;
+  const busyElsewhere = !!installing && !busyHere;
+  const soon = def.soon && !installed;
+  const ask = (version: string) => setDialog({ kind: "install", app: def.id, version });
 
-  const choose = async () => {
-    const file = await pickProgram(t("Choose the program of {name}", { name: status.name }));
-    if (!file) return;
-    try {
-      await api.appPathSet(status.id, file);
-      await refreshApps();
-    } catch (e) {
-      showToast(explain(t, e), "error");
-    }
-  };
-  const forget = async () => {
-    try {
-      await api.appPathSet(status.id, null);
-      await refreshApps();
-    } catch (e) {
-      showToast(explain(t, e), "error");
-    }
-  };
+  let chip: ReactNode = null;
+  if (soon) chip = <span className="ln-chip">{t("Coming soon")}</span>;
+  else if (st.state === "available") chip = <span className="ln-chip ln-chip--update">{t("New version {v}", { v: st.latest })}</span>;
+  else if (st.state === "held") chip = <span className="ln-chip ln-chip--held"><Icon name="lock" size={11} />{t("Kept on {v}", { v: installed?.version ?? "" })}</span>;
+  else if (st.state === "upToDate") chip = <span className="ln-chip ln-chip--ok"><Icon name="check" size={11} strokeWidth={2.6} />{t("Up to date")}</span>;
+
+  let action: ReactNode = null;
+  if (busyHere && installing) action = <ProgressLine p={installing} />;
+  else if (soon) action = null;
+  else if (st.state === "available" && status.versions.some((v) => v.version === st.latest && v.installable))
+    action = <Button variant="primary" icon="download" disabled={busyElsewhere} onClick={() => ask(st.latest)}>{t("Update to {v}", { v: st.latest })}</Button>;
+  else if (!installed && newest)
+    action = <Button variant="primary" icon="download" disabled={busyElsewhere} onClick={() => ask(newest.version)}>{t("Install")}</Button>;
+  else if (installed && !isLauncher)
+    action = <Button icon="playF" onClick={() => void api.appLaunch(def.id).catch((e) => showToast(explain(t, e), "error"))}>{t("Open")}</Button>;
+  else if (!installed && checked) action = <span className="ln-dim ln-small">{t("No version published yet")}</span>;
+
+  const canKeep = !!installed?.version && !soon;
 
   return (
-    <article className="ln-approw" style={def ? { ["--app" as string]: def.accent.dark } : undefined}>
-      {launcher ? <LauncherMark size={44} /> : <AppIcon id={status.id} size={44} />}
-      <div className="ln-approw__main">
-        <div className="ln-approw__name">
-          {status.name}
-          {launcher ? <span className="ln-dim"> · {t("this program")}</span> : null}
+    <article className={`ln-appcard${soon ? " ln-appcard--soon" : ""}`} style={{ ["--app" as string]: def.accent.dark, ["--app-light" as string]: def.accent.light }}>
+      <div className="ln-appcard__top">
+        {isLauncher ? <LauncherMark size={52} /> : <AppIcon id={def.id} size={52} />}
+        <div className="ln-appcard__titles">
+          <h3>
+            {def.name}
+            {isLauncher ? <span className="ln-appcard__this"> · {t("this program")}</span> : null}
+          </h3>
+          <span>{t(def.role)}</span>
         </div>
-        <div className="ln-approw__about">{t(launcher ? LAUNCHER_ABOUT : (def?.about ?? ""))}</div>
-        <div className="ln-approw__line">
+        {chip}
+      </div>
+      <p className="ln-appcard__about">{t(def.about)}</p>
+      <div className="ln-appcard__foot">
+        <div className="ln-appcard__ver">
           {installed ? (
             <>
-              <span>{installed.version ? t("Installed version: {v}", { v: installed.version }) : t("Version unknown")}</span>
-              {installed.path ? <span className="ln-dim ln-approw__path" title={installed.path}>{installed.path}</span> : null}
+              <span>{t("Installed")}</span>
+              <strong>{installed.version ?? "?"}</strong>
             </>
-          ) : def?.soon ? (
-            <span className="ln-dim">{t("Coming soon")}</span>
-          ) : (
-            <span className="ln-dim">{t("Not installed on this computer")}</span>
+          ) : soon ? null : (
+            <span>{t("Not installed")}</span>
           )}
         </div>
-        {st.state === "available" && status.latest?.notes ? <div className="ln-approw__notes">{status.latest.notes}</div> : null}
+        <span className="ln-grow" />
+        {action}
       </div>
-      <div className="ln-approw__status">
-        {st.state === "available" ? (
-          <>
-            <span className="ln-chip ln-chip--update">{t("New version {v}", { v: st.latest })}</span>
-            <Button variant="sm" icon="download" onClick={() => void openLink(st.url)}>{t("See the download")}</Button>
-          </>
-        ) : st.state === "upToDate" ? (
-          <span className="ln-chip ln-chip--ok"><Icon name="check" size={12} strokeWidth={2.6} />{t("Up to date")}</span>
-        ) : st.state === "unknown" && installed && checked ? (
-          <span className="ln-chip ln-chip--off">{t("No version published")}</span>
-        ) : null}
-        {!installed && !def?.soon && status.latest?.url ? (
-          <Button variant="sm" icon="download" onClick={() => void openLink(status.latest!.url)}>{t("Download")}</Button>
-        ) : null}
-        {!launcher && !def?.soon ? (
-          <>
-            <Button variant="sm" onClick={() => void choose()}>{installed ? t("Change location…") : t("It is installed: find it…")}</Button>
-            {installed && status.id in (useStore.getState().settings?.appPaths ?? {}) ? (
-              <Button variant="sm" onClick={() => void forget()}>{t("Detect automatically")}</Button>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+
+      {!soon && (status.versions.length > 0 || canKeep) ? (
+        <div className="ln-appcard__more">
+          <button type="button" className="ln-linkbtn" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <Icon name={open ? "chevDown" : "chevRight"} size={12} />
+            {status.versions.length > 0 ? plural(t, status.versions.length, "1 version", "All versions ({n})") : t("Versions")}
+          </button>
+          <span className="ln-grow" />
+          {canKeep ? (
+            <label className="ln-keep" title={t("Useful before a show: the version you have stays as it is, until you choose otherwise.")}>
+              <Switch checked={!!status.held} onChange={(v) => void hold(def.id, v)} label={t("Keep this version")} />
+              <span>{t("Keep this version")}</span>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+
+      {open ? (
+        <div className="ln-versions">
+          {status.versions.length === 0 ? (
+            <p className="ln-dim ln-small">{t("Press “Check now” to see the versions available.")}</p>
+          ) : (
+            <ul>
+              {status.versions.map((v) => (
+                <VersionRow key={v.version} v={v} current={installed?.version === v.version} busy={!!installing} onInstall={() => ask(v.version)} lang={lang} />
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
     </article>
   );
+}
+
+function VersionRow({ v, current, busy, onInstall, lang }: { v: VersionInfo; current: boolean; busy: boolean; onInstall: () => void; lang: string }) {
+  const t = useT();
+  return (
+    <li className={`ln-version${current ? " ln-version--current" : ""}`}>
+      <div className="ln-version__main">
+        <strong>{v.version}</strong>
+        {v.published ? <span className="ln-dim">{fmtDate(isoSecs(v.published), lang)}</span> : null}
+        {current ? <span className="ln-chip ln-chip--ok">{t("Installed")}</span> : null}
+        {v.kept && !current ? (
+          <span className="ln-chip ln-chip--off" title={t("The installer is on this computer: it can be installed without internet.")}>{t("Available offline")}</span>
+        ) : null}
+        <span className="ln-grow" />
+        {v.installable ? (
+          <Button variant="sm" icon="download" disabled={busy} onClick={onInstall}>{current ? t("Reinstall") : t("Install")}</Button>
+        ) : (
+          <span className="ln-dim ln-small">{t("No installer for Windows")}</span>
+        )}
+      </div>
+      {v.notes ? <p className="ln-version__notes">{v.notes}</p> : null}
+    </li>
+  );
+}
+
+/** Confirmation before installing a version (newer, older, or the same again). */
+export function InstallDialogBody({ app, version }: { app: string; version: string }) {
+  const t = useT();
+  const apps = useStore((s) => s.apps);
+  const st = app === "launcher" ? apps?.launcher : apps?.apps.find((a) => a.id === app);
+  const name = app === "launcher" ? "Theatre Suite" : (appDef(app)?.name ?? app);
+  const cur = st?.installed?.version ?? null;
+  const older = !!cur && cmp(version, cur) < 0;
+  return (
+    <div className="ln-form">
+      <p>
+        {cur
+          ? t("You have {name} {cur}. It will be replaced by version {v}.", { name, cur, v: version })
+          : t("{name} {v} will be installed for your user on this computer.", { name, v: version })}
+      </p>
+      {older ? (
+        <p className="ln-note ln-note--warn">
+          <Icon name="alert" size={14} />
+          <span>{t("This is an older version. Files saved with a newer version may not open in it: make a copy of the show first.")}</span>
+        </p>
+      ) : null}
+      <p className="ln-note">
+        <Icon name="info" size={14} />
+        <span>
+          {app === "launcher"
+            ? t("Theatre Suite will close and its installer will open: follow it, then start Theatre Suite again. Your shows are not touched.")
+            : t("If {name} is open it will be closed: save your work first. Your files and settings are not touched.", { name })}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/** Compares "1.2.3" versions (enough for the warning above). */
+function cmp(a: string, b: string): number {
+  const pa = a.split(/[.-]/).map((x) => parseInt(x, 10) || 0);
+  const pb = b.split(/[.-]/).map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
 }

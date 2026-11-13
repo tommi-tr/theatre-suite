@@ -4,7 +4,8 @@ import { Button, Icon, Segmented } from "@theatre-suite/ui";
 import { api } from "../lib/api";
 import { APPS, appDef } from "../lib/apps";
 import { explain, plural } from "../lib/text";
-import { PHASES, type Doc, type Phase, type ProjectView } from "../lib/types";
+import { PHASES, type Doc, type ExportFile, type Phase, type ProjectView } from "../lib/types";
+import { fmtDate } from "../lib/format";
 import { useStore } from "../state/store";
 import { AppIcon } from "../components/AppLogos";
 import { ShowCover } from "../components/ShowCover";
@@ -15,6 +16,7 @@ export function ProjectScreen({ path }: { path: string }) {
   const t = useT();
   const lang = useLang();
   const view = useStore((s) => s.view);
+  const production = useStore((s) => s.settings?.production ?? []);
   const { go, setDialog, reloadProject, showToast, refreshShows } = useStore.getState();
   const [phase, setPhase] = useState<PhaseFilter>("all");
   const [showIssues, setShowIssues] = useState(false);
@@ -47,6 +49,29 @@ export function ProjectScreen({ path }: { path: string }) {
     } catch (e) {
       showToast(explain(t, e), "error");
     }
+  };
+  const remove = async (doc: Doc) => {
+    try {
+      await api.documentRemove(path, doc.id);
+      await reloadProject();
+      void refreshShows();
+      showToast(t("“{name}” removed from the show.", { name: fileName(doc.path) }));
+    } catch (e) {
+      showToast(explain(t, e), "error");
+    }
+  };
+  const openFile = async (f: ExportFile) => {
+    try {
+      await api.fileOpen(path, f.path);
+    } catch (e) {
+      showToast(explain(t, e), "error");
+    }
+  };
+  const isProduction = production.includes(p.id);
+  const toggleProduction = () => {
+    const next = isProduction ? production.filter((x) => x !== p.id) : [...production, p.id];
+    void useStore.getState().saveSettings({ production: next });
+    showToast(isProduction ? t("Moved out of the shows in production.") : t("Now among the shows in production: it is at the top of the Home."));
   };
   const openAll = async () => {
     try {
@@ -86,6 +111,9 @@ export function ProjectScreen({ path }: { path: string }) {
               const node = findNode(useStore.getState().shows, path);
               if (node) setDialog({ kind: "copy", node });
             }}>{t("Make a copy")}</Button>
+            <Button icon="pin" on={isProduction} aria-pressed={isProduction} title={t("Shows in production stay at the top of the Home")} onClick={toggleProduction}>
+              {t("In production")}
+            </Button>
             <Button icon="folderOpen" onClick={() => void api.reveal(path).catch((e) => showToast(explain(t, e), "error"))}>{t("Show in folder")}</Button>
           </div>
         </div>
@@ -93,7 +121,6 @@ export function ProjectScreen({ path }: { path: string }) {
 
       <div className="ln-bar">
         <Segmented<PhaseFilter> ariaLabel={t("Phase")} options={phaseOptions} value={phase} onChange={setPhase} />
-        <span className="ln-hint">{t("Double click a document to open it")}</span>
         <span className="ln-grow" />
         <ReadyPill ready={ready.ready} inShow={ready.inShow} issues={ready.issues.length} open={showIssues} onToggle={() => setShowIssues(!showIssues)} />
         <Button variant="primary" icon="curtain" disabled={ready.inShow === 0} title={t("Opens the documents in the Show phase")} onClick={() => void openAll()}>
@@ -106,8 +133,17 @@ export function ProjectScreen({ path }: { path: string }) {
           {ready.issues.map((i, k) => (
             <li key={k}>
               <Icon name="alert" size={14} />
-              <strong>{i.docTitle}</strong>
+              <strong title={i.docPath}>{fileName(i.docPath)}</strong>
+              {i.docTitle !== stem(i.docPath) ? <span className="ln-dim">({i.docTitle})</span> : null}
               <span>{issueText(t, i)}</span>
+              {i.kind === "documentMissing" ? (
+                <Button variant="sm" icon="trash" onClick={() => {
+                  const d = docs.find((x) => x.id === i.docId);
+                  if (d) void remove(d);
+                }}>
+                  {t("Remove from the show")}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -130,7 +166,17 @@ export function ProjectScreen({ path }: { path: string }) {
               <div className="ln-col__list">
                 {list.length === 0 ? <div className="ln-col__empty">{t("Nothing here")}</div> : null}
                 {list.map((d) => (
-                  <DocRow key={d.id} doc={d} exists={view.exists[d.id] !== false} lang={lang} onOpen={() => void open(d)} onPatch={(c) => void patch(d, c)} />
+                  <DocRow
+                    key={d.id}
+                    doc={d}
+                    exists={view.exists[d.id] !== false}
+                    exports={view.exports?.[d.id] ?? []}
+                    lang={lang}
+                    onOpen={() => void open(d)}
+                    onPatch={(c) => void patch(d, c)}
+                    onRemove={() => void remove(d)}
+                    onOpenFile={(f) => void openFile(f)}
+                  />
                 ))}
               </div>
               {def.canCreate ? (
@@ -149,7 +195,17 @@ export function ProjectScreen({ path }: { path: string }) {
             <header className="ln-col__head"><h3>{t("Other")}</h3></header>
             <div className="ln-col__list">
               {unknown.map((d) => (
-                <DocRow key={d.id} doc={d} exists={view.exists[d.id] !== false} lang={lang} onOpen={() => void open(d)} onPatch={(c) => void patch(d, c)} />
+                <DocRow
+                    key={d.id}
+                    doc={d}
+                    exists={view.exists[d.id] !== false}
+                    exports={view.exports?.[d.id] ?? []}
+                    lang={lang}
+                    onOpen={() => void open(d)}
+                    onPatch={(c) => void patch(d, c)}
+                    onRemove={() => void remove(d)}
+                    onOpenFile={(f) => void openFile(f)}
+                  />
               ))}
             </div>
           </section>
@@ -157,6 +213,15 @@ export function ProjectScreen({ path }: { path: string }) {
       </div>
     </div>
   );
+}
+
+/** "Audio/Prove.diaframma" → "Prove.diaframma". */
+function fileName(rel: string): string {
+  return rel.split(/[\\/]/).pop() ?? rel;
+}
+
+function stem(rel: string): string {
+  return fileName(rel).replace(/\.[^.]+$/, "");
 }
 
 function phaseName(ph: Phase): string {
@@ -189,7 +254,7 @@ function ReadyPill({ ready, inShow, issues, open, onToggle }: { ready: boolean; 
     return (
       <span className="ln-ready ln-ready--none">
         <Icon name="curtain" size={14} />
-        {t("Set a document to the Show phase to prepare the show")}
+        <span className="ln-ready__text">{t("No document in the Show phase")}</span>
       </span>
     );
   }
@@ -197,14 +262,14 @@ function ReadyPill({ ready, inShow, issues, open, onToggle }: { ready: boolean; 
     return (
       <span className="ln-ready ln-ready--ok">
         <Icon name="check" size={14} strokeWidth={2.4} />
-        {t("Everything is ready for tonight")}
+        <span className="ln-ready__text">{t("Everything is ready for tonight")}</span>
       </span>
     );
   }
   return (
     <button type="button" className="ln-ready ln-ready--warn" onClick={onToggle} aria-expanded={open}>
       <Icon name="alert" size={14} />
-      {plural(t, issues, "1 thing to check before the show", "{n} things to check before the show")}
+      <span className="ln-ready__text">{plural(t, issues, "1 thing to check before the show", "{n} things to check before the show")}</span>
       <Icon name={open ? "chevUp" : "chevDown"} size={13} />
     </button>
   );
@@ -214,47 +279,81 @@ function ReadyPill({ ready, inShow, issues, open, onToggle }: { ready: boolean; 
 function DocRow({
   doc,
   exists,
+  exports,
   lang,
   onOpen,
   onPatch,
+  onRemove,
+  onOpenFile,
 }: {
   doc: Doc;
   exists: boolean;
+  exports: ExportFile[];
   lang: string;
   onOpen: () => void;
   onPatch: (c: Record<string, unknown>) => void;
+  onRemove: () => void;
+  onOpenFile: (f: ExportFile) => void;
 }) {
   const t = useT();
-  void lang;
+  const [showExports, setShowExports] = useState(false);
   return (
-    <div className={`ln-doc${doc.phase === "show" ? " ln-doc--show" : ""}${exists ? "" : " ln-doc--missing"}`}>
-      <button
-        type="button"
-        className="ln-doc__main"
-        onDoubleClick={onOpen}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        disabled={!exists}
-        title={exists ? t("Double click to open") : t("The file cannot be found")}
-      >
-        <span className="ln-doc__title">{doc.title}</span>
-        <span className="ln-doc__path">{exists ? doc.path : `${doc.path} · ${t("not found")}`}</span>
-      </button>
-      <select
-        className="ln-doc__phase"
-        aria-label={t("Phase")}
-        value={doc.phase ?? ""}
-        onChange={(e) => onPatch({ phase: e.currentTarget.value || null })}
-      >
-        <option value="">{t("No phase")}</option>
-        {PHASES.map((ph) => (
-          <option key={ph} value={ph}>{t(phaseName(ph))}</option>
-        ))}
-      </select>
+    <div className={`ln-docwrap${doc.phase === "show" ? " ln-docwrap--show" : ""}`}>
+      <div className={`ln-doc${doc.phase === "show" ? " ln-doc--show" : ""}${exists ? "" : " ln-doc--missing"}`}>
+        <button
+          type="button"
+          className="ln-doc__main"
+          onDoubleClick={() => exists && onOpen()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && exists) {
+              e.preventDefault();
+              onOpen();
+            }
+          }}
+          title={exists ? t("Double click to open") : t("The file cannot be found")}
+        >
+          <span className="ln-doc__title">{doc.title}</span>
+          <span className="ln-doc__path">{exists ? doc.path : `${fileName(doc.path)} · ${t("not found")}`}</span>
+        </button>
+        {exists ? (
+          <select
+            className="ln-doc__phase"
+            aria-label={t("Phase")}
+            value={doc.phase ?? ""}
+            onChange={(e) => onPatch({ phase: e.currentTarget.value || null })}
+          >
+            <option value="">{t("No phase")}</option>
+            {PHASES.map((ph) => (
+              <option key={ph} value={ph}>{t(phaseName(ph))}</option>
+            ))}
+          </select>
+        ) : (
+          <Button variant="sm" icon="trash" title={t("The file is no longer in the folder: take it off the list")} onClick={onRemove}>
+            {t("Remove")}
+          </Button>
+        )}
+      </div>
+      {exports.length > 0 ? (
+        <div className="ln-exports">
+          <button type="button" className="ln-exports__toggle" aria-expanded={showExports} onClick={() => setShowExports(!showExports)}>
+            <Icon name={showExports ? "chevDown" : "chevRight"} size={12} />
+            {plural(t, exports.length, "1 exported copy", "{n} exported copies")}
+          </button>
+          {showExports ? (
+            <ul>
+              {exports.map((f) => (
+                <li key={f.path}>
+                  <button type="button" className="ln-export" title={`${f.path}\n${t("Double click to open")}`} onDoubleClick={() => onOpenFile(f)} onKeyDown={(e) => e.key === "Enter" && onOpenFile(f)}>
+                    <span className="ln-export__ext">{f.name.split(".").pop()?.toUpperCase()}</span>
+                    <span className="ln-export__name">{f.name}</span>
+                    <span className="ln-export__date">{fmtDate(f.modified, lang)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

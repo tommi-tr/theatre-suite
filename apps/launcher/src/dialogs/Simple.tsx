@@ -244,7 +244,7 @@ export function NewDocDialog({ path, app, phase }: { path: string; app: string; 
     >
       <div className="ln-form">
         <Field label={t("Name")}>
-          <input className="ln-input" value={title} autoFocus placeholder={t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
+          <input className="ln-input" value={title} autoFocus placeholder={app === "bardo" ? t("For example: Hamlet — script") : t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
         </Field>
         {error ? <div className="ln-error">{error}</div> : null}
       </div>
@@ -256,6 +256,9 @@ export function NewDocDialog({ path, app, phase }: { path: string; app: string; 
 
 export function OpenAllDialog({ report }: { report: OpenAllReport }) {
   const t = useT();
+  const docs = useStore((s) => s.view?.project.documents ?? []);
+  /** The file name with its extension, so it is clear which file it is. */
+  const fileOf = (id: string) => docs.find((d) => d.id === id)?.path.split(/[\\/]/).pop() ?? "";
   const reason = (r: OpenAllReport["skipped"][number]): string => {
     switch (r.reason) {
       case "notInstalled": return t("{name} is not installed", { name: r.detail });
@@ -276,7 +279,8 @@ export function OpenAllDialog({ report }: { report: OpenAllReport }) {
       <ul className="ln-skiplist">
         {report.skipped.map((s) => (
           <li key={s.docId}>
-            <strong>{s.title}</strong>
+            <strong>{fileOf(s.docId) || s.title}</strong>
+            {fileOf(s.docId) && fileOf(s.docId).replace(/\.[^.]+$/, "") !== s.title ? <span className="ln-dim">({s.title})</span> : null}
             <span>{reason(s)}</span>
           </li>
         ))}

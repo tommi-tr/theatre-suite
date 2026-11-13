@@ -11,16 +11,19 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use launcher_core::settings::Settings;
-use launcher_core::{Result, covers, detect, launch, update_check};
+use launcher_core::{Result, covers, detect, install, launch, update_check};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
-use theatre_project::apps::{KNOWN_APPS, app_by_id};
+use tauri_plugin_opener::OpenerExt;
+use theatre_project::apps::{KNOWN_APPS, app_by_id, new_document_text};
 use theatre_project::model::*;
 use theatre_project::registry::{Node, Registry};
-use theatre_project::{Error as ProjectError, copy, manifest, ready, registry, updates};
+use theatre_project::{Error as ProjectError, copy, exports, manifest, ready, registry, updates};
 
 struct Ctx {
+    /// The launcher's own data folder (settings, list of shows, kept installers).
+    data: PathBuf,
     settings: PathBuf,
     registry: PathBuf,
     cache: PathBuf,
@@ -54,13 +57,24 @@ struct AppInfo {
 
 #[tauri::command]
 fn app_info(app: AppHandle) -> AppInfo {
-    AppInfo { name: "Theatre Suite", version: app.package_info().version.to_string(), os: std::env::consts::OS }
+    AppInfo {
+        name: "Theatre Suite",
+        version: app.package_info().version.to_string(),
+        os: std::env::consts::OS,
+    }
 }
 
 /// A `.theatre` file given on the command line (double click on a show index): its folder.
 #[tauri::command]
 fn startup_show() -> Option<String> {
-    std::env::args().skip(1).find(|a| a.to_lowercase().ends_with(".theatre")).and_then(|a| Path::new(&a).parent().map(|p| p.to_string_lossy().to_string()))
+    std::env::args()
+        .skip(1)
+        .find(|a| a.to_lowercase().ends_with(".theatre"))
+        .and_then(|a| {
+            Path::new(&a)
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+        })
 }
 
 // ---------------------------------------------------------------- settings
@@ -111,11 +125,19 @@ fn unique_dir(parent: &Path, name: &str) -> PathBuf {
     if !first.exists() {
         return first;
     }
-    (2..1000).map(|n| parent.join(format!("{name} {n}"))).find(|p| !p.exists()).unwrap_or(first)
+    (2..1000)
+        .map(|n| parent.join(format!("{name} {n}")))
+        .find(|p| !p.exists())
+        .unwrap_or(first)
 }
 
 #[tauri::command(async)]
-fn show_create(ctx: State<Ctx>, title: String, subtitle: String, parent_dir: String) -> Result<String> {
+fn show_create(
+    ctx: State<Ctx>,
+    title: String,
+    subtitle: String,
+    parent_dir: String,
+) -> Result<String> {
     let folder = copy::sanitize_name(&title).map_err(s)?;
     let dir = unique_dir(Path::new(&parent_dir), &folder);
     manifest::create(&dir, &title, &subtitle).map_err(s)?;
@@ -149,11 +171,21 @@ fn show_open(ctx: State<Ctx>, path: String) -> Result<OpenResult> {
                 reg.add_nested(dir);
                 reg.touch(&path);
             })?;
-            Ok(OpenResult { path, not_a_show: false, rebuilt: o.rebuilt, found_documents: o.project.documents.len() })
+            Ok(OpenResult {
+                path,
+                not_a_show: false,
+                rebuilt: o.rebuilt,
+                found_documents: o.project.documents.len(),
+            })
         }
         Err(ProjectError::NotAProject(_)) => {
             let found = theatre_project::scan::scan_documents(dir).len();
-            Ok(OpenResult { path, not_a_show: true, rebuilt: false, found_documents: found })
+            Ok(OpenResult {
+                path,
+                not_a_show: true,
+                rebuilt: false,
+                found_documents: found,
+            })
         }
         Err(e) => Err(s(e)),
     }
@@ -163,7 +195,13 @@ fn show_open(ctx: State<Ctx>, path: String) -> Result<OpenResult> {
 #[tauri::command(async)]
 fn show_adopt(ctx: State<Ctx>, path: String, title: String) -> Result<String> {
     let dir = Path::new(&path);
-    let t = if title.trim().is_empty() { dir.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default() } else { title };
+    let t = if title.trim().is_empty() {
+        dir.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default()
+    } else {
+        title
+    };
     manifest::create(dir, &t, "").map_err(s)?;
     with_registry(&ctx, |reg| {
         reg.add(&path);
@@ -186,12 +224,15 @@ fn copy_size(path: String) -> u64 {
 
 #[tauri::command(async)]
 fn nested_default(path: String) -> String {
-    copy::nested_parent(Path::new(&path)).to_string_lossy().to_string()
+    copy::nested_parent(Path::new(&path))
+        .to_string_lossy()
+        .to_string()
 }
 
 #[tauri::command(async)]
 fn show_copy(ctx: State<Ctx>, path: String, dest_parent: String, name: String) -> Result<String> {
-    let (dest, _p) = copy::copy_project(Path::new(&path), Path::new(&dest_parent), &name).map_err(s)?;
+    let (dest, _p) =
+        copy::copy_project(Path::new(&path), Path::new(&dest_parent), &name).map_err(s)?;
     let d = dest.to_string_lossy().to_string();
     with_registry(&ctx, |reg| {
         reg.add(&d);
@@ -209,6 +250,8 @@ struct ProjectView {
     project: Project,
     /// Does the file of each document exist? (id → bool)
     exists: HashMap<String, bool>,
+    /// Copies exported from each Bardo script found in the show folder (id → files).
+    exports: HashMap<String, Vec<exports::ExportFile>>,
     readiness: ready::Report,
     /// Documents found in the folder and just added to the list.
     added: usize,
@@ -224,9 +267,22 @@ fn project_get(path: String) -> Result<ProjectView> {
     if added > 0 {
         manifest::save(dir, &project).map_err(s)?;
     }
-    let exists = project.documents.iter().map(|d| (d.id.clone(), ready::document_path(dir, d).is_file())).collect();
+    let exists = project
+        .documents
+        .iter()
+        .map(|d| (d.id.clone(), ready::document_path(dir, d).is_file()))
+        .collect();
     let readiness = ready::check(dir, &project);
-    Ok(ProjectView { path, project, exists, readiness, added, rebuilt: opened.rebuilt })
+    let exports = exports::bardo_exports(dir, &project);
+    Ok(ProjectView {
+        path,
+        project,
+        exists,
+        exports,
+        readiness,
+        added,
+        rebuilt: opened.rebuilt,
+    })
 }
 
 #[tauri::command(async)]
@@ -246,7 +302,11 @@ fn project_set_meta(path: String, title: String, subtitle: String) -> Result<()>
 fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
     let dir = Path::new(&path);
     let mut p = manifest::load(dir).map_err(s)?;
-    let doc = p.documents.iter_mut().find(|d| d.id == doc_id).ok_or("Document not found")?;
+    let doc = p
+        .documents
+        .iter_mut()
+        .find(|d| d.id == doc_id)
+        .ok_or("Document not found")?;
     if let Some(v) = patch.get("phase") {
         doc.phase = match v.as_str() {
             Some("preparation") => Some(Phase::Preparation),
@@ -255,7 +315,11 @@ fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
             _ => None,
         };
     }
-    if let Some(t) = patch.get("title").and_then(Value::as_str).filter(|t| !t.trim().is_empty()) {
+    if let Some(t) = patch
+        .get("title")
+        .and_then(Value::as_str)
+        .filter(|t| !t.trim().is_empty())
+    {
         doc.title = t.trim().to_string();
     }
     manifest::save(dir, &p).map_err(s)
@@ -266,7 +330,7 @@ fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
 fn document_new(path: String, app_id: String, title: String) -> Result<String> {
     let dir = Path::new(&path);
     let app = app_by_id(&app_id).ok_or("Unknown app")?;
-    let template = app.new_document.ok_or("This app creates its own documents")?;
+    let template = new_document_text(app, &title).ok_or("This app creates its own documents")?;
     let stem = copy::sanitize_name(&title).map_err(s)?;
     let mut file = dir.join(format!("{stem}.{}", app.new_extension));
     let mut n = 2;
@@ -276,12 +340,51 @@ fn document_new(path: String, app_id: String, title: String) -> Result<String> {
     }
     manifest::atomic_write(&file, template.as_bytes()).map_err(s)?;
     let mut p = manifest::load(dir).map_err(s)?;
-    let rel = file.strip_prefix(dir).unwrap_or(&file).to_string_lossy().replace('\\', "/");
-    let idx = manifest::add_document(&mut p, &rel, Some(app.id)).ok_or("The document is already listed")?;
+    let rel = file
+        .strip_prefix(dir)
+        .unwrap_or(&file)
+        .to_string_lossy()
+        .replace('\\', "/");
+    let idx = manifest::add_document(&mut p, &rel, Some(app.id))
+        .ok_or("The document is already listed")?;
     p.documents[idx].title = title.trim().to_string();
     let id = p.documents[idx].id.clone();
     manifest::save(dir, &p).map_err(s)?;
     Ok(id)
+}
+
+/// Takes a document off the show's list. Only for documents whose file is gone:
+/// a file still in the folder would come back at the next look.
+#[tauri::command(async)]
+fn document_remove(path: String, doc_id: String) -> Result<()> {
+    let dir = Path::new(&path);
+    let mut p = manifest::load(dir).map_err(s)?;
+    let doc = p
+        .documents
+        .iter()
+        .find(|d| d.id == doc_id)
+        .ok_or("Document not found")?;
+    if ready::document_path(dir, doc).is_file() {
+        return Err("The file is still in the show folder: delete or move it there first".into());
+    }
+    manifest::remove_document(&mut p, &doc_id);
+    manifest::save(dir, &p).map_err(s)
+}
+
+/// Opens a file of the show folder (an exported PDF…) with the program the computer uses for it.
+#[tauri::command(async)]
+fn file_open(app: AppHandle, path: String, rel: String) -> Result<()> {
+    let dir = Path::new(&path);
+    if rel.split(['/', '\\']).any(|c| c == "..") {
+        return Err("Invalid path".into());
+    }
+    let file = dir.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+    if !file.is_file() {
+        return Err(format!("MISSING:{rel}"));
+    }
+    app.opener()
+        .open_path(file.to_string_lossy(), None::<&str>)
+        .map_err(s)
 }
 
 fn program_for(ctx: &Ctx, app: &theatre_project::apps::KnownApp) -> Option<String> {
@@ -293,7 +396,11 @@ fn program_for(ctx: &Ctx, app: &theatre_project::apps::KnownApp) -> Option<Strin
 fn document_open(ctx: State<Ctx>, path: String, doc_id: String) -> Result<()> {
     let dir = Path::new(&path);
     let p = manifest::load(dir).map_err(s)?;
-    let doc = p.documents.iter().find(|d| d.id == doc_id).ok_or("Document not found")?;
+    let doc = p
+        .documents
+        .iter()
+        .find(|d| d.id == doc_id)
+        .ok_or("Document not found")?;
     let app = app_by_id(&doc.app).ok_or("Unknown app")?;
     let program = program_for(&ctx, app).ok_or_else(|| format!("NOT_INSTALLED:{}", app.name))?;
     let file = ready::document_path(dir, doc);
@@ -315,7 +422,12 @@ fn app_launch(ctx: State<Ctx>, app_id: String) -> Result<()> {
 fn show_open_all(ctx: State<Ctx>, path: String) -> Result<launch::OpenAllReport> {
     let dir = Path::new(&path);
     let p = manifest::load(dir).map_err(s)?;
-    Ok(launch::open_all(dir, &p, |app| program_for(&ctx, app), launch::open_with))
+    Ok(launch::open_all(
+        dir,
+        &p,
+        |app| program_for(&ctx, app),
+        launch::open_with,
+    ))
 }
 
 #[tauri::command(async)]
@@ -354,7 +466,8 @@ fn cover_clear_image(path: String) -> Result<()> {
 fn cover_set_color(path: String, color: Option<String>) -> Result<()> {
     let dir = Path::new(&path);
     if let Some(c) = &color {
-        let ok = c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|ch| ch.is_ascii_hexdigit());
+        let ok =
+            c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|ch| ch.is_ascii_hexdigit());
         if !ok {
             return Err("The colour must look like #7a2e4a".into());
         }
@@ -366,6 +479,20 @@ fn cover_set_color(path: String, color: Option<String>) -> Result<()> {
 
 // -------------------------------------------------------- apps and versions
 
+/// A published version, as the interface shows it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VersionView {
+    version: String,
+    published: String,
+    notes: String,
+    url: String,
+    /// An installer for Windows exists for this version.
+    installable: bool,
+    /// Its installer is already kept on this computer (works without internet).
+    kept: bool,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppStatus {
@@ -374,6 +501,10 @@ struct AppStatus {
     installed: Option<detect::Installed>,
     status: updates::Status,
     latest: Option<updates::Latest>,
+    /// Every published version, newest first.
+    versions: Vec<VersionView>,
+    /// The version the person chose to keep (no update offered), if any.
+    held: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -385,6 +516,56 @@ struct AppsView {
     error: Option<String>,
 }
 
+fn app_status(
+    ctx: &Ctx,
+    settings: &Settings,
+    cache: &update_check::Cache,
+    id: &str,
+    name: &str,
+    installed: Option<detect::Installed>,
+) -> AppStatus {
+    let latest = cache.latest.get(id).cloned();
+    let inst_ver = installed.as_ref().and_then(|i| i.version.clone());
+    let held = settings
+        .held
+        .get(id)
+        .cloned()
+        .filter(|h| inst_ver.as_deref() == Some(h.as_str()));
+    let status = updates::status_held(
+        installed
+            .as_ref()
+            .map(|i| i.version.as_deref().unwrap_or("")),
+        latest.as_ref(),
+        held.is_some(),
+    );
+    let kept = install::cached_versions(&ctx.data, id);
+    let versions = cache
+        .releases
+        .get(id)
+        .map(|list| {
+            list.iter()
+                .map(|r| VersionView {
+                    version: r.version.clone(),
+                    published: r.published.clone(),
+                    notes: r.notes.clone(),
+                    url: r.url.clone(),
+                    installable: r.installer.is_some(),
+                    kept: kept.iter().any(|k| k == &r.version),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    AppStatus {
+        id: id.into(),
+        name: name.into(),
+        installed,
+        status,
+        latest,
+        versions,
+        held,
+    }
+}
+
 fn apps_view(app: &AppHandle, ctx: &Ctx) -> AppsView {
     let settings = load_settings(ctx);
     let cache = update_check::Cache::load(&ctx.cache);
@@ -392,21 +573,126 @@ fn apps_view(app: &AppHandle, ctx: &Ctx) -> AppsView {
         .iter()
         .map(|a| {
             let installed = detect::find(a, settings.app_paths.get(a.id).map(String::as_str));
-            let latest = cache.latest.get(a.id).cloned();
-            let status = updates::status(installed.as_ref().map(|i| i.version.as_deref().unwrap_or("")), latest.as_ref());
-            AppStatus { id: a.id.into(), name: a.name.into(), installed, status, latest }
+            app_status(ctx, &settings, &cache, a.id, a.name, installed)
         })
         .collect();
     let me = app.package_info().version.to_string();
-    let latest = cache.latest.get("launcher").cloned();
-    let launcher = AppStatus {
-        id: "launcher".into(),
-        name: "Theatre Suite".into(),
-        installed: Some(detect::Installed { path: String::new(), version: Some(me.clone()) }),
-        status: updates::status(Some(&me), latest.as_ref()),
-        latest,
+    let launcher = app_status(
+        ctx,
+        &settings,
+        &cache,
+        "launcher",
+        "Theatre Suite",
+        Some(detect::Installed {
+            path: String::new(),
+            version: Some(me),
+        }),
+    );
+    AppsView {
+        apps,
+        launcher,
+        checked_at: cache.checked_at,
+        error: cache.error,
+    }
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct InstallProgress {
+    app: String,
+    version: String,
+    /// `download`, `install`, `done`.
+    step: &'static str,
+    received: u64,
+    total: u64,
+}
+
+/// Installs version `version` of an app (newer or older than the installed one), only when the
+/// person asks. For the launcher itself the installer is started and the launcher closes.
+#[tauri::command(async)]
+fn app_install(
+    app: AppHandle,
+    ctx: State<Ctx>,
+    app_id: String,
+    version: String,
+) -> Result<AppsView> {
+    let cache = update_check::Cache::load(&ctx.cache);
+    let release = cache
+        .releases
+        .get(&app_id)
+        .and_then(|l| l.iter().find(|r| r.version == version))
+        .ok_or("This version is not in the list: check for updates again")?;
+    let inst = release
+        .installer
+        .as_ref()
+        .ok_or("This version has no installer for Windows")?;
+    let send = |step: &'static str, received: u64, total: u64| {
+        let _ = app.emit(
+            "install-progress",
+            InstallProgress {
+                app: app_id.clone(),
+                version: version.clone(),
+                step,
+                received,
+                total,
+            },
+        );
     };
-    AppsView { apps, launcher, checked_at: cache.checked_at, error: cache.error }
+    let mut last = 0u64;
+    let file = install::fetch(&ctx.data, &app_id, &version, inst, |r, t| {
+        // A few updates per second are enough for a progress bar.
+        if r == t || r.saturating_sub(last) >= 256 * 1024 {
+            last = r;
+            send("download", r, t);
+        }
+    })?;
+    send("install", 0, 0);
+    if app_id == "launcher" {
+        install::run_interactive(&file)?;
+        app.exit(0);
+        return Ok(apps_view(&app, &ctx));
+    }
+    install::run_silent(&file)?;
+    // A version installed on purpose is the one to keep only if the person says so again.
+    {
+        let _g = ctx.lock.lock().map_err(|_| "Internal error".to_string())?;
+        let mut st = Settings::load(&ctx.settings);
+        if st.held.remove(&app_id).is_some() {
+            st.save(&ctx.settings)?;
+        }
+    }
+    send("done", 0, 0);
+    Ok(apps_view(&app, &ctx))
+}
+
+/// Keep the installed version of an app (no update offered) or stop keeping it.
+#[tauri::command(async)]
+fn app_hold(app: AppHandle, ctx: State<Ctx>, app_id: String, keep: bool) -> Result<AppsView> {
+    let view = apps_view(&app, &ctx);
+    let installed = if app_id == "launcher" {
+        view.launcher.installed.as_ref()
+    } else {
+        view.apps
+            .iter()
+            .find(|a| a.id == app_id)
+            .and_then(|a| a.installed.as_ref())
+    };
+    let version = installed.and_then(|i| i.version.clone());
+    {
+        let _g = ctx.lock.lock().map_err(|_| "Internal error".to_string())?;
+        let mut st = Settings::load(&ctx.settings);
+        match (keep, version) {
+            (true, Some(v)) => {
+                st.held.insert(app_id, v);
+            }
+            (true, None) => return Err("The installed version is not known".into()),
+            (false, _) => {
+                st.held.remove(&app_id);
+            }
+        }
+        st.save(&ctx.settings)?;
+    }
+    Ok(apps_view(&app, &ctx))
 }
 
 #[tauri::command(async)]
@@ -449,7 +735,10 @@ fn updates_check(app: AppHandle, ctx: State<Ctx>) -> Result<AppsView> {
 fn updates_check_if_due(app: AppHandle, ctx: State<Ctx>) -> Result<Option<AppsView>> {
     let st = load_settings(&ctx);
     // Nothing goes online before the person has read the first-run notice.
-    if !st.weekly_check || !st.update_notice_seen || !update_check::is_due(st.last_check, now_secs()) {
+    if !st.weekly_check
+        || !st.update_notice_seen
+        || !update_check::is_due(st.last_check, now_secs())
+    {
         return Ok(None);
     }
     updates_check(app, ctx).map(Some)
@@ -462,7 +751,10 @@ pub fn run() {
                 let _ = w.unminimize();
                 let _ = w.set_focus();
             }
-            if let Some(file) = args.iter().skip(1).find(|a| a.to_lowercase().ends_with(".theatre"))
+            if let Some(file) = args
+                .iter()
+                .skip(1)
+                .find(|a| a.to_lowercase().ends_with(".theatre"))
                 && let Some(dir) = Path::new(file).parent()
             {
                 let _ = app.emit("open-show", dir.to_string_lossy().to_string());
@@ -472,8 +764,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-            std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create the data folder: {e}"))?;
-            app.manage(Ctx { settings: dir.join("settings.json"), registry: dir.join("shows.json"), cache: dir.join("updates-cache.json"), lock: Mutex::new(()) });
+            std::fs::create_dir_all(&dir)
+                .map_err(|e| format!("Cannot create the data folder: {e}"))?;
+            app.manage(Ctx {
+                data: dir.clone(),
+                settings: dir.join("settings.json"),
+                registry: dir.join("shows.json"),
+                cache: dir.join("updates-cache.json"),
+                lock: Mutex::new(()),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -496,6 +795,8 @@ pub fn run() {
             document_set,
             document_new,
             document_open,
+            document_remove,
+            file_open,
             show_open_all,
             app_launch,
             reveal,
@@ -506,6 +807,8 @@ pub fn run() {
             cover_set_color,
             apps_status,
             app_path_set,
+            app_install,
+            app_hold,
             updates_check,
             updates_check_if_due,
         ])

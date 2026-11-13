@@ -4,6 +4,7 @@
 
 pub mod covers;
 pub mod detect;
+pub mod install;
 pub mod launch;
 pub mod net;
 pub mod settings;

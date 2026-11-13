@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { Button, Icon } from "@theatre-suite/ui";
 import { api, errorText } from "../lib/api";
@@ -6,16 +6,39 @@ import { APPS, appDef } from "../lib/apps";
 import { fmtDate } from "../lib/format";
 import { pickFolder } from "../lib/pick";
 import { explain, plural } from "../lib/text";
-import type { AppStatus, ShowNode } from "../lib/types";
+import type { AppStatus, ShowNode, ShowSort } from "../lib/types";
 import { useStore } from "../state/store";
 import { AppIcon } from "../components/AppLogos";
 import { ShowCover } from "../components/ShowCover";
 
+/** Key of a show in the saved order and in the production list. */
+const keyOf = (n: ShowNode) => n.id || n.path;
+
+/** A root show is in production if it, or one of its copies, was marked so. */
+function inProduction(n: ShowNode, ids: Set<string>): boolean {
+  return ids.has(keyOf(n)) || n.children.some((c) => inProduction(c, ids));
+}
+
+function sortShows(list: ShowNode[], sort: ShowSort, order: string[], lang: string): ShowNode[] {
+  const byModified = (a: ShowNode, b: ShowNode) => b.updated - a.updated;
+  const out = [...list];
+  if (sort === "name") out.sort((a, b) => a.title.localeCompare(b.title, lang, { sensitivity: "base", numeric: true }));
+  else if (sort === "modified") out.sort(byModified);
+  else {
+    const pos = new Map(order.map((k, i) => [k, i]));
+    out.sort((a, b) => (pos.get(keyOf(a)) ?? 1e9) - (pos.get(keyOf(b)) ?? 1e9) || byModified(a, b));
+  }
+  return out;
+}
+
 export function Home() {
   const t = useT();
+  const lang = useLang();
   const shows = useStore((s) => s.shows);
   const apps = useStore((s) => s.apps);
-  const { setDialog, openShow, showToast } = useStore.getState();
+  const settings = useStore((s) => s.settings);
+  const { setDialog, openShow, showToast, saveSettings } = useStore.getState();
+  const [dragKey, setDragKey] = useState<string | null>(null);
 
   const openFolder = async () => {
     const dir = await pickFolder(t("Open a show folder"));
@@ -23,6 +46,37 @@ export function Home() {
   };
 
   const updates = (apps?.apps ?? []).filter((a) => a.status.state === "available").length + (apps?.launcher.status.state === "available" ? 1 : 0);
+  const sort: ShowSort = settings?.showSort ?? "modified";
+  const prodIds = new Set(settings?.production ?? []);
+  const sorted = sortShows(shows, sort, settings?.showOrder ?? [], lang);
+  const production = sorted.filter((n) => inProduction(n, prodIds));
+  const others = sorted.filter((n) => !inProduction(n, prodIds));
+
+  /** Dropping a card on another one puts it there; the order becomes "personal". */
+  const drop = (target: ShowNode) => {
+    if (!dragKey || dragKey === keyOf(target)) return;
+    const group = production.some((n) => keyOf(n) === dragKey) ? production : others;
+    if (!group.some((n) => keyOf(n) === keyOf(target))) return;
+    const keys = group.map(keyOf).filter((k) => k !== dragKey);
+    keys.splice(keys.indexOf(keyOf(target)), 0, dragKey);
+    const full = group === production ? [...keys, ...others.map(keyOf)] : [...production.map(keyOf), ...keys];
+    void saveSettings({ showSort: "custom", showOrder: full });
+  };
+
+  const grid = (list: ShowNode[]) => (
+    <div className="ln-show-list">
+      {list.map((s) => (
+        <ShowCard
+          key={s.path}
+          node={s}
+          dragging={dragKey === keyOf(s)}
+          onDragStart={() => setDragKey(keyOf(s))}
+          onDragEnd={() => setDragKey(null)}
+          onDrop={() => drop(s)}
+        />
+      ))}
+    </div>
+  );
 
   return (
     <div className="ln-home">
@@ -30,7 +84,7 @@ export function Home() {
         <header className="ln-section-head">
           <h2 id="suite-h">{t("Suite")}</h2>
           <span className="ln-grow" />
-          <Button icon="download" onClick={() => useStore.getState().go({ name: "suite" })}>
+          <Button className="ln-headbtn" icon="download" onClick={() => useStore.getState().go({ name: "suite" })}>
             {t("Explore, install and update")}
             {updates > 0 ? <span className="ln-dot-badge" title={t("New version available")} /> : null}
           </Button>
@@ -45,11 +99,21 @@ export function Home() {
       <section className="ln-shows" aria-labelledby="shows-h">
         <header className="ln-section-head">
           <h2 id="shows-h">{t("Shows")}</h2>
+          {shows.length > 1 ? (
+            <label className="ln-sort">
+              <span>{t("Sort by")}</span>
+              <select className="ln-input ln-input--sm" value={sort} onChange={(e) => void saveSettings({ showSort: e.currentTarget.value as ShowSort })}>
+                <option value="modified">{t("Last modified")}</option>
+                <option value="name">{t("Name")}</option>
+                <option value="custom">{t("Personal (drag the cards)")}</option>
+              </select>
+            </label>
+          ) : null}
           <span className="ln-grow" />
-          <Button icon="folderOpen" onClick={() => void openFolder().catch((e) => showToast(errorText(e), "error"))}>
+          <Button className="ln-headbtn" icon="folderOpen" onClick={() => void openFolder().catch((e) => showToast(errorText(e), "error"))}>
             {t("Open a folder…")}
           </Button>
-          <Button variant="primary" icon="plus" onClick={() => setDialog({ kind: "newShow" })}>
+          <Button className="ln-headbtn" icon="plus" onClick={() => setDialog({ kind: "newShow" })}>
             {t("New show")}
           </Button>
         </header>
@@ -59,12 +123,19 @@ export function Home() {
             <strong>{t("No shows yet")}</strong>
             <p>{t("Create your first show, or open a folder you already have. Everything you make for a show stays together in its folder.")}</p>
           </div>
+        ) : production.length > 0 ? (
+          <>
+            <h3 className="ln-group-head"><span className="ln-dot ln-dot--go" />{t("In production")}</h3>
+            {grid(production)}
+            {others.length > 0 ? (
+              <>
+                <h3 className="ln-group-head ln-group-head--other">{t("Other shows")}</h3>
+                {grid(others)}
+              </>
+            ) : null}
+          </>
         ) : (
-          <div className="ln-show-list">
-            {shows.map((s) => (
-              <ShowCard key={s.path} node={s} />
-            ))}
-          </div>
+          grid(others)
         )}
       </section>
     </div>
@@ -77,6 +148,7 @@ function SuiteCard({ id, status }: { id: string; status: AppStatus | null }) {
   const def = appDef(id)!;
   const installed = status?.installed ?? null;
   const update = status?.status.state === "available" ? status.status : null;
+  const held = status?.held ?? null;
   return (
     <div className={`ln-suite-card${installed ? "" : " ln-suite-card--off"}`} style={{ ["--app" as string]: def.accent.dark }}>
       <AppIcon id={id} size={40} />
@@ -92,7 +164,10 @@ function SuiteCard({ id, status }: { id: string; status: AppStatus | null }) {
             {update ? (
               <span className="ln-chip ln-chip--update" title={t("New version available")}>{update.latest}</span>
             ) : installed.version ? (
-              <span className="ln-suite-card__ver">{installed.version}</span>
+              <span className="ln-suite-card__ver" title={held ? t("You are keeping this version") : undefined}>
+                {held ? <Icon name="lock" size={11} /> : null}
+                {installed.version}
+              </span>
             ) : null}
             <Button
               variant="sm"
@@ -109,27 +184,62 @@ function SuiteCard({ id, status }: { id: string; status: AppStatus | null }) {
   );
 }
 
-function ShowCard({ node }: { node: ShowNode }) {
+interface CardDrag {
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDrop: () => void;
+}
+
+function ShowCard({ node, dragging, onDragStart, onDragEnd, onDrop }: { node: ShowNode } & CardDrag) {
   const t = useT();
   const lang = useLang();
   const { openShow, setDialog, showToast } = useStore.getState();
+  const [over, setOver] = useState(false);
   const gone = node.missing;
   return (
-    <article className={`ln-card${gone ? " ln-card--gone" : ""}`}>
+    <article
+      className={`ln-card${gone ? " ln-card--gone" : ""}${dragging ? " ln-card--dragging" : ""}${over && !dragging ? " ln-card--over" : ""}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", node.title);
+        onDragStart();
+      }}
+      onDragEnd={() => {
+        setOver(false);
+        onDragEnd();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (!over) setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        onDrop();
+      }}
+    >
       <button type="button" className="ln-card__main" disabled={gone} onClick={() => void openShow(node.path)} aria-label={t("Open {title}", { title: node.title })}>
         <ShowCover path={node.path} title={node.title} cover={node.cover} height={104} radius="9px 9px 0 0" letter />
         <div className="ln-card__body">
           <div className="ln-card__title">{node.title}</div>
-          {node.subtitle ? <div className="ln-card__sub">{node.subtitle}</div> : null}
+          {/* Always one line, so every card has the same height. */}
+          <div className="ln-card__sub">{node.subtitle || "\u00a0"}</div>
           {gone ? (
             <div className="ln-card__warn"><Icon name="alert" size={13} />{t("The folder cannot be found any more.")}</div>
           ) : (
             <div className="ln-card__meta">
-              <span className="ln-card__apps">
-                {node.apps.map((a) => <AppIcon key={a} id={a} size={16} />)}
-              </span>
+              {node.apps.length > 0 ? (
+                <span className="ln-card__apps">
+                  {node.apps.map((a) => <AppIcon key={a} id={a} size={16} />)}
+                </span>
+              ) : null}
               <span>{plural(t, node.documents, "1 document", "{n} documents")}</span>
-              <span className="ln-dim">· {t("modified on {date}", { date: fmtDate(node.updated, lang) })}</span>
+              <span className="ln-dim">·</span>
+              <span className="ln-dim">{t("modified on {date}", { date: fmtDate(node.updated, lang) })}</span>
             </div>
           )}
         </div>

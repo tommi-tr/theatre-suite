@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { api, errorText, onEvent } from "../lib/api";
 import { tr } from "../i18n";
 import { plural } from "../lib/text";
-import type { AppsView, OpenAllReport, Phase, ProjectView, Settings, ShowNode } from "../lib/types";
+import type { AppsView, InstallProgress, OpenAllReport, Phase, ProjectView, Settings, ShowNode } from "../lib/types";
 
 export type Screen = { name: "home" } | { name: "project"; path: string } | { name: "suite" };
 
@@ -17,7 +17,8 @@ export type DialogState =
   | { kind: "newDoc"; path: string; app: string; phase: Phase | null }
   | { kind: "openAll"; report: OpenAllReport }
   | { kind: "forget"; node: ShowNode }
-  | { kind: "feedback"; app?: string };
+  | { kind: "feedback"; app?: string }
+  | { kind: "install"; app: string; version: string };
 
 interface Store {
   settings: Settings | null;
@@ -26,6 +27,8 @@ interface Store {
   view: ProjectView | null;
   apps: AppsView | null;
   checking: boolean;
+  /** An installation in progress (one at a time). */
+  installing: InstallProgress | null;
   dialog: DialogState;
   toast: { message: string; kind: "info" | "error" } | null;
   /** Bumped when cover images change, so cards reload them. */
@@ -42,6 +45,8 @@ interface Store {
   clearToast: () => void;
   checkUpdates: () => Promise<void>;
   refreshApps: () => Promise<void>;
+  install: (app: string, version: string) => Promise<void>;
+  hold: (app: string, keep: boolean) => Promise<void>;
   bumpCovers: () => void;
 }
 
@@ -52,6 +57,7 @@ export const useStore = create<Store>((set, get) => ({
   view: null,
   apps: null,
   checking: false,
+  installing: null,
   dialog: null,
   toast: null,
   coverStamp: 0,
@@ -66,6 +72,7 @@ export const useStore = create<Store>((set, get) => ({
     const startup = await api.startupShow().catch(() => null);
     if (startup) await get().openShow(startup);
     await onEvent<string>("open-show", (dir) => void get().openShow(dir));
+    await onEvent<InstallProgress>("install-progress", (p) => set({ installing: p }));
   },
 
   go: (screen) => set({ screen }),
@@ -137,6 +144,29 @@ export const useStore = create<Store>((set, get) => ({
       set({ apps: await api.appsStatus() });
     } catch {
       /* the list simply stays as it was */
+    }
+  },
+
+  install: async (app, version) => {
+    if (get().installing) return;
+    set({ installing: { app, version, step: "download", received: 0, total: 0 } });
+    try {
+      const apps = await api.appInstall(app, version);
+      set({ apps });
+      const name = apps.apps.find((a) => a.id === app)?.name ?? app;
+      get().showToast(tr("{name} {version} is installed.", { name, version }));
+    } catch (e) {
+      get().showToast(errorText(e), "error");
+    } finally {
+      set({ installing: null });
+    }
+  },
+
+  hold: async (app, keep) => {
+    try {
+      set({ apps: await api.appHold(app, keep) });
+    } catch (e) {
+      get().showToast(errorText(e), "error");
     }
   },
 

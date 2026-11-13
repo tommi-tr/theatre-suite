@@ -16,6 +16,10 @@ let settings: Settings = {
   lastCheck: now - 3 * day,
   updateNoticeSeen: false,
   showsDir: null,
+  held: {},
+  production: ["a"],
+  showSort: "modified",
+  showOrder: [],
 };
 
 const base = { documents: 2, inShow: 3, apps: ["diaframma", "bardo"], lastOpened: now, parent: null, missing: false, error: null, subtitle: "", cover: {} };
@@ -45,23 +49,45 @@ const project: ProjectView = {
       { id: "d5", app: "diaframma", title: "Scaletta — prima versione", path: "Audio/Vecchia.diaframma", phase: null },
     ],
   },
-  exists: { d1: true, d2: true, d3: true, d4: true, d5: true },
-  readiness: { inShow: 2, issues: [], ready: true },
+  exists: { d1: true, d2: true, d3: true, d4: true, d5: false },
+  exports: {
+    d4: [
+      { name: "Amleto - copione 2.pdf", path: "Amleto - copione 2.pdf", modified: now - day },
+      { name: "Amleto - copione 2 - Ofelia.docx", path: "Esportazioni/Amleto - copione 2 - Ofelia.docx", modified: now - 2 * day },
+    ],
+  },
+  readiness: { inShow: 2, issues: [{ docId: "d2", docTitle: "Scaletta — Atto II", docPath: "Audio/Scaletta Atto II.diaframma", app: "diaframma", kind: "filesMissing", count: 2, examples: ["tuono.wav", "pioggia.mp3"] }], ready: false },
 };
+
+const v = (version: string, daysAgo: number, notes = "", kept = false) => ({
+  version,
+  published: new Date((now - daysAgo * day) * 1000).toISOString(),
+  notes,
+  url: "https://github.com/tommi-tr/theatre-suite-releases/releases",
+  installable: true,
+  kept,
+});
 
 const apps: AppsView = {
   apps: [
-    { id: "diaframma", name: "Diaframma", installed: { path: "C:\\Users\\tu\\AppData\\Local\\Diaframma\\Diaframma.exe", version: "1.0.0" }, status: { state: "available", latest: "1.1.0", url: "https://github.com/tommi-tr/theatre-suite/releases" }, latest: { version: "1.1.0", url: "https://github.com/tommi-tr/theatre-suite/releases", notes: "" } },
-    { id: "bardo", name: "Bardo", installed: { path: "C:\\Users\\tu\\AppData\\Local\\Bardo\\Bardo.exe", version: "0.1.0" }, status: { state: "upToDate" }, latest: { version: "0.1.0", url: "https://github.com/tommi-tr/theatre-suite-releases/releases", notes: "" } },
+    {
+      id: "diaframma", name: "Diaframma", installed: { path: "", version: "0.2.0" }, status: { state: "available", latest: "0.3.0", url: "" },
+      latest: { version: "0.3.0", url: "", notes: "" }, held: null,
+      versions: [v("0.3.0", 1, "Fade più morbidi, nuova finestra EDITING."), v("0.2.0", 12, "", true), v("0.1.0", 30, "", true)],
+    },
+    {
+      id: "bardo", name: "Bardo", installed: { path: "", version: "0.1.1" }, status: { state: "upToDate" },
+      latest: { version: "0.1.1", url: "", notes: "" }, held: null, versions: [v("0.1.1", 2, "", true), v("0.1.0", 9)],
+    },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.2.1" }, status: { state: "upToDate" }, latest: null },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.3.0" }, status: { state: "upToDate" }, latest: null, held: null, versions: [v("0.3.0", 0, "", true), v("0.2.1", 1)] },
   checkedAt: now - 3 * day,
   error: null,
 };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "app_info": return { name: "Theatre Suite", version: "0.2.1", os: "demo" };
+    case "app_info": return { name: "Theatre Suite", version: "0.3.0", os: "demo" };
     case "startup_show": return null;
     case "settings_load": return settings;
     case "settings_save": settings = args!.settings as Settings; return;
@@ -70,7 +96,15 @@ export async function demo(cmd: string, args?: Record<string, unknown>): Promise
     case "project_get": return project;
     case "show_open": return { path: args!.path, notAShow: false, rebuilt: false, foundDocuments: 2 };
     case "show_open_all": return { opened: ["d1"], skipped: [{ docId: "d2", title: "Scaletta — Atto II", reason: "oneAtATime", detail: "Diaframma" }] };
-    case "apps_status": case "updates_check": return apps;
+    case "apps_status": case "updates_check": case "app_install": return apps;
+    case "app_hold": {
+      const a = apps.apps.find((x) => x.id === args!.appId);
+      if (a) {
+        a.held = args!.keep ? (a.installed?.version ?? null) : null;
+        a.status = a.held ? { state: "held", latest: "0.3.0" } : { state: "available", latest: "0.3.0", url: "" };
+      }
+      return { ...apps };
+    }
     case "updates_check_if_due": return null;
     case "copy_size": return 412 * 1024 * 1024;
     case "nested_default": return `${args!.path}\\Copie`;

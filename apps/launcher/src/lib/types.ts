@@ -54,7 +54,7 @@ export interface Project {
   documents: Doc[];
 }
 
-export type Issue = { docId: string; docTitle: string; app: string } & (
+export type Issue = { docId: string; docTitle: string; docPath: string; app: string } & (
   | { kind: "documentMissing" }
   | { kind: "filesMissing"; count: number; examples: string[] }
   | { kind: "unreadable" }
@@ -70,9 +70,18 @@ export interface ProjectView {
   path: string;
   project: Project;
   exists: Record<string, boolean>;
+  /** Copies exported from each Bardo script, found in the show folder. */
+  exports: Record<string, ExportFile[]>;
   readiness: Readiness;
   added: number;
   rebuilt: boolean;
+}
+
+export interface ExportFile {
+  name: string;
+  /** Relative to the show folder. */
+  path: string;
+  modified: number;
 }
 
 export interface OpenResult {
@@ -103,7 +112,16 @@ export interface Settings {
   lastCheck: number;
   updateNoticeSeen: boolean;
   showsDir?: string | null;
+  /** App id → version the person keeps (no update offered). */
+  held: Record<string, string>;
+  /** Ids of the shows in production (shown first). */
+  production: string[];
+  showSort: ShowSort;
+  /** Ids in the order chosen by dragging. */
+  showOrder: string[];
 }
+
+export type ShowSort = "name" | "modified" | "custom";
 
 export interface Latest {
   version: string;
@@ -115,6 +133,7 @@ export type UpdateStatus =
   | { state: "notInstalled" }
   | { state: "upToDate" }
   | { state: "available"; latest: string; url: string }
+  | { state: "held"; latest: string }
   | { state: "unknown" };
 
 export interface AppStatus {
@@ -123,6 +142,27 @@ export interface AppStatus {
   installed: { path: string; version: string | null } | null;
   status: UpdateStatus;
   latest: Latest | null;
+  /** Every published version, newest first. */
+  versions: VersionInfo[];
+  held: string | null;
+}
+
+export interface VersionInfo {
+  version: string;
+  published: string;
+  notes: string;
+  url: string;
+  installable: boolean;
+  /** Installer already on this computer. */
+  kept: boolean;
+}
+
+export interface InstallProgress {
+  app: string;
+  version: string;
+  step: "download" | "install" | "done";
+  received: number;
+  total: number;
 }
 
 export interface AppsView {

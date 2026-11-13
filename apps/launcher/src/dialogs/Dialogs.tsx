@@ -4,6 +4,7 @@ import { CopyDialog } from "./CopyDialog";
 import { CoverDialog } from "./CoverDialog";
 import { SettingsDialog } from "./SettingsDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
+import { InstallDialog } from "./InstallDialog";
 
 /** The one open window, if any. */
 export function Dialogs() {
@@ -20,5 +21,6 @@ export function Dialogs() {
     case "openAll": return <OpenAllDialog report={d.report} />;
     case "forget": return <ForgetDialog node={d.node} />;
     case "feedback": return <FeedbackDialog app={d.app} />;
+    case "install": return <InstallDialog app={d.app} version={d.version} />;
   }
 }

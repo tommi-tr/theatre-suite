@@ -29,6 +29,14 @@ pub struct Settings {
     pub update_notice_seen: bool,
     /// Where new shows are created.
     pub shows_dir: Option<String>,
+    /// Apps whose installed version the person wants to keep (no update offered): app id → version.
+    pub held: HashMap<String, String>,
+    /// Ids of the shows "in production": shown first in the Home.
+    pub production: Vec<String>,
+    /// Order of the shows in the Home: `name`, `modified` or `custom`.
+    pub show_sort: String,
+    /// Order chosen by dragging (show ids), used when `show_sort` is `custom`.
+    pub show_order: Vec<String>,
 }
 
 impl Default for Settings {
@@ -37,11 +45,18 @@ impl Default for Settings {
             language: "it".into(),
             theme: "system".into(),
             weekly_check: true,
-            update_source: UpdateSource { kind: "github".into(), value: crate::update_check::PUBLIC_RELEASES_REPO.into() },
+            update_source: UpdateSource {
+                kind: "github".into(),
+                value: crate::update_check::PUBLIC_RELEASES_REPO.into(),
+            },
             app_paths: HashMap::new(),
             last_check: 0,
             update_notice_seen: false,
             shows_dir: None,
+            held: HashMap::new(),
+            production: vec![],
+            show_sort: "modified".into(),
+            show_order: vec![],
         }
     }
 }

@@ -27,14 +27,55 @@ const DIAFRAMMA_EMPTY: &str = r#"{
 }
 "#;
 
+/// Bardo's file format (`FILE_FORMAT_VERSION` in `apps/bardo/src/model/file.ts`). Bardo fills
+/// every missing field with its defaults, so title and language are enough.
+const BARDO_FORMAT_VERSION: u32 = 1;
+
+/// Text of a new empty document of `app`, titled `title`; `None` if the launcher cannot make one.
+pub fn new_document_text(app: &KnownApp, title: &str) -> Option<String> {
+    match app.id {
+        "bardo" => {
+            let v = serde_json::json!({
+                "format": "bardo",
+                "formatVersion": BARDO_FORMAT_VERSION,
+                "app": "Bardo",
+                "savedAt": "",
+                "data": { "lang": "it", "meta": { "title": title.trim() } },
+                "content": [],
+                "versions": []
+            });
+            serde_json::to_string_pretty(&v).ok()
+        }
+        _ => app.new_document.map(str::to_string),
+    }
+}
+
 pub const KNOWN_APPS: &[KnownApp] = &[
-    KnownApp { id: "diaframma", name: "Diaframma", extensions: &["diaframma"], multi_document: false, exe: "Diaframma.exe", new_document: Some(DIAFRAMMA_EMPTY), new_extension: "diaframma" },
-    KnownApp { id: "bardo", name: "Bardo", extensions: &["bardo"], multi_document: false, exe: "Bardo.exe", new_document: None, new_extension: "bardo" },
+    KnownApp {
+        id: "diaframma",
+        name: "Diaframma",
+        extensions: &["diaframma"],
+        multi_document: false,
+        exe: "Diaframma.exe",
+        new_document: Some(DIAFRAMMA_EMPTY),
+        new_extension: "diaframma",
+    },
+    KnownApp {
+        id: "bardo",
+        name: "Bardo",
+        extensions: &["bardo"],
+        multi_document: false,
+        exe: "Bardo.exe",
+        new_document: None,
+        new_extension: "bardo",
+    },
 ];
 
 pub fn app_for_extension(ext: &str) -> Option<&'static KnownApp> {
     let ext = ext.to_ascii_lowercase();
-    KNOWN_APPS.iter().find(|a| a.extensions.contains(&ext.as_str()))
+    KNOWN_APPS
+        .iter()
+        .find(|a| a.extensions.contains(&ext.as_str()))
 }
 
 pub fn app_by_id(id: &str) -> Option<&'static KnownApp> {
@@ -44,6 +85,16 @@ pub fn app_by_id(id: &str) -> Option<&'static KnownApp> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_bardo_document_carries_the_title() {
+        let text = new_document_text(app_by_id("bardo").unwrap(), " Amleto \"2\" ").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["format"], "bardo");
+        assert_eq!(v["formatVersion"], 1);
+        assert_eq!(v["data"]["meta"]["title"], "Amleto \"2\"");
+        assert!(v["content"].as_array().unwrap().is_empty());
+    }
 
     #[test]
     fn new_diaframma_document_is_valid_json_in_the_current_format() {

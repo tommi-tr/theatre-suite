@@ -33,6 +33,8 @@ export const api = {
   documentSet: (path: string, docId: string, patch: Record<string, unknown>) => call<void>("document_set", { path, docId, patch }),
   documentNew: (path: string, appId: string, title: string) => call<string>("document_new", { path, appId, title }),
   documentOpen: (path: string, docId: string) => call<void>("document_open", { path, docId }),
+  documentRemove: (path: string, docId: string) => call<void>("document_remove", { path, docId }),
+  fileOpen: (path: string, rel: string) => call<void>("file_open", { path, rel }),
   showOpenAll: (path: string) => call<OpenAllReport>("show_open_all", { path }),
   appLaunch: (appId: string) => call<void>("app_launch", { appId }),
   reveal: (path: string) => call<void>("reveal", { path }),
@@ -45,6 +47,8 @@ export const api = {
 
   appsStatus: () => call<AppsView>("apps_status"),
   appPathSet: (appId: string, program: string | null) => call<void>("app_path_set", { appId, program }),
+  appInstall: (appId: string, version: string) => call<AppsView>("app_install", { appId, version }),
+  appHold: (appId: string, keep: boolean) => call<AppsView>("app_hold", { appId, keep }),
   updatesCheck: () => call<AppsView>("updates_check"),
   updatesCheckIfDue: () => call<AppsView | null>("updates_check_if_due"),
 };

@@ -20,6 +20,8 @@ pub enum IssueKind {
 pub struct Issue {
     pub doc_id: String,
     pub doc_title: String,
+    /// File name inside the show folder (with extension), so the person knows which file it is.
+    pub doc_path: String,
     pub app: String,
     #[serde(flatten)]
     pub kind: IssueKind,
@@ -42,24 +44,41 @@ pub fn document_path(dir: &Path, doc: &Document) -> PathBuf {
 pub fn check(dir: &Path, project: &Project) -> Report {
     let mut issues = vec![];
     let mut count = 0;
-    for doc in project.documents.iter().filter(|d| d.phase == Some(Phase::Show)) {
+    for doc in project
+        .documents
+        .iter()
+        .filter(|d| d.phase == Some(Phase::Show))
+    {
         count += 1;
         let path = document_path(dir, doc);
-        let mk = |kind| Issue { doc_id: doc.id.clone(), doc_title: doc.title.clone(), app: doc.app.clone(), kind };
+        let mk = |kind| Issue {
+            doc_id: doc.id.clone(),
+            doc_title: doc.title.clone(),
+            doc_path: doc.path.clone(),
+            app: doc.app.clone(),
+            kind,
+        };
         if !path.is_file() {
             issues.push(mk(IssueKind::DocumentMissing));
             continue;
         }
         if doc.app == "diaframma" {
             match missing_cue_files(&path) {
-                Ok(m) if !m.is_empty() => issues.push(mk(IssueKind::FilesMissing { count: m.len(), examples: m.into_iter().take(5).collect() })),
+                Ok(m) if !m.is_empty() => issues.push(mk(IssueKind::FilesMissing {
+                    count: m.len(),
+                    examples: m.into_iter().take(5).collect(),
+                })),
                 Ok(_) => {}
                 Err(()) => issues.push(mk(IssueKind::Unreadable)),
             }
         }
     }
     let ready = count > 0 && issues.is_empty();
-    Report { in_show: count, issues, ready }
+    Report {
+        in_show: count,
+        issues,
+        ready,
+    }
 }
 
 /// Audio files of a `.diaframma` cue list that cannot be found (hidden tracks are ignored).
@@ -68,16 +87,39 @@ fn missing_cue_files(doc_path: &Path) -> Result<Vec<String>, ()> {
     let v: Value = serde_json::from_str(&text).map_err(|_| ())?;
     let base = doc_path.parent().unwrap_or(Path::new("."));
     let mut missing = vec![];
-    for track in v.get("tracks").and_then(|t| t.as_array()).into_iter().flatten() {
-        if track.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false) {
+    for track in v
+        .get("tracks")
+        .and_then(|t| t.as_array())
+        .into_iter()
+        .flatten()
+    {
+        if track
+            .get("hidden")
+            .and_then(|h| h.as_bool())
+            .unwrap_or(false)
+        {
             continue;
         }
-        let Some(file) = track.get("file").filter(|f| !f.is_null()) else { continue };
-        let rel = file.get("relativePath").and_then(|r| r.as_str()).filter(|s| !s.is_empty());
-        let abs = file.get("path").and_then(|r| r.as_str()).filter(|s| !s.is_empty());
-        let found = rel.is_some_and(|r| base.join(r.replace('\\', "/")).is_file()) || abs.is_some_and(|a| Path::new(a).is_file());
+        let Some(file) = track.get("file").filter(|f| !f.is_null()) else {
+            continue;
+        };
+        let rel = file
+            .get("relativePath")
+            .and_then(|r| r.as_str())
+            .filter(|s| !s.is_empty());
+        let abs = file
+            .get("path")
+            .and_then(|r| r.as_str())
+            .filter(|s| !s.is_empty());
+        let found = rel.is_some_and(|r| base.join(r.replace('\\', "/")).is_file())
+            || abs.is_some_and(|a| Path::new(a).is_file());
         if !found {
-            let name = file.get("name").and_then(|n| n.as_str()).or(abs).or(rel).unwrap_or("?");
+            let name = file
+                .get("name")
+                .and_then(|n| n.as_str())
+                .or(abs)
+                .or(rel)
+                .unwrap_or("?");
             missing.push(name.to_string());
         }
     }
@@ -112,12 +154,19 @@ mod tests {
     fn reports_missing_audio_and_missing_documents() {
         let tmp = tempfile::tempdir().unwrap();
         let d = tmp.path();
-        fs::write(d.join("a.diaframma"), r#"{"tracks":[{"file":{"path":"C:/nope/pioggia.wav","name":"pioggia.wav"}}]}"#).unwrap();
+        fs::write(
+            d.join("a.diaframma"),
+            r#"{"tracks":[{"file":{"path":"C:/nope/pioggia.wav","name":"pioggia.wav"}}]}"#,
+        )
+        .unwrap();
         let mut p = manifest::create(d, "X", "").unwrap();
         p.documents[0].phase = Some(Phase::Show);
         let r = check(d, &p);
         assert!(!r.ready);
-        assert!(matches!(&r.issues[0].kind, IssueKind::FilesMissing { count: 1, .. }));
+        assert!(matches!(
+            &r.issues[0].kind,
+            IssueKind::FilesMissing { count: 1, .. }
+        ));
         fs::remove_file(d.join("a.diaframma")).unwrap();
         assert_eq!(check(d, &p).issues[0].kind, IssueKind::DocumentMissing);
     }

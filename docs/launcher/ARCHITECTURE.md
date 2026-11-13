@@ -25,20 +25,37 @@ it is set aside as `progetto.theatre.damaged` and rebuilt by scanning the folder
 A copy is staged in `.<name>.copying` and renamed only when complete. Nested shows and symbolic
 links are not followed. The copy gets a new id and remembers its parent.
 
-## Updates
+## Updates and installing
 
-Sources: GitHub releases with tags `<app>-v<semver>` (drafts and pre-releases ignored), or a JSON
-manifest `{schema, apps:{id:{version,url,notes}}}` at an https address. The source in the settings
-is read first, then the public repository `tommi-tr/theatre-suite-releases`; the newest version of
-each app wins and the check fails only if no source answers. It runs at most once a week, only at
-launcher start, only if the user left it on and has read the first-run notice (errors are silent
-there); "Check now" is always available. Nothing is ever downloaded or installed by the launcher.
+Installers are published as releases of the **public** repository `tommi-tr/theatre-suite-releases`
+(tags `<app>-v<semver>`, e.g. `launcher-v0.3.0`, `diaframma-v0.2.0`, `bardo-v0.1.1`; one Windows
+`*-setup.exe` per release; drafts and pre-releases ignored). The code repository stays private.
 
-A private repository answers 404 to the public releases API (the launcher reports it as
-`NOT_FOUND`, shown as a sentence). Two ways out, either is enough: make `theatre-suite` public, or
-create the public repository `theatre-suite-releases`, add to `theatre-suite` a secret
-`RELEASES_TOKEN` (a token allowed to write releases there) and tag as usual: the workflow then
-publishes each installer in both places.
+- **Check**: reads the list of releases (source in the settings, then the public repository),
+  keeps every version of every app (`updates-cache.json`: `latest` + `releases`). Weekly at start
+  if allowed (silent when offline), or "Check now". Checking never downloads anything.
+- **Install** (only when the person presses Install and confirms): the installer is downloaded
+  from `https://github.com/…` (redirects allowed), checked against the SHA-256 GitHub publishes
+  for the asset when present, kept in `<data>/installers/<app>/<version>/` (so it can be
+  installed again offline) and run: apps with `/S` (silent, per-user NSIS; closes the app if open),
+  the launcher itself with its normal windows, after which the launcher exits.
+- **Older versions**: every published version can be installed (Tauri NSIS allows downgrades).
+- **Keep this version** (`settings.held`: app → version): no update is offered for that app while
+  the installed version is that one.
+- Publishing: until a `RELEASES_TOKEN` secret exists, releases are created by hand (or by Claude)
+  from the installers built by the workflows; with the secret, tagging `launcher-v*` publishes there.
+
+## Home order
+
+`settings.showSort`: `modified` (default), `name` or `custom` (`settings.showOrder`, show ids,
+set by dragging cards; dragging switches to `custom`). `settings.production` (show ids): those shows
+(or a show with a copy marked so) are listed first, under "In production".
+
+## Exports of Bardo scripts
+
+`crates/theatre-project/src/exports.rs`: files `.pdf .docx .odt .txt .rtf` in the show folder
+(subfolders up to 3 levels, not nested shows) whose name starts with the script's file name, or
+with "<title in the script> - ". Found at every look, never stored.
 
 ## Feedback
 
@@ -50,7 +67,7 @@ the public releases repository, or is copied.
 ## Installed apps
 
 Windows: registry `Uninstall\<AppName>` (HKCU, then HKLM), then `%LOCALAPPDATA%\<Name>\<exe>`.
-The user can always point to the program by hand (Explore, install and update).
+(`settings.appPaths` for a program chosen by hand still works but is no longer shown.)
 
 ## Not yet done
 
