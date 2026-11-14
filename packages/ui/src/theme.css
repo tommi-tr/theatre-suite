@@ -627,8 +627,8 @@ textarea {
   cursor: default;
 }
 
-/* A fader that the mouse wheel moves (it was clicked last) */
-[data-wheel="on"] {
+/* A fader that the mouse wheel moves: it is enough to hover it */
+[data-wheelable="on"]:hover {
   outline: 1.5px dashed var(--accent-line);
   outline-offset: 3px;
   border-radius: 4px;

@@ -7,11 +7,12 @@ import {
   FORMAT_ID,
   FORMAT_VERSION,
   newTrack,
-  type AtEnd,
   type CueListDoc,
+  type Entry,
+  type EnvPoint,
   type Eq,
+  type Exit,
   type LiveState,
-  type OnSpace,
   type Track,
   type TrackInfo,
 } from "./types";
@@ -36,26 +37,38 @@ export function docToFile(tracks: Track[]): CueListDoc {
   };
 }
 
-/** Reads any known version of the file format and returns valid tracks. Throws on unknown files. */
+/**
+ * Reads a cue list and returns valid tracks. Only the current format is read:
+ * until the suite is published there is no compatibility with older files.
+ * Throws a clear message on any other file.
+ */
 export function parseDoc(text: string): Track[] {
   const raw = JSON.parse(text) as Partial<CueListDoc> & { tracks?: unknown };
   if (!raw || raw.format !== FORMAT_ID) throw new Error("This is not a Diaframma cue list.");
-  if (typeof raw.formatVersion !== "number" || raw.formatVersion > FORMAT_VERSION) {
-    throw new Error("This cue list was made with a newer version of Diaframma. Please update Diaframma.");
+  if (raw.formatVersion !== FORMAT_VERSION) {
+    throw new Error(
+      typeof raw.formatVersion === "number" && raw.formatVersion > FORMAT_VERSION
+        ? "This cue list was made with a newer version of Diaframma. Please update Diaframma."
+        : "This cue list was made with a different version of Diaframma and cannot be opened.",
+    );
   }
   if (!Array.isArray(raw.tracks)) throw new Error("The cue list is damaged (no tracks).");
-  const onSpace: OnSpace[] = ["play", "fadeIn", "stopAllPlay"];
-  const atEnd: AtEnd[] = ["stop", "next", "fadeOut", "crossfade", "loopAll", "loopCut"];
   const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-  const eqOf = (v: unknown): Eq => {
-    if (Array.isArray(v)) return [0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq;
-    // Version 1: three bands (low shelf 200 Hz, mid 1 kHz, high shelf 5 kHz).
-    const o = (v ?? {}) as Record<string, unknown>;
-    return [num(o.low, 0), 0, num(o.mid, 0), 0, num(o.high, 0)];
-  };
+  const optSec = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+  const eqOf = (v: unknown): Eq =>
+    Array.isArray(v) ? ([0, 1, 2, 3, 4].map((i) => Math.max(-24, Math.min(24, num(v[i], 0)))) as Eq) : [0, 0, 0, 0, 0];
+  const curve = (v: unknown, lo: number, hi: number): EnvPoint[] =>
+    Array.isArray(v)
+      ? (v as unknown[])
+          .map((p) => p as Record<string, unknown>)
+          .filter((p) => p && typeof p.t === "number" && typeof p.v === "number")
+          .map((p) => ({ t: p.t as number, v: Math.min(hi, Math.max(lo, p.v as number)) }))
+          .sort((a, b) => a.t - b.t)
+      : [];
   const seen = new Set<string>();
   const rawTracks = raw.tracks as unknown[];
-  const tracks = rawTracks.map((t0) => {
+
+  return rawTracks.map((t0) => {
     const t = (t0 ?? {}) as Record<string, unknown>;
     let id = typeof t.id === "string" && t.id ? t.id : uid();
     if (seen.has(id)) id = uid();
@@ -63,6 +76,9 @@ export function parseDoc(text: string): Track[] {
     const base = newTrack(id);
     const f = t.file as Record<string, unknown> | null | undefined;
     const loop = t.loop as Record<string, unknown> | null | undefined;
+    const exits: Exit[] = ["fadeOut", "crossfade", "next"];
+    const entry: Entry | null = t.entry === "fadeIn" ? "fadeIn" : null;
+    const exit: Exit | null = exits.includes(t.exit as Exit) ? (t.exit as Exit) : null;
     return {
       ...base,
       hidden: t.hidden === true,
@@ -75,36 +91,32 @@ export function parseDoc(text: string): Track[] {
               durationSec: typeof f.durationSec === "number" ? f.durationSec : null,
             }
           : null,
-      onSpace: onSpace.includes(t.onSpace as OnSpace) ? (t.onSpace as OnSpace) : "play",
-      atEnd: atEnd.includes(t.atEnd as AtEnd) ? (t.atEnd as AtEnd) : "stop",
-      ignoreVolume: t.ignoreVolume === true,
+      entry,
+      entrySec: optSec(t.entrySec),
+      exit,
+      exitSec: optSec(t.exitSec),
+      loopOn: t.loopOn === true,
       volumeDb: num(t.volumeDb, 0),
       eq: eqOf(t.eq),
+      pan: Math.min(1, Math.max(-1, num(t.pan, 0))),
       inSec: Math.max(0, num(t.inSec, 0)),
       outSec: typeof t.outSec === "number" ? t.outSec : null,
-      envelope: Array.isArray(t.envelope)
-        ? (t.envelope as unknown[])
-            .map((p) => p as Record<string, unknown>)
-            .filter((p) => typeof p.t === "number" && typeof p.v === "number")
-            .map((p) => ({ t: p.t as number, v: Math.min(1, Math.max(0, p.v as number)) }))
-            .sort((a, b) => a.t - b.t)
-        : [],
+      envelope: curve(t.envelope, 0, 1),
+      panEnvelope: curve(t.panEnvelope, -1, 1),
       loop: loop && typeof loop.inSec === "number" && typeof loop.outSec === "number" ? { inSec: loop.inSec, outSec: loop.outSec } : null,
+      markers: Array.isArray(t.markers)
+        ? [...new Set((t.markers as unknown[]).filter((m): m is number => typeof m === "number" && Number.isFinite(m) && m >= 0).map((m) => Math.round(m * 100) / 100))].sort((a, b) => a - b)
+        : [],
+      cutVisible: t.cutVisible !== false,
       loopVisible: t.loopVisible !== false,
+      envelopeVisible: t.envelopeVisible !== false,
+      panVisible: t.panVisible !== false,
+      ignoreCut: t.ignoreCut === true,
+      ignoreEnvelope: t.ignoreEnvelope === true,
+      ignoreLoop: t.ignoreLoop === true,
+      ignorePan: t.ignorePan === true,
     };
   });
-  // Version 1: "Crossfade" was chosen on the track that starts. Now the track
-  // playing before it says "Crossfade" in At end or Space.
-  rawTracks.forEach((t0, i) => {
-    const t = (t0 ?? {}) as Record<string, unknown>;
-    if (t.onSpace !== "crossfade") return;
-    for (let j = i - 1; j >= 0; j--) {
-      if (tracks[j].hidden || !tracks[j].file) continue;
-      if (tracks[j].atEnd === "stop" || tracks[j].atEnd === "next") tracks[j] = { ...tracks[j], atEnd: "crossfade" };
-      break;
-    }
-  });
-  return tracks;
 }
 
 /** Visible (numbered) tracks, in order. `from` is the first number (0 or 1). */
@@ -140,6 +152,8 @@ interface DocStore {
   loadIntoTrack: (id: string, path: string) => void;
   clearTrack: (id: string) => void;
   deleteTrack: (id: string) => void;
+  addMarker: (id: string, sec: number) => void;
+  removeMarker: (id: string, index: number) => void;
   duplicateTrack: (id: string) => void;
   toggleHidden: (id: string) => void;
   moveTrack: (from: number, to: number) => void;
@@ -163,7 +177,13 @@ function trackFromPath(path: string): Partial<Track> {
     inSec: 0,
     outSec: null,
     envelope: [],
+    panEnvelope: [],
     loop: null,
+    markers: [],
+    ignoreCut: false,
+    ignoreEnvelope: false,
+    ignoreLoop: false,
+    ignorePan: false,
   };
 }
 
@@ -228,8 +248,20 @@ export const useDoc = create<DocStore>((set, get) => {
       set({ missing: m });
       get().ensureInfo(path);
     },
-    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], loop: null }),
+    clearTrack: (id) => get().patchTrack(id, { file: null, inSec: 0, outSec: null, envelope: [], panEnvelope: [], loop: null, markers: [], ignoreCut: false, ignoreEnvelope: false, ignoreLoop: false, ignorePan: false }),
     deleteTrack: (id) => commit(get().tracks.filter((t) => t.id !== id)),
+    addMarker: (id, sec) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t || !Number.isFinite(sec) || sec < 0) return;
+      const m = Math.round(sec * 100) / 100;
+      if (t.markers.some((x) => Math.abs(x - m) < 0.05)) return;
+      get().patchTrack(id, { markers: [...t.markers, m].sort((a, b) => a - b) });
+    },
+    removeMarker: (id, index) => {
+      const t = get().tracks.find((x) => x.id === id);
+      if (!t || index < 0 || index >= t.markers.length) return;
+      get().patchTrack(id, { markers: t.markers.filter((_, i) => i !== index) });
+    },
     duplicateTrack: (id) => {
       const tracks = [...get().tracks];
       const i = tracks.findIndex((t) => t.id === id);
@@ -309,9 +341,14 @@ export function trackDuration(t: Track, infos: Record<string, InfoState>): numbe
   return t.file.durationSec ?? null;
 }
 
-/** Effective OUT point (null outSec = end of file). */
+/** Where the track really starts (00:00 when the cut is ignored). */
+export function effectiveIn(t: Track): number {
+  return t.ignoreCut ? 0 : t.inSec;
+}
+
+/** Effective OUT point (null outSec = end of file; the end of the file when the cut is ignored). */
 export function effectiveOut(t: Track, dur: number | null): number | null {
-  if (t.outSec !== null) return dur !== null ? Math.min(t.outSec, dur) : t.outSec;
+  if (t.outSec !== null && !t.ignoreCut) return dur !== null ? Math.min(t.outSec, dur) : t.outSec;
   return dur;
 }
 
@@ -324,7 +361,7 @@ export function trackLoudness(t: Track, info: InfoState | undefined): { lufs: nu
   const bins = info.loudness.length;
   const dur = info.durationSec;
   const out = effectiveOut(t, dur) ?? dur;
-  const a = Math.max(0, Math.floor((t.inSec / dur) * bins));
+  const a = Math.max(0, Math.floor((effectiveIn(t) / dur) * bins));
   const b = Math.min(bins, Math.max(a + 1, Math.ceil((out / dur) * bins)));
   const ms = info.loudness.slice(a, b);
   const peak = Math.max(...info.peaks.slice(a, b), 1e-6);
@@ -364,4 +401,9 @@ export function matchVolumes(): { changed: number; skipped: number } {
   }
   if (vols.size) st.setTracks((tracks) => tracks.map((t) => (vols.has(t.id) ? { ...t, volumeDb: vols.get(t.id)! } : t)));
   return { changed: vols.size, skipped };
+}
+
+/** The voice in front: the one GO acts on, else the newest that plays, else the last one (same rule as the transport bar). */
+export function frontVoice(live: LiveState) {
+  return live.voices.find((v) => v.main) ?? [...live.voices].reverse().find((v) => !v.paused && v.fading !== "out") ?? live.voices[live.voices.length - 1] ?? null;
 }

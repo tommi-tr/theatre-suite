@@ -9,16 +9,26 @@ export interface SessionStart {
   openFile: string | null;
 }
 
+/** A saved version of a cue list (a copy in the `.versions` folder next to it). */
+export interface VersionEntry {
+  path: string;
+  name: string;
+  modifiedMs: number;
+  bytes: number;
+}
+
 export interface EngineConfig {
   othersOnGo: OthersOnGo;
   autoAdvance: boolean;
   fadeInSec: number;
   fadeOutSec: number;
   crossfadeSec: number;
+  /** Quick fade of the track in front when it has no Exit. */
+  quickFadeSec?: number;
   stopAllSec: number;
   mainDb?: number;
   numberFrom?: number;
-  /** Show behaviour (Stop / Fade out / Loop need their own GO). Off for the player and the pads. */
+  /** Show behaviour (the track in front leaves by its Exit). Off for the player and the pads. */
   steps?: boolean;
 }
 
@@ -42,7 +52,10 @@ export const api = {
   autosaveClear: () => call<void>("autosave_clear"),
   readText: (path: string) => call<string>("file_read_text", { path }),
   writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
+  versionsList: (dir: string) => call<VersionEntry[]>("versions_list", { dir }),
+  versionDelete: (path: string) => call<void>("version_delete", { path }),
   pathsExist: (paths: string[]) => call<boolean[]>("paths_exist", { paths }),
+  openProjectPage: (url: string) => call<void>("open_project_page", { url }),
   findFiles: (dir: string, names: string[]) => call<(string | null)[]>("find_files", { dir, names }),
   resolveRelative: (baseFile: string, relative: string) => call<string | null>("resolve_relative", { baseFile, relative }),
   makeRelative: (baseFile: string, target: string) => call<string | null>("make_relative", { baseFile, target }),
@@ -58,8 +71,10 @@ export const api = {
   enginePauseAll: () => call<void>("engine_pause_all"),
   engineSeek: (trackId: string, sec: number) => call<void>("engine_seek", { trackId, sec }),
   engineStopAll: (immediate: boolean) => call<void>("engine_stop_all", { immediate }),
+  engineStopTrack: (trackId: string) => call<void>("engine_stop_track", { trackId }),
   engineAnalyze: (path: string) => call<TrackInfo>("engine_analyze", { path }),
   engineState: () => call<LiveState>("engine_state"),
+  selftestRun: (tracks: EngineTrack[], config: EngineConfig, runs: number) => call<TestReport>("selftest_run", { tracks, config, runs }),
 
   // Rehearsal mode (other programs on this computer)
   rhSnapshot: () => call<RhSnapshot>("rh_snapshot"),
@@ -95,7 +110,8 @@ export const api = {
   phoneEnable: (on: boolean) => call<PhoneInfo>("phone_enable", { on }),
   phoneInfo: () => call<PhoneInfo>("phone_info"),
   phoneNewCode: () => call<PhoneInfo>("phone_new_code"),
-  phoneUpdate: (locked: boolean, favorites: unknown, levels: Record<string, number>, rhMain: number) => call<void>("phone_update", { locked, favorites, levels, rhMain }),
+  phoneUpdate: (locked: boolean, favorites: unknown, levels: Record<string, number>, rhMain: number, rh: PhoneRehearsal | null) =>
+    call<void>("phone_update", { locked, favorites, levels, rhMain, rh }),
 };
 
 export interface ExtTab {
@@ -122,6 +138,31 @@ export interface ExtTabs {
   enabled: boolean;
   connected: boolean;
   tabs: ExtTab[];
+}
+
+/** What the phone shows in Rehearsal mode: the same sources and outputs as the computer. */
+export interface PhoneRehearsal {
+  sources: Array<Pick<RhSource, "id" | "app" | "title" | "artist" | "status" | "canToggle" | "canNext" | "canPrev"> & { volume: number | null }>;
+  outputs: Array<{ id: string; name: string; description: string; kind: RhOutput["kind"]; volume: number | null; isDefault: boolean; role: "live" | "pre" | null }>;
+}
+
+/** Result of the reliability test (Settings → Test). */
+export interface TestStep {
+  run: number;
+  step: number;
+  code: string;
+  ok: boolean;
+  number: number | null;
+  name: string | null;
+  exit: "fadeOut" | "crossfade" | "next" | "none" | null;
+  seconds: number | null;
+}
+export interface TestReport {
+  runs: number;
+  steps: TestStep[];
+  errors: number;
+  identical: boolean;
+  seconds: number;
 }
 
 export interface PhoneInfo {

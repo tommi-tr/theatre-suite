@@ -5,7 +5,7 @@ import { stopEverything } from "../lib/launchpad";
 import { useUi } from "../state/ui";
 import { effectiveOut, trackDuration, useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
-import { atEndIcon, atEndText, nextGoEffect, standbySteps, type GoStep } from "./labels";
+import { entryIcon, entryText, exitText, transition } from "./labels";
 
 const go = () => api.engineGo().catch((e) => useUi.getState().showToast(String(e), "error"));
 
@@ -20,9 +20,8 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
   const live = useDoc((s) => s.live);
   const infos = useDoc((s) => s.infos);
   const settings = useSettings((s) => s.settings);
-  const steps = standbySteps(t, live, tracks, settings);
-  const first: GoStep | null = steps[0] ?? null;
-  const goTrack = first?.trackId ? tracks.find((x) => x.id === first.trackId) ?? null : null;
+
+  const standby = live.standbyId ? tracks.find((x) => x.id === live.standbyId && !x.hidden && x.file) ?? null : null;
 
   // The track in front: the main one, else the newest that plays.
   const current =
@@ -34,6 +33,7 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
   const others = new Set(live.voices.map((v) => v.trackId)).size - (current ? 1 : 0);
   const anyPlaying = live.voices.some((v) => !v.paused);
   const pausedAll = live.pausedAll;
+  const tr = transition(t, live, tracks, settings, left, formatTime);
 
   const kicker = !current
     ? ""
@@ -46,6 +46,10 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
           : current.inLoop
             ? t("LOOPING")
             : t("PLAYING");
+
+  const goDisabled = !pausedAll && (!standby || !live.engine.ready);
+  const goVerb = pausedAll ? t("Resume") : standby ? entryText(t, standby, settings) : t("Nothing in standby");
+  const goIcon = pausedAll ? "playF" : standby ? entryIcon(standby.entry) : "playF";
 
   return (
     <section className="df-gobar" aria-label={t("Transport")}>
@@ -60,7 +64,7 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
         >
           <span className="df-stopall__label">
             <Icon name="stopAll" size={15} />
-            {t("Stop all")}
+            <span className="df-bl">{t("Stop all")}</span>
           </span>
           <span className="df-kbd-stop">Esc</span>
         </button>
@@ -75,7 +79,7 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
         >
           <span className="df-stopall__label">
             <Icon name={pausedAll ? "playF" : "pauseF"} size={14} />
-            {pausedAll ? t("Resume") : t("Pause all")}
+            <span className="df-bl">{pausedAll ? t("Resume all") : t("Pause all")}</span>
           </span>
           <span className="df-kbd-pause">P</span>
         </button>
@@ -89,19 +93,14 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="df-gobox__kicker" style={{ color: "var(--go)" }}>
               <span className="ts-dot ts-dot--go" style={{ width: 7, height: 7 }} />
-              {kicker}
+              {t("ON AIR")} · {kicker}
               {others > 0 ? <span style={{ color: "var(--text-3)", letterSpacing: 0 }}>· {t("+{n} more", { n: others })}</span> : null}
             </div>
             <div className="df-gobox__title">{curTrack.file?.name}</div>
             <div className="df-gobox__meta">
-              <Icon name={atEndIcon(curTrack.atEnd)} size={12} />
-              {t("At end or Space")} <b style={{ color: "var(--text)", fontWeight: 600 }}>{atEndText(t, curTrack.atEnd)}</b>
-              <span style={{ color: "var(--text-3)" }}>· {nextGoEffect(t, live, curTrack.id, curTrack, settings.othersOnGo)}</span>
+              <span className="mono" style={{ color: "var(--text)", fontWeight: 600 }}>{formatTime(current.positionSec)}</span>
+              <span className="mono">{left !== null ? `${formatTime(-left)} ${t("left")}` : ""}</span>
             </div>
-          </div>
-          <div className="mono" style={{ flex: "none", textAlign: "right" }}>
-            <div style={{ fontSize: 20, fontWeight: 600 }}>{formatTime(current.positionSec)}</div>
-            <div style={{ fontSize: 11.5, color: "var(--text-2)" }}>{left !== null ? `${formatTime(-left)} ${t("left")}` : ""}</div>
           </div>
         </div>
       ) : (
@@ -111,12 +110,54 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
         </div>
       )}
 
+      <div className={tr ? (tr.auto ? "df-trans df-trans--auto" : "df-trans") : "df-trans df-trans--none"} title={t("What the track on air does when GO comes")}>
+        {tr ? (
+          <>
+            <span className="df-trans__icon">
+              <Icon name={tr.icon} size={20} />
+            </span>
+            <span className="df-trans__name">{tr.name}</span>
+            <span className="df-trans__when mono">{tr.when}</span>
+          </>
+        ) : (
+          <Icon name="chevRight" size={20} />
+        )}
+      </div>
+
+      <div className={standby || typed ? (live.autoStart ? "df-gobox df-gobox--sb df-gobox--auto" : "df-gobox df-gobox--sb") : "df-gobox df-gobox--empty df-gobox--sb-empty"}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, justifyContent: "center" }}>
+          <div className="df-gobox__kicker" style={{ color: live.autoStart && !typed ? "var(--go)" : standby || typed ? "var(--sb)" : "var(--text-3)" }}>
+            {typed ? t("TYPE THE NUMBER, THEN ENTER") : live.autoStart && standby ? t("STARTS BY ITSELF") : t("ATTENTION")}
+          </div>
+          {typed ? (
+            <div className="df-sbstep df-sbstep--first">
+              <span className="df-sbstep__n">{typed}</span>
+              <span className="df-sbstep__name">…</span>
+            </div>
+          ) : standby ? (
+            <>
+              <div className="df-sbstep df-sbstep--first">
+                <span className="df-sbstep__n">{numbers.get(standby.id) ?? "–"}</span>
+                <span className="df-sbstep__name">{standby.file?.name ?? ""}</span>
+              </div>
+              <div className="df-gobox__meta">
+                <Icon name={entryIcon(standby.entry)} size={12} />
+                {entryText(t, standby, settings)}
+                <span style={{ color: "var(--text-3)" }}>· {t("exit")}: {exitText(t, standby, settings)}</span>
+              </div>
+            </>
+          ) : (
+            <span style={{ fontSize: 12 }}>{t("Click a track, or type its number and Enter, to put it in standby.")}</span>
+          )}
+        </div>
+      </div>
+
       <div className="df-gobar__center">
         <button
           type="button"
-          className={first?.kind === "stop" || first?.kind === "fadeOut" ? "df-go df-go--step" : "df-go"}
-          disabled={!first || (!live.engine.ready && first.kind !== "resume")}
-          aria-label={first ? `GO: ${first.verb}${goTrack ? ` ${numbers.get(goTrack.id) ?? ""}` : ""}` : t("GO")}
+          className="df-go"
+          disabled={goDisabled}
+          aria-label={`GO: ${goVerb}`}
           onClick={go}
           onKeyDown={(e) => e.key === " " && e.preventDefault()}
         >
@@ -126,54 +167,11 @@ export function GoBar({ numbers, typed }: { numbers: Map<string, number>; typed:
             <span className="df-go__kbd">Space</span>
           </span>
           <span className="df-go__sub">
-            {first ? <Icon name={first.icon} size={11} strokeWidth={2.4} /> : null}
-            <span className="ts-ellipsis">
-              {first ? `${first.verb}${goTrack ? ` ${numbers.get(goTrack.id) ?? ""}` : ""}` : t("Nothing in standby")}
-            </span>
+            <Icon name={goIcon} size={11} strokeWidth={2.4} />
+            <span className="ts-ellipsis">{goVerb}</span>
           </span>
         </button>
         <MainVolume />
-      </div>
-
-      <div className={steps.length || typed ? "df-gobox df-gobox--sb" : "df-gobox df-gobox--empty df-gobox--sb-empty"}>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-          <div className="df-gobox__kicker" style={{ color: steps.length || typed ? "var(--sb)" : "var(--text-3)" }}>
-            {typed ? t("TYPE THE NUMBER, THEN ENTER") : steps.length > 1 ? t("STANDBY · 2 STEPS") : t("STANDBY")}
-          </div>
-          {typed ? (
-            <div className="df-sbstep df-sbstep--first">
-              <span className="df-sbstep__n">{typed}</span>
-              <span className="df-sbstep__name">…</span>
-            </div>
-          ) : steps.length ? (
-            steps.map((st, i) => {
-              const tr = st.trackId ? tracks.find((x) => x.id === st.trackId) ?? null : null;
-              return (
-                <div key={i} className={i === 0 ? "df-sbstep df-sbstep--first" : "df-sbstep"}>
-                  {steps.length > 1 ? <span className="df-sbstep__ord">{i + 1}</span> : null}
-                  <span className="df-sbstep__verb">
-                    <Icon name={st.icon} size={11} strokeWidth={2.4} />
-                    {st.verb}
-                  </span>
-                  {tr ? <span className="df-sbstep__n">{numbers.get(tr.id) ?? "–"}</span> : null}
-                  <span className="df-sbstep__name">{tr?.file?.name ?? ""}</span>
-                </div>
-              );
-            })
-          ) : (
-            <span style={{ fontSize: 12 }}>{t("Click a track, or type its number and Enter, to put it in standby.")}</span>
-          )}
-        </div>
-        <div className="df-sbnav">
-          <button type="button" className="ts-btn ts-btn--sm" onClick={() => api.engineStandbyStep(-1).catch(() => {})} onKeyDown={(e) => e.key === " " && e.preventDefault()} title="↑">
-            <Icon name="arrowUp" size={12} />
-            {t("Previous track")}
-          </button>
-          <button type="button" className="ts-btn ts-btn--sm" onClick={() => api.engineStandbyStep(1).catch(() => {})} onKeyDown={(e) => e.key === " " && e.preventDefault()} title="↓">
-            <Icon name="arrowDown" size={12} />
-            {t("Next track")}
-          </button>
-        </div>
       </div>
     </section>
   );

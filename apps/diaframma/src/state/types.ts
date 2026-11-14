@@ -2,16 +2,18 @@
 
 export const FORMAT_ID = "diaframma.cuelist";
 /**
- * 1: first version.
- * 2: five-band EQ (array), crossfade moved from "On Space" to "At end or Space".
+ * Current format: one attention track; optional Entry / Exit per track; Loop is a switch;
+ * five-band EQ; pan (fader and curve); every group of the editor can be ignored or hidden.
+ * Until the suite is published, only this version is read (no migrations from older ones).
  */
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 
-/** How the track starts when GO plays it. */
-export type OnSpace = "play" | "fadeIn" | "stopAllPlay";
-/** What happens to the track at its end, or at GO while it plays. */
-export type AtEnd = "stop" | "next" | "fadeOut" | "crossfade" | "loopAll" | "loopCut";
-export type OthersOnGo = "pause" | "fadeOut" | "keep" | "stop";
+/** What the track does when GO starts it (optional). */
+export type Entry = "fadeIn";
+/** How the track leaves, at GO or at its end (optional). */
+export type Exit = "fadeOut" | "crossfade" | "next";
+/** What happens to a track that plays and has no Exit when GO is pressed. */
+export type OthersOnGo = "fadeOut" | "keep" | "stop";
 
 /** Bands of the equalizer (Hz). 60 Hz and 14 kHz are shelves. */
 export const EQ_BANDS = [60, 230, 910, 4000, 14000] as const;
@@ -38,16 +40,40 @@ export interface Track {
   id: string;
   hidden: boolean;
   file: TrackFile | null;
-  onSpace: OnSpace;
-  atEnd: AtEnd;
-  ignoreVolume: boolean;
+  /** Entrata: null = plain start. */
+  entry: Entry | null;
+  /** Length of the fade in; null = the general time of the Settings. */
+  entrySec: number | null;
+  /** Uscita: null = the general setting at GO, stop at the end. */
+  exit: Exit | null;
+  /** Length of the fade out / crossfade; null = the general time. */
+  exitSec: number | null;
+  /** Repeats until GO: between the loop points if there are any, else the whole track. */
+  loopOn: boolean;
   volumeDb: number;
   eq: Eq;
+  /** Balance, -1 (left) … +1 (right). */
+  pan: number;
   inSec: number;
   outSec: number | null;
   envelope: EnvPoint[];
+  /** Pan over time; `v` is -1…+1. */
+  panEnvelope: EnvPoint[];
   loop: { inSec: number; outSec: number } | null;
+  /** Markers (seconds from the start of the file): they help to line up IN, OUT, loop points and curve points. */
+  markers: number[];
+  /** Shown or hidden in the editor, per group (they keep working when hidden). */
+  cutVisible: boolean;
   loopVisible: boolean;
+  envelopeVisible: boolean;
+  panVisible: boolean;
+  /** Bypassed but kept: the track plays from 00:00 to the end of the file. */
+  ignoreCut: boolean;
+  ignoreEnvelope: boolean;
+  /** The loop covers the whole track instead of the loop points. */
+  ignoreLoop: boolean;
+  /** The pan curve is bypassed: the pan fader alone decides. */
+  ignorePan: boolean;
 }
 
 export interface CueListDoc {
@@ -62,16 +88,28 @@ export function newTrack(id: string): Track {
     id,
     hidden: false,
     file: null,
-    onSpace: "play",
-    atEnd: "stop",
-    ignoreVolume: false,
+    entry: null,
+    entrySec: null,
+    exit: null,
+    exitSec: null,
+    loopOn: false,
     volumeDb: 0,
     eq: [...FLAT_EQ],
+    pan: 0,
     inSec: 0,
     outSec: null,
     envelope: [],
+    panEnvelope: [],
     loop: null,
+    markers: [],
+    cutVisible: true,
     loopVisible: true,
+    envelopeVisible: true,
+    panVisible: true,
+    ignoreCut: false,
+    ignoreEnvelope: false,
+    ignoreLoop: false,
+    ignorePan: false,
   };
 }
 
@@ -82,21 +120,19 @@ export interface Voice {
   durationSec: number;
   paused: boolean;
   fading: "in" | "out" | null;
-  /** At end is Loop all / Loop cut. */
+  /** The track has Loop on. */
   looping: boolean;
   /** Repeating the loop now. */
   inLoop: boolean;
-  /** The track GO acts on ("in front"). */
+  /** The track in front: the one whose Exit applies at GO. */
   main: boolean;
 }
-
-export type PendingStep = "stop" | "fadeOut" | "loopAll" | "loopCut";
 
 export interface LiveState {
   standbyId: string | null;
   mainId: string | null;
-  /** The next GO first does this to the main track. */
-  pending: PendingStep | null;
+  /** The attention track will start by itself (the track in front ends with Next / Crossfade). */
+  autoStart: boolean;
   pausedAll: boolean;
   voices: Voice[];
   engine: { ready: boolean; device: string; sampleRate: number; error: string | null };
@@ -105,7 +141,7 @@ export interface LiveState {
 export const EMPTY_LIVE: LiveState = {
   standbyId: null,
   mainId: null,
-  pending: null,
+  autoStart: false,
   pausedAll: false,
   voices: [],
   engine: { ready: false, device: "", sampleRate: 0, error: null },

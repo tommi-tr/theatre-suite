@@ -15,7 +15,8 @@
   .tabs { margin-left: auto; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--bd); border-radius: 8px; background: var(--s1); }
   .tabs button { border: 0; background: transparent; color: var(--t2); padding: 7px 12px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; }
   .tabs button[aria-pressed=true] { background: var(--s3); color: var(--t1); }
-  main { padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px; }
+  main { padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px; max-width: 100%; overflow-x: hidden; }
+  main > * { min-width: 0; max-width: 100%; }
   .card { border: 1px solid var(--bd); background: var(--s1); border-radius: 14px; padding: 12px 14px; }
   .kick { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
   .name { font-size: 17px; font-weight: 600; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -30,40 +31,46 @@
   .pl.idle { border: 1.5px dashed var(--bd2); background: transparent; }
   .pl.idle .badge { background: var(--s3); color: var(--t3); }
   .big { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border-radius: 14px; font: 800 22px/1 system-ui; letter-spacing: .04em; }
-  .pause { height: 84px; border: 2px solid rgba(255,178,36,.8); background: rgba(255,178,36,.12); color: var(--sb); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .pair .big { height: 96px; font-size: 21px; }
+  .pause { border: 2px solid rgba(255,178,36,.8); background: rgba(255,178,36,.12); color: var(--sb); }
   .pause.on { background: var(--sb); color: var(--sbInk); animation: blink 1s ease-in-out infinite; }
   .pause:disabled { opacity: .4; }
-  .grid2 { display: grid; grid-template-columns: minmax(118px, 1fr) 1.7fr; gap: 10px; }
-  .btn { height: 56px; border: 1px solid var(--bd); border-radius: 12px; background: var(--s2); color: var(--t1); font: 600 16px system-ui; }
+  .stop { border: 2px solid var(--stop); background: rgba(255,95,95,.1); color: var(--stop); }
   .btn:active, .big:active { filter: brightness(.9); }
-  .stop { border: 1.5px solid var(--stop); background: rgba(255,95,95,.1); color: var(--stop); font-weight: 800; white-space: nowrap; }
-  .vol { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 12px; background: var(--s2); }
-  .vol b { font-size: 12px; color: var(--t2); }
-  .vol output { min-width: 58px; text-align: right; font: 600 13px ui-monospace, Consolas, monospace; }
-  input[type=range] { flex: 1; min-width: 0; accent-color: var(--acc); height: 32px; }
-  /* Standby */
+  .vol { display: flex; align-items: center; gap: 10px; width: 100%; height: 56px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 12px; background: var(--s2); }
+  .vol b { flex: none; font-size: 12px; color: var(--t2); }
+  .vol output { flex: none; min-width: 58px; text-align: right; font: 600 13px ui-monospace, Consolas, monospace; }
+  input[type=range] { flex: 1 1 0; width: 0; min-width: 0; accent-color: var(--acc); height: 32px; }
+  /* Attention */
   .sb { border: 1.5px solid rgba(255,178,36,.75); background: rgba(255,178,36,.08); }
+  .sb.auto { border-color: rgba(52,209,123,.7); background: rgba(52,209,123,.09); }
+  .sb.auto .kick { color: var(--go) !important; }
   .step { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-width: 0; }
-  .step .ord { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255,178,36,.75); color: var(--sb); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
   .step .verb { flex: none; color: var(--sb); font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
   .step .n { flex: none; min-width: 30px; height: 28px; padding: 0 6px; border-radius: 7px; background: var(--sb); color: var(--sbInk); display: flex; align-items: center; justify-content: center; font: 700 15px ui-monospace, Consolas, monospace; }
+  .sb.auto .step .n { background: var(--go); color: var(--goInk); }
   .step .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-  .step.second { opacity: .8; }
-  .step.second .n { background: transparent; border: 1px solid rgba(255,178,36,.75); color: var(--sb); }
-  .nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-  .nav button { height: 48px; border: 1px solid rgba(255,178,36,.5); border-radius: 10px; background: var(--s2); color: var(--t1); font: 600 14px system-ui; }
   /* GO */
   .go { height: 140px; border: 0; background: var(--go); color: var(--goInk); flex-direction: column; gap: 6px; }
   .go span:first-child { font-size: 50px; letter-spacing: .08em; }
   .go .what { font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
   .go:disabled { background: var(--s3); color: var(--t3); }
   /* Rehearsal */
-  .rhpause { height: 64px; border: 2px solid rgba(255,178,36,.8); background: rgba(255,178,36,.12); color: var(--sb); font-size: 19px; }
+  .rhpause { height: 72px; border: 2px solid rgba(255,178,36,.8); background: rgba(255,178,36,.12); color: var(--sb); font-size: 19px; }
   .src.playing { border: 2px solid var(--go); background: rgba(52,209,123,.12); box-shadow: 0 0 0 3px rgba(52,209,123,.12); }
   .src.paused { border: 1.5px dashed rgba(255,178,36,.75); }
+  .src .app { font-size: 12.5px; color: var(--t2); font-weight: 400; }
+  .src .ttl { font-size: 16.5px; font-weight: 700; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src .art { font-size: 13px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .out .nm2 { font-weight: 600; }
+  .out .role { font-size: 11px; font-weight: 800; letter-spacing: .06em; }
   .src .ctl { display: flex; gap: 8px; margin-top: 10px; }
   .src .ctl button { flex: 1; height: 46px; border: 1px solid var(--bd); border-radius: 10px; background: var(--s2); color: var(--t1); font-size: 18px; }
   .src .ctl button:disabled { opacity: .35; }
+  .v { display: flex; align-items: center; gap: 10px; }
+  .v span { font-size: 12px; color: var(--t2); width: 54px; }
+  .v output { min-width: 44px; text-align: right; font: 600 13px ui-monospace, Consolas, monospace; }
   .src .v { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .src .v span { font-size: 12px; color: var(--t2); width: 54px; }
   .src .v output { min-width: 44px; text-align: right; font: 600 13px ui-monospace, Consolas, monospace; }
@@ -83,10 +90,10 @@
 <header>
   <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true"><rect x="1" y="1" width="98" height="98" rx="23" fill="#F5F5F7"/><path d="M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68" stroke="#1B1C21" stroke-width="5" stroke-linecap="round"/><path d="M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38" stroke="#6B5BEF" stroke-width="5" stroke-linecap="round"/></svg>
   <b>Diaframma</b>
-  <div class="tabs"><button id="tShow" aria-pressed="true">Show</button><button id="tRh" aria-pressed="false">Rehearsal</button></div>
+  <div class="tabs"><button id="tShow" aria-pressed="true" data-i="Show">Show</button><button id="tRh" aria-pressed="false" data-i="Rehearsal">Rehearsal</button></div>
 </header>
 <main id="show">
-  <div class="lock" id="lock">🔒 Show locked · GO, standby, Pause and Stop all still work</div>
+  <div class="lock" id="lock">🔒 Show locked · GO, Pause and Stop still work</div>
   <div class="card pl idle" id="plCard">
     <div class="row">
       <div class="badge" id="plN">–</div>
@@ -95,36 +102,57 @@
     </div>
     <div class="muted" id="plMore" style="margin-top:6px"></div>
   </div>
-  <button class="big pause" id="pause">❚❚&nbsp; Pause all</button>
-  <div class="grid2">
-    <button class="btn stop" id="stop">■ Stop all</button>
-    <label class="vol"><b>VOL</b><input type="range" id="vol" min="0" max="100" step="1"><output id="volOut">0 dB</output></label>
+  <div class="pair">
+    <button class="big pause" id="pause">❚❚&nbsp; Pause</button>
+    <button class="big stop" id="stop">■&nbsp; Stop</button>
   </div>
-  <div class="card sb">
-    <div class="kick" style="color:var(--sb)" id="sbKick">Standby</div>
-    <div id="steps"><div class="muted" style="margin-top:6px">Nothing in standby</div></div>
-    <div class="nav"><button id="up">▲ Set previous track</button><button id="down">▼ Set next track</button></div>
+  <label class="vol"><b data-i="Main">Main</b><input type="range" id="vol" min="0" max="100" step="1"><output id="volOut">0 dB</output></label>
+  <div class="card sb" id="sbCard">
+    <div class="kick" style="color:var(--sb)" id="sbKick">Attention</div>
+    <div id="steps"><div class="muted" style="margin-top:6px">Nothing in attention</div></div>
   </div>
   <button class="big go" id="go"><span>GO</span><span class="what" id="goWhat"></span></button>
   <div class="muted" id="status"></div>
 </main>
 <main id="rh" hidden>
   <button class="big rhpause" id="pauseAll">❚❚&nbsp; Pause all</button>
+  <label class="vol"><b data-i="Main">Main</b><input type="range" id="rhMain" min="0" max="100" step="1"><output id="rhMainOut">100%</output></label>
+  <div class="kick" style="color:var(--t2);margin-top:4px" data-i="Sources">Sources</div>
   <div id="sources"></div>
-  <div class="card"><div class="kick" style="color:var(--sb)">★ Favorites</div><table><tbody id="favs"></tbody></table></div>
+  <div class="kick" style="color:var(--t2);margin-top:8px" data-i="Outputs">Outputs</div>
+  <div id="outputs"></div>
+  <div class="card"><div class="kick" style="color:var(--sb)">★ <span data-i="Favorites">Favorites</span></div><table><tbody id="favs"></tbody></table></div>
 </main>
 <div id="err"></div>
 <script>
   const k = new URLSearchParams(location.search).get("k") || "";
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  // The page speaks the language of the phone: Italian or English.
+  const IT = {
+    "Show": "Spettacolo", "Rehearsal": "Prove", "Main": "Main", "Sources": "Sorgenti", "Outputs": "Uscite", "Favorites": "Preferiti",
+    "Pause": "Pausa", "Resume": "Riprendi", "Stop": "Stop", "Pause all": "Pausa a tutto", "Resume all": "Riprendi tutto",
+    "Nothing is playing": "Niente in onda", "Playing": "In riproduzione", "Paused": "In pausa", "Fading out": "In dissolvenza", "Looping": "In loop",
+    "ON AIR": "IN ONDA", "more playing": "altre in onda", "Attention": "Attenzione", "Starts by itself": "Parte da sola",
+    "Nothing in attention": "Niente in attenzione", "Fade in": "Fade in", "Play": "Play", "Fade out": "Fade out", "Crossfade": "Crossfade", "Next": "Next",
+    "Exit": "Uscita", "Connected to Diaframma": "Collegato a Diaframma", "Diaframma's audio output is not ready": "L'uscita audio di Diaframma non è pronta",
+    "Show locked · GO, Pause and Stop still work": "Spettacolo bloccato · GO, Pausa e Stop funzionano",
+    "No player is making sound on the computer.": "Nessun lettore sta suonando sul computer.", "No favorites yet.": "Ancora nessun preferito.",
+    "PLAYING": "IN RIPRODUZIONE", "PAUSED": "IN PAUSA", "IDLE": "FERMO", "LIVE": "LIVE", "PRE-LISTEN": "ASCOLTO PRIVATO", "No role": "Nessun ruolo",
+    "Volume": "Volume", "Diaframma cannot be reached. Same Wi-Fi?": "Impossibile raggiungere Diaframma. Stesso Wi-Fi?", "Wrong access code: scan the QR code again.": "Codice errato: inquadra di nuovo il QR.",
+    "Error": "Errore",
+  };
+  const it = (navigator.language || "").toLowerCase().startsWith("it");
+  const tr = (s) => (it && IT[s]) || s;
+  document.documentElement.lang = it ? "it" : "en";
+  document.querySelectorAll("[data-i]").forEach((e) => { e.textContent = tr(e.dataset.i); });
   const fmt = (s) => { if (s == null || !isFinite(s)) return "--:--"; s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
-  // Main volume: slider 0…100 ↔ −60…+10 dB.
+  // Main volume of the show: slider 0…100 ↔ −60…+10 dB.
   const toDb = (p) => (p <= 0 ? -60 : Math.round(((p / 100) * 70 - 60) * 2) / 2);
   const toPos = (db) => Math.max(0, Math.min(100, ((db + 60) / 70) * 100));
   const dbText = (db) => (db <= -60 ? "−∞ dB" : (db > 0 ? "+" : "") + db.toFixed(1) + " dB");
-  let dragging = { vol: false, src: null };
-  function showErr(t) { const e = $("err"); e.textContent = t; e.style.display = t ? "block" : "none"; }
+  let active = null; // the slider being moved: the lists are not redrawn under the finger
+  function showErr(t) { const e = $("err"); e.textContent = t ? tr(t) : ""; e.style.display = t ? "block" : "none"; }
   async function cmd(body, quiet) {
     if (navigator.vibrate && !quiet) navigator.vibrate(15);
     try {
@@ -135,94 +163,105 @@
     if (!quiet) poll();
   }
   $("go").onclick = () => cmd({ action: "go" });
-  $("up").onclick = () => cmd({ action: "up" });
-  $("down").onclick = () => cmd({ action: "down" });
   $("pause").onclick = () => cmd({ action: "pauseall" });
   $("stop").onclick = () => cmd({ action: "stopall" });
   $("pauseAll").onclick = () => cmd({ action: "rhpauseall" });
   const vol = $("vol");
-  let volTimer = null;
+  let timers = {};
+  const later = (key, fn) => { clearTimeout(timers[key]); timers[key] = setTimeout(fn, 60); };
+  const release = () => setTimeout(() => { active = null; }, 500);
   vol.oninput = () => {
-    dragging.vol = true;
+    active = "vol";
     const db = toDb(Number(vol.value));
     $("volOut").textContent = dbText(db);
-    clearTimeout(volTimer);
-    volTimer = setTimeout(() => cmd({ action: "vol", db }, true), 60);
+    later("vol", () => cmd({ action: "vol", db }, true));
   };
-  vol.onchange = () => { dragging.vol = false; };
+  vol.onchange = release;
+  const rhMain = $("rhMain");
+  rhMain.oninput = () => {
+    active = "rhMain";
+    $("rhMainOut").textContent = rhMain.value + "%";
+    later("rhMain", () => cmd({ action: "rhmain", v: Number(rhMain.value) / 100 }, true));
+  };
+  rhMain.onchange = release;
   $("tShow").onclick = () => { $("show").hidden = false; $("rh").hidden = true; $("tShow").setAttribute("aria-pressed", "true"); $("tRh").setAttribute("aria-pressed", "false"); };
   $("tRh").onclick = () => { $("show").hidden = true; $("rh").hidden = false; $("tShow").setAttribute("aria-pressed", "false"); $("tRh").setAttribute("aria-pressed", "true"); };
 
-  const START = { play: "Play", fadeIn: "Fade in", stopAllPlay: "Stop all & play" };
-  const PENDING = { stop: "Stop", fadeOut: "Fade out", loopAll: "Start again", loopCut: "Into the loop" };
-  /** What the next GO does (and the one after), like the desktop. */
-  function steps(sh) {
-    if (sh.pausedAll) return [{ verb: "Resume", n: null, name: "" }];
-    const out = [];
-    const main = (sh.playing || []).find((p) => p.main);
-    if (sh.pending && main) out.push({ verb: PENDING[sh.pending] || "Stop", n: main.n, name: main.name });
-    if (sh.standby) {
-      let verb = START[sh.standby.onSpace] || "Play";
-      if (!sh.pending && main && sh.mainAtEnd === "crossfade" && sh.standby.onSpace !== "stopAllPlay") verb = "Crossfade";
-      else if (!sh.pending && main && sh.mainAtEnd === "next" && sh.standby.onSpace === "play") verb = "Next";
-      out.push({ verb, n: sh.standby.n, name: sh.standby.name });
-    }
-    return out;
-  }
+  const ENTRY = { fadeIn: "Fade in" };
+  const EXIT = { fadeOut: "Fade out", crossfade: "Crossfade", next: "Next" };
   function render(s) {
     const sh = s.show || {};
     $("lock").style.display = s.locked ? "block" : "none";
-    // Playing: the track in front.
+    $("lock").textContent = "🔒 " + tr("Show locked · GO, Pause and Stop still work");
+    // On air: the track in front.
     const list = sh.playing || [];
     const cur = list.find((p) => p.main) || list.find((p) => !p.paused && !p.fadingOut) || list[list.length - 1];
     const pc = $("plCard");
     if (cur) {
       pc.className = "card pl";
       $("plN").textContent = cur.n ?? "–";
-      $("plKick").textContent = sh.pausedAll || cur.paused ? "Paused" : cur.fadingOut ? "Fading out" : cur.inLoop ? "Looping" : "Playing";
+      $("plKick").textContent = tr("ON AIR") + " · " + tr(sh.pausedAll || cur.paused ? "Paused" : cur.fadingOut ? "Fading out" : cur.inLoop ? "Looping" : "Playing");
       $("plName").textContent = cur.name;
       $("plPos").textContent = fmt(cur.pos);
       $("plLeft").textContent = "−" + fmt(cur.left);
       const more = list.length - 1;
-      $("plMore").textContent = more > 0 ? "+" + more + " more playing" : "";
+      const ex = cur.exit ? tr("Exit") + ": " + tr(EXIT[cur.exit] || "") : "";
+      $("plMore").textContent = [ex, more > 0 ? "+" + more + " " + tr("more playing") : ""].filter(Boolean).join(" · ");
     } else {
       pc.className = "card pl idle";
       $("plN").textContent = "–";
-      $("plKick").textContent = "Nothing is playing";
+      $("plKick").textContent = tr("Nothing is playing");
       $("plName").textContent = "—";
       $("plPos").textContent = ""; $("plLeft").textContent = ""; $("plMore").textContent = "";
     }
     const anyPlaying = list.some((p) => !p.paused);
     const pb = $("pause");
     pb.className = sh.pausedAll ? "big pause on" : "big pause";
-    pb.innerHTML = sh.pausedAll ? "▶&nbsp; Resume all" : "❚❚&nbsp; Pause all";
+    pb.innerHTML = sh.pausedAll ? "▶&nbsp; " + esc(tr("Resume")) : "❚❚&nbsp; " + esc(tr("Pause"));
     pb.disabled = !anyPlaying && !sh.pausedAll;
-    if (!dragging.vol && typeof sh.mainDb === "number") { vol.value = String(Math.round(toPos(sh.mainDb))); $("volOut").textContent = dbText(sh.mainDb); }
-    // Standby.
-    const st = steps(sh);
-    $("sbKick").textContent = st.length > 1 ? "Standby · 2 steps" : "Standby";
-    $("steps").innerHTML = st.length
-      ? st.map((x, i) => `<div class="step ${i ? "second" : ""}">${st.length > 1 ? `<span class="ord">${i + 1}</span>` : ""}<span class="verb">${esc(x.verb)}</span>${x.n != null ? `<span class="n">${esc(x.n)}</span>` : ""}<span class="nm">${esc(x.name)}</span></div>`).join("")
-      : `<div class="muted" style="margin-top:6px">Nothing in standby</div>`;
-    $("go").disabled = !st.length || (!sh.ready && !sh.pausedAll);
-    $("goWhat").textContent = st.length ? st[0].verb + (st[0].n != null ? " " + st[0].n : "") : "";
-    $("status").textContent = sh.ready ? "Connected to Diaframma" : "Diaframma's audio output is not ready";
+    $("stop").innerHTML = "■&nbsp; " + esc(tr("Stop"));
+    if (active !== "vol" && typeof sh.mainDb === "number") { vol.value = String(Math.round(toPos(sh.mainDb))); $("volOut").textContent = dbText(sh.mainDb); }
+    // Attention: one track.
+    const sb = sh.standby;
+    $("sbCard").className = sh.autoStart && sb ? "card sb auto" : "card sb";
+    $("sbKick").textContent = tr(sh.autoStart && sb ? "Starts by itself" : "Attention").toUpperCase();
+    const entry = sb ? tr(ENTRY[sb.entry] || "Play") : "";
+    $("steps").innerHTML = sh.pausedAll
+      ? `<div class="step"><span class="verb">${esc(tr("Resume"))}</span></div>`
+      : sb
+        ? `<div class="step"><span class="n">${esc(sb.n ?? "–")}</span><span class="nm">${esc(sb.name)}</span></div><div class="muted" style="margin-top:4px">${esc(entry)}</div>`
+        : `<div class="muted" style="margin-top:6px">${esc(tr("Nothing in attention"))}</div>`;
+    const canGo = sh.pausedAll || !!sb;
+    $("go").disabled = !canGo || (!sh.ready && !sh.pausedAll);
+    $("goWhat").textContent = sh.pausedAll ? tr("Resume") : sb ? entry + (sb.n != null ? " " + sb.n : "") : "";
+    $("status").textContent = tr(sh.ready ? "Connected to Diaframma" : "Diaframma's audio output is not ready");
     // Rehearsal.
     const srcs = s.sources || [];
+    $("pauseAll").innerHTML = "❚❚&nbsp; " + esc(tr("Pause all"));
     $("pauseAll").disabled = !srcs.some((x) => x.status === "playing");
-    if (dragging.src === null) {
+    if (active !== "rhMain" && typeof s.rhMain === "number") { rhMain.value = String(Math.round(s.rhMain * 100)); $("rhMainOut").textContent = Math.round(s.rhMain * 100) + "%"; }
+    if (active === null || active === "vol" || active === "rhMain") {
       $("sources").innerHTML = srcs.map((x) => {
         const v = typeof x.volume === "number" ? Math.round(x.volume * 100) : null;
-        const pill = x.status === "playing" ? `<span class="pill on">▶ PLAYING</span>` : x.status === "paused" ? `<span class="pill pa">❚❚ PAUSED</span>` : `<span class="pill">IDLE</span>`;
+        const pill = x.status === "playing" ? `<span class="pill on">▶ ${esc(tr("PLAYING"))}</span>` : x.status === "paused" ? `<span class="pill pa">❚❚ ${esc(tr("PAUSED"))}</span>` : `<span class="pill">${esc(tr("IDLE"))}</span>`;
         return `<div class="card src ${x.status === "playing" ? "playing" : x.status === "paused" ? "paused" : ""}" style="margin-top:10px">
-          <div class="row" style="justify-content:space-between"><b>${esc(x.app)}</b>${pill}</div>
-          <div class="muted" style="margin-top:4px">${esc(x.title)}${x.artist ? " · " + esc(x.artist) : ""}</div>
-          ${x.hasVolume && v !== null ? `<div class="v"><span>Volume</span><input type="range" min="0" max="100" value="${v}" data-vol="${esc(x.id)}"><output>${v}%</output></div>` : ""}
-          <div class="ctl"><button data-id="${esc(x.id)}" data-op="prev" ${x.canPrev ? "" : "disabled"}>⏮</button><button data-id="${esc(x.id)}" data-op="toggle" ${x.canToggle ? "" : "disabled"}>⏯</button><button data-id="${esc(x.id)}" data-op="next" ${x.canNext ? "" : "disabled"}>⏭</button><button data-id="${esc(x.id)}" data-op="star">★</button></div>
+          <div class="row" style="justify-content:space-between"><span class="app">${esc(x.app)}</span>${pill}</div>
+          <div class="ttl">${esc(x.title || "—")}</div>
+          ${x.artist ? `<div class="art">${esc(x.artist)}</div>` : ""}
+          ${v !== null ? `<div class="v"><span>${esc(tr("Volume"))}</span><input type="range" min="0" max="100" value="${v}" data-vol="${esc(x.id)}"><output>${v}%</output></div>` : ""}
+          <div class="ctl"><button data-id="${esc(x.id)}" data-op="prev" ${x.canPrev ? "" : "disabled"}>⏮</button><button data-id="${esc(x.id)}" data-op="toggle" ${x.canToggle ? "" : "disabled"}>${x.status === "playing" ? "❚❚" : "▶"}</button><button data-id="${esc(x.id)}" data-op="next" ${x.canNext ? "" : "disabled"}>⏭</button><button data-id="${esc(x.id)}" data-op="star">★</button></div>
         </div>`;
-      }).join("") || `<div class="card muted" style="margin-top:10px">No player is making sound on the computer.</div>`;
+      }).join("") || `<div class="card muted" style="margin-top:10px">${esc(tr("No player is making sound on the computer."))}</div>`;
+      $("outputs").innerHTML = (s.outputs || []).map((o) => {
+        const v = typeof o.volume === "number" ? Math.round(o.volume * 100) : null;
+        const role = o.role === "live" ? `<span class="role" style="color:var(--go)">${esc(tr("LIVE"))}</span>` : o.role === "pre" ? `<span class="role" style="color:var(--pre)">${esc(tr("PRE-LISTEN"))}</span>` : `<span class="role" style="color:var(--t3)">${esc(tr("No role"))}</span>`;
+        return `<div class="card out" style="margin-top:10px">
+          <div class="row" style="justify-content:space-between"><span class="nm2">${esc(o.name)}</span>${role}</div>
+          ${v !== null ? `<div class="v" style="margin-top:8px"><span>${esc(tr("Volume"))}</span><input type="range" min="0" max="100" value="${v}" data-outvol="${esc(o.id)}"><output>${v}%</output></div>` : ""}
+        </div>`;
+      }).join("");
     }
-    $("favs").innerHTML = (Array.isArray(s.favorites) ? s.favorites : []).map((f) => `<tr><td><b style="color:var(--t1)">${esc(f.title)}</b><br>${esc(f.artist)}</td><td>${esc(f.source)}</td><td class="mono">${f.positionSec != null ? fmt(f.positionSec) : ""}</td><td class="x"><button data-unstar="${esc(f.id)}" aria-label="Remove">✕</button></td></tr>`).join("") || `<tr><td class="muted">No favorites yet.</td></tr>`;
+    $("favs").innerHTML = (Array.isArray(s.favorites) ? s.favorites : []).map((f) => `<tr><td><b style="color:var(--t1)">${esc(f.title)}</b><br>${esc(f.artist)}</td><td>${esc(f.source)}</td><td class="mono">${f.positionSec != null ? fmt(f.positionSec) : ""}</td><td class="x"><button data-unstar="${esc(f.id)}" aria-label="Remove">✕</button></td></tr>`).join("") || `<tr><td class="muted">${esc(tr("No favorites yet."))}</td></tr>`;
   }
   document.addEventListener("click", (e) => {
     const u = e.target.closest("button[data-unstar]");
@@ -232,24 +271,23 @@
     if (b.dataset.op === "star") cmd({ action: "star", id: b.dataset.id });
     else cmd({ action: "rh", id: b.dataset.id, op: b.dataset.op });
   });
-  let srcTimer = null;
   document.addEventListener("input", (e) => {
-    const r = e.target.closest("input[data-vol]");
+    const r = e.target.closest("input[data-vol], input[data-outvol]");
     if (!r) return;
-    dragging.src = r.dataset.vol;
+    active = r.dataset.vol ? "src:" + r.dataset.vol : "out:" + r.dataset.outvol;
     r.nextElementSibling.textContent = r.value + "%";
-    clearTimeout(srcTimer);
-    const id = r.dataset.vol, v = Number(r.value) / 100;
-    srcTimer = setTimeout(() => cmd({ action: "rhvol", id, v }, true), 60);
+    const v = Number(r.value) / 100;
+    if (r.dataset.vol) { const id = r.dataset.vol; later(active, () => cmd({ action: "rhvol", id, v }, true)); }
+    else { const id = r.dataset.outvol; later(active, () => cmd({ action: "rhout", id, v }, true)); }
   });
-  document.addEventListener("change", (e) => { if (e.target.closest("input[data-vol]")) setTimeout(() => { dragging.src = null; }, 400); });
+  document.addEventListener("change", (e) => { if (e.target.closest("input[data-vol], input[data-outvol]")) release(); });
   async function poll() {
     try {
       const r = await fetch("/api/state?k=" + encodeURIComponent(k), { cache: "no-store" });
       if (r.status === 403) { showErr("Wrong access code: scan the QR code again."); return; }
       const s = await r.json();
       render(s);
-      if ($("err").textContent.startsWith("Diaframma cannot")) showErr("");
+      if ($("err").textContent.startsWith(tr("Diaframma cannot"))) showErr("");
     } catch { showErr("Diaframma cannot be reached. Same Wi-Fi?"); }
   }
   poll(); setInterval(poll, 600);

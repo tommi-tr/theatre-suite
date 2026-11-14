@@ -31,15 +31,18 @@ export function loadDemo() {
     ...extra,
   });
   const tracks = [
-    mk("t1", "Valzer atto II.mp3", 195, { atEnd: "crossfade" }),
+    mk("t1", "Valzer atto II.mp3", 195, { exit: "crossfade", exitSec: 4 }),
     mk("h1", "Applausi registrati.wav", 42, { hidden: true }),
     mk("t2", "Temporale lontano.wav", 208, {
-      atEnd: "loopCut",
+      loopOn: true,
+      entry: "fadeIn",
+      pan: 0.2,
       inSec: 4.2,
       outSec: 194,
       volumeDb: -3,
       eq: [2, 0.5, -1.5, 0, 1],
       loop: { inSec: 80, outSec: 169.5 },
+      markers: [32.5, 120],
       envelope: [
         { t: 4.2, v: 0 },
         { t: 14, v: 0.85 },
@@ -48,7 +51,7 @@ export function loadDemo() {
       ],
     }),
     { ...newTrack("e1") },
-    mk("t4", "Campane finale.flac", 66, { onSpace: "stopAllPlay" }),
+    mk("t4", "Campane finale.flac", 66, { exit: "fadeOut" }),
   ];
   const env = {
     waltz: (p: number) => (0.38 + 0.52 * Math.pow(Math.sin(Math.PI * Math.min(1, p * 1.04)), 0.5)) * (0.8 + 0.2 * Math.sin(p * 46)),
@@ -78,7 +81,7 @@ export function loadDemo() {
     live: {
       standbyId: "t2",
       mainId: "t1",
-      pending: null,
+      autoStart: true,
       pausedAll: location.search.includes("paused"),
       voices: [{ trackId: "t1", positionSec: 72, durationSec: 195, paused: location.search.includes("paused"), fading: null, looping: false, inLoop: false, main: true }],
       engine: { ready: true, device: "USB Audio Interface", sampleRate: 48000, error: null },

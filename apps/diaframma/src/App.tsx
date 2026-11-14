@@ -7,16 +7,19 @@ import { api, appWindow, isTauri, onEngineState, onEvent } from "./lib/api";
 import { confirmDiscard, flushAutosave, newDocConfirm, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave } from "./lib/files";
 import { startEngineSync } from "./lib/engineSync";
 import { startRemoteSync } from "./lib/remote";
-import { startLaunchpad } from "./lib/launchpad";
+import { launchpadClaims, startLaunchpad } from "./lib/launchpad";
+import { startFileMonitor } from "./lib/fileMonitor";
 import { LOGO } from "./lib/logo";
 import { useSettings } from "./state/settings";
 import { useDoc } from "./state/doc";
 import { useUi } from "./state/ui";
 import { ShowMode } from "./show/ShowMode";
 import { RehearsalMode } from "./rehearsal/RehearsalMode";
+import { LaunchpadMode } from "./common/Launchpad";
 import { SettingsDialog } from "./common/SettingsDialog";
 import { GuideDialog } from "./common/GuideDialog";
 import { PhoneDialog } from "./common/PhoneDialog";
+import { VersionsDialog } from "./common/VersionsDialog";
 import { FileMenu } from "./common/FileMenu";
 
 export function App() {
@@ -46,6 +49,7 @@ function Shell() {
   const filePath = useDoc((s) => s.filePath);
   const dirty = useDoc((s) => s.dirty);
   const phoneOn = useSettings((s) => s.settings.phoneEnabled);
+  const launchpadOn = useSettings((s) => s.settings.launchpadOn);
   const [maximized, setMaximized] = useState(false);
 
   // Startup: crash recovery, file passed on the command line, autosave, engine.
@@ -78,6 +82,7 @@ function Shell() {
       stops.push(startEngineSync());
       stops.push(startRemoteSync());
       stops.push(startLaunchpad());
+      stops.push(startFileMonitor());
       const un1 = await onEngineState((live) => useDoc.getState().setLive(live));
       const un2 = await onEvent<string>("open-file", async (path) => {
         if (await confirmDiscard(t)) await openDocPath(t, path);
@@ -119,6 +124,8 @@ function Shell() {
   const onKey = useCallback(
     (e: KeyboardEvent) => {
       if (useUi.getState().dialog) return;
+      // A key that belongs to the launchpad is not an app shortcut.
+      if (launchpadClaims(e)) return;
       const k = e.key.toLowerCase();
       if (e.ctrlKey && k === "s") {
         e.preventDefault();
@@ -152,8 +159,8 @@ function Shell() {
       <TitleBar
         logo={<AppLogo accentPath={LOGO.a} inkPath={LOGO.b} label="Diaframma" />}
         appName="Diaframma"
-        fileName={mode === "show" ? fileName : undefined}
-        saveState={mode === "show" ? { text: dirty ? (filePath ? t("Unsaved changes · autosaved") : t("Not saved yet · autosaved")) : t("Saved"), dirty } : undefined}
+        fileName={mode !== "rehearsal" ? fileName : undefined}
+        saveState={mode !== "rehearsal" ? { text: dirty ? (filePath ? t("Unsaved changes · autosaved") : t("Not saved yet · autosaved")) : t("Saved"), dirty } : undefined}
         center={
           <Segmented
             ariaLabel={t("Mode")}
@@ -162,20 +169,21 @@ function Shell() {
             options={[
               { value: "show", label: t("Show"), icon: "curtain" },
               { value: "rehearsal", label: t("Rehearsal"), icon: "headphones" },
+              { value: "launchpad", label: launchpadOn ? `${t("Launchpad")} ●` : t("Launchpad"), icon: "grid" },
             ]}
           />
         }
         actions={
           <>
-            {mode === "show" ? <FileMenu /> : null}
+            {mode !== "rehearsal" ? <FileMenu /> : null}
             <Button variant="ghost" icon="book" onClick={() => ui.openDialog("guide")} title="F1">
-              {t("Guide")}
+              <span className="df-bl">{t("Guide")}</span>
             </Button>
             <Button variant="ghost" icon="settings" onClick={() => ui.openDialog("settings")} title="Ctrl ,">
-              {t("Settings")}
+              <span className="df-bl">{t("Settings")}</span>
             </Button>
             <Button variant="ghost" icon="phone" onClick={() => ui.openDialog("phone")}>
-              {t("Phone")}
+              <span className="df-bl">{t("Phone")}</span>
               <span className={phoneOn ? "ts-dot ts-dot--go" : "ts-dot"} />
             </Button>
           </>
@@ -212,10 +220,11 @@ function Shell() {
           </Button>
         </div>
       ) : null}
-      {mode === "show" ? <ShowMode /> : <RehearsalMode />}
+      {mode === "show" ? <ShowMode /> : mode === "rehearsal" ? <RehearsalMode /> : <LaunchpadMode />}
       {dialog === "settings" ? <SettingsDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "guide" ? <GuideDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "phone" ? <PhoneDialog onClose={() => ui.closeDialog()} /> : null}
+      {dialog === "versions" ? <VersionsDialog onClose={() => ui.closeDialog()} /> : null}
       {toast ? <Toast message={toast.message} kind={toast.kind} onDone={() => useUi.getState().clearToast()} /> : null}
     </div>
   );

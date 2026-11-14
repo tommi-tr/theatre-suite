@@ -26,12 +26,12 @@ interface PlayerStore {
   close: () => void;
 }
 
-const CONFIG: EngineConfig = { othersOnGo: "stop", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0, crossfadeSec: 0, stopAllSec: 0.05, steps: false };
+const CONFIG: EngineConfig = { othersOnGo: "stop", autoAdvance: false, fadeInSec: 0, fadeOutSec: 0, crossfadeSec: 0, quickFadeSec: 0.05, stopAllSec: 0.05, steps: false };
 
 function trackFor(path: string, index: number, inSec: number, volume: number): EngineTrack {
   const db = volume <= 0.001 ? -60 : 20 * Math.log10(volume);
   const { file: _f, ...rest } = newTrack(`player-${index}`);
-  return { ...rest, path, inSec, volumeDb: db, atEnd: "stop", eq: [...useSettings.getState().settings.rhEq] };
+  return { ...rest, path, inSec, volumeDb: db, exit: null, loopOn: false, eq: [...useSettings.getState().settings.rhEq] };
 }
 
 export const usePlayer = create<PlayerStore>((set, get) => {

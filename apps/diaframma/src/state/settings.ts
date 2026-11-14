@@ -15,8 +15,10 @@ export interface Pad {
   builtin: string | null;
   /** The user's own file. */
   path: string | null;
-  /** Keys to press together (KeyboardEvent.code), e.g. ["Numpad1"] or ["KeyL", "Digit1"]. */
-  keys: string[];
+  /** The key that plays it (KeyboardEvent.code, e.g. "Numpad1" or "KeyC"); null = not on the keyboard. */
+  key: string | null;
+  /** On the Ctrl level of that key (Ctrl + key). */
+  ctrl: boolean;
   /** hold: plays while the keys are held · toEnd: plays to the end · toggle: same keys again stop it. */
   mode: PadMode;
   loop: boolean;
@@ -46,7 +48,8 @@ export function defaultPads(): Pad[] {
     name: null,
     builtin: b.file,
     path: null,
-    keys: i < 9 ? [`Numpad${i + 1}`] : [],
+    key: i < 9 ? `Numpad${i + 1}` : null,
+    ctrl: false,
     mode: b.mode,
     loop: b.loop,
     volumeDb: 0,
@@ -54,7 +57,7 @@ export function defaultPads(): Pad[] {
 }
 
 export interface Settings {
-  version: 2;
+  version: 3;
   language: Lang;
   theme: ThemePref;
   /** After a GO, standby moves to the next track. */
@@ -63,7 +66,11 @@ export interface Settings {
   fadeInSec: number;
   fadeOutSec: number;
   crossfadeSec: number;
+  /** Quick fade of the track in front when it has no Exit and GO starts another one. */
+  quickFadeSec: number;
   stopAllSec: number;
+  /** Waveform drawing: "mirror" = symmetric, "bottom" = from the baseline up. */
+  waveStyle: "mirror" | "bottom";
   /** Output device name; null = Windows default. */
   outputDevice: string | null;
   recentFiles: string[];
@@ -76,6 +83,10 @@ export interface Settings {
   guideSeen: boolean;
   /** First number of the cue list. */
   numberFrom: 0 | 1;
+  /** A click on the waveform of a row moves the play position: only when the track is paused, whenever it plays, or never. */
+  seekClick: "paused" | "always" | "never";
+  /** Dragged points (IN, OUT, loop, curves) stick to the markers. */
+  snapMarkers: boolean;
   /** Show mode: the track that plays is kept as the first row on screen. */
   followPlaying: boolean;
   /** Main volume of Show mode (dB). */
@@ -86,7 +97,7 @@ export interface Settings {
   rhEq: Eq;
   /** Rehearsal mode: Diaframma sets the output of every program itself (ignores the Windows default). */
   pinOutputs: boolean;
-  /** Launchpad on. */
+  /** Launchpad always active: its keys play also in Show and Rehearsal mode. */
   launchpadOn: boolean;
   pads: Pad[];
 }
@@ -103,7 +114,7 @@ export interface Favorite {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 2,
+  version: 3,
   language: "en",
   theme: "dark",
   autoAdvance: true,
@@ -111,7 +122,9 @@ export const DEFAULT_SETTINGS: Settings = {
   fadeInSec: 3,
   fadeOutSec: 3,
   crossfadeSec: 4,
+  quickFadeSec: 1.5,
   stopAllSec: 1.5,
+  waveStyle: "mirror",
   outputDevice: null,
   recentFiles: [],
   phoneEnabled: false,
@@ -120,6 +133,8 @@ export const DEFAULT_SETTINGS: Settings = {
   favorites: [],
   guideSeen: false,
   numberFrom: 1,
+  seekClick: "paused",
+  snapMarkers: false,
   followPlaying: false,
   mainDb: 0,
   rhMain: 1,
@@ -140,10 +155,11 @@ function sanitize(raw: unknown): Settings {
   if (r.language === "en" || r.language === "it") s.language = r.language;
   if (r.theme === "dark" || r.theme === "light" || r.theme === "system") s.theme = r.theme;
   if (typeof r.autoAdvance === "boolean") s.autoAdvance = r.autoAdvance;
-  if (r.othersOnGo === "pause" || r.othersOnGo === "fadeOut" || r.othersOnGo === "keep" || r.othersOnGo === "stop") s.othersOnGo = r.othersOnGo;
-  // Version 1 saved the old default (Pause): the default is now Fade out.
-  if (r.version !== 2 && r.othersOnGo === "pause") s.othersOnGo = "fadeOut";
+  if (r.othersOnGo === "fadeOut" || r.othersOnGo === "keep" || r.othersOnGo === "stop") s.othersOnGo = r.othersOnGo;
+  if (r.waveStyle === "mirror" || r.waveStyle === "bottom") s.waveStyle = r.waveStyle;
   if (r.numberFrom === 0 || r.numberFrom === 1) s.numberFrom = r.numberFrom;
+  if (r.seekClick === "paused" || r.seekClick === "always" || r.seekClick === "never") s.seekClick = r.seekClick;
+  if (typeof r.snapMarkers === "boolean") s.snapMarkers = r.snapMarkers;
   if (typeof r.followPlaying === "boolean") s.followPlaying = r.followPlaying;
   if (typeof r.pinOutputs === "boolean") s.pinOutputs = r.pinOutputs;
   if (typeof r.launchpadOn === "boolean") s.launchpadOn = r.launchpadOn;
@@ -159,7 +175,8 @@ function sanitize(raw: unknown): Settings {
         name: typeof p.name === "string" ? p.name : null,
         builtin: typeof p.builtin === "string" ? p.builtin : null,
         path: typeof p.path === "string" ? p.path : null,
-        keys: Array.isArray(p.keys) ? (p.keys as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 3) : [],
+        key: typeof p.key === "string" ? p.key : null,
+        ctrl: p.ctrl === true,
         mode: modes.includes(p.mode as PadMode) ? (p.mode as PadMode) : "toEnd",
         loop: p.loop === true,
         volumeDb: typeof p.volumeDb === "number" && Number.isFinite(p.volumeDb) ? Math.max(-40, Math.min(10, p.volumeDb)) : 0,
@@ -170,6 +187,7 @@ function sanitize(raw: unknown): Settings {
   num("fadeInSec", 0, 60);
   num("fadeOutSec", 0, 60);
   num("crossfadeSec", 0, 60);
+  num("quickFadeSec", 0.05, 30);
   num("stopAllSec", 0, 30);
   if (typeof r.outputDevice === "string" || r.outputDevice === null) s.outputDevice = r.outputDevice as string | null;
   if (Array.isArray(r.recentFiles)) s.recentFiles = r.recentFiles.filter((x): x is string => typeof x === "string").slice(0, 10);

@@ -158,6 +158,107 @@ pub fn file_write_text(path: String, text: String) -> Result<(), String> {
     atomic_write(Path::new(&path), text.as_bytes())
 }
 
+// ---------------- Versions of a cue list ----------------
+//
+// Versions are plain copies of the cue list, kept in a folder next to it
+// (`Show.diaframma` → `Show.versions/`). They belong to the user like the
+// cue list itself.
+
+/// One saved version in a versions folder.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionEntry {
+    pub path: String,
+    pub name: String,
+    /// Last modification, milliseconds since 1970.
+    pub modified_ms: u64,
+    pub bytes: u64,
+}
+
+fn is_versions_dir(dir: &Path) -> bool {
+    dir.file_name().map(|n| n.to_string_lossy().to_lowercase().ends_with(".versions")).unwrap_or(false)
+}
+
+fn list_versions(dir: &Path) -> Vec<VersionEntry> {
+    let mut out: Vec<VersionEntry> = Vec::new();
+    let Ok(rd) = fs::read_dir(dir) else { return out };
+    for entry in rd.flatten() {
+        let p = entry.path();
+        let is_cue = p.extension().map(|e| e.to_string_lossy().eq_ignore_ascii_case("diaframma")).unwrap_or(false);
+        let Ok(meta) = entry.metadata() else { continue };
+        if !meta.is_file() || !is_cue {
+            continue;
+        }
+        let modified_ms = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        out.push(VersionEntry {
+            name: p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+            path: p.to_string_lossy().to_string(),
+            modified_ms,
+            bytes: meta.len(),
+        });
+    }
+    // Newest first; the name breaks ties (names start with the date).
+    out.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms).then_with(|| b.name.cmp(&a.name)));
+    out
+}
+
+/// Lists the versions saved in `dir` (a `*.versions` folder), newest first. A missing folder is an empty list.
+#[tauri::command]
+pub fn versions_list(dir: String) -> Result<Vec<VersionEntry>, String> {
+    let d = Path::new(&dir);
+    if !is_versions_dir(d) {
+        return Err("This is not a versions folder.".into());
+    }
+    Ok(list_versions(d))
+}
+
+/// Deletes one saved version. Only `.diaframma` files inside a `*.versions` folder can be deleted this way.
+#[tauri::command]
+pub fn version_delete(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    let ok_dir = p.parent().map(is_versions_dir).unwrap_or(false);
+    let ok_ext = p.extension().map(|e| e.to_string_lossy().eq_ignore_ascii_case("diaframma")).unwrap_or(false);
+    if !ok_dir || !ok_ext {
+        return Err("Only saved versions can be deleted.".into());
+    }
+    if p.is_file() {
+        fs::remove_file(p).map_err(|e| format!("Cannot delete {}: {e}", p.display()))?;
+    }
+    Ok(())
+}
+
+/// Opens a page of the project in the default browser. Only the project's own pages are allowed.
+#[tauri::command]
+pub fn open_project_page(url: String) -> Result<(), String> {
+    if !url.starts_with("https://github.com/tommi-tr/theatre-suite") {
+        return Err("This address cannot be opened from Diaframma.".into());
+    }
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("rundll32");
+        c.args(["url.dll,FileProtocolHandler", &url]);
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("open");
+        c.arg(&url);
+        c
+    };
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut cmd = {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(&url);
+        c
+    };
+    cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn paths_exist(paths: Vec<String>) -> Vec<bool> {
     paths.iter().map(|p| !p.is_empty() && Path::new(p).is_file()).collect()
@@ -229,4 +330,50 @@ pub fn make_relative(base_file: String, target: String) -> Option<String> {
         parts.push(c.as_os_str().to_string_lossy().to_string());
     }
     Some(parts.join("/"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_versions_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("diaframma-test-{tag}-{}", std::process::id())).join("Show.versions");
+        let _ = fs::remove_dir_all(d.parent().unwrap());
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn lists_only_cue_lists_newest_first() {
+        let d = temp_versions_dir("list");
+        atomic_write(&d.join("2026-11-13_0900.diaframma"), b"{}").unwrap();
+        atomic_write(&d.join("2026-11-13_1000.diaframma"), b"{}").unwrap();
+        atomic_write(&d.join("notes.txt"), b"x").unwrap();
+        let v = list_versions(&d);
+        assert_eq!(v.len(), 2);
+        assert!(v[0].name >= v[1].name || v[0].modified_ms >= v[1].modified_ms);
+        assert!(v.iter().all(|x| x.name.ends_with(".diaframma")));
+        let _ = fs::remove_dir_all(d.parent().unwrap());
+    }
+
+    #[test]
+    fn missing_folder_is_empty_and_wrong_folder_is_refused() {
+        let d = std::env::temp_dir().join("diaframma-no-such-folder.versions");
+        assert_eq!(versions_list(d.to_string_lossy().to_string()).unwrap(), vec![]);
+        assert!(versions_list(std::env::temp_dir().to_string_lossy().to_string()).is_err());
+    }
+
+    #[test]
+    fn delete_is_limited_to_saved_versions() {
+        let d = temp_versions_dir("delete");
+        let keep = d.parent().unwrap().join("Show.diaframma");
+        atomic_write(&keep, b"{}").unwrap();
+        let v = d.join("old.diaframma");
+        atomic_write(&v, b"{}").unwrap();
+        assert!(version_delete(keep.to_string_lossy().to_string()).is_err());
+        assert!(keep.is_file());
+        version_delete(v.to_string_lossy().to_string()).unwrap();
+        assert!(!v.exists());
+        let _ = fs::remove_dir_all(d.parent().unwrap());
+    }
 }

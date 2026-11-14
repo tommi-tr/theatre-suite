@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
-export type Mode = "show" | "rehearsal";
-export type DialogName = "settings" | "guide" | "phone" | "reorder" | "editor" | null;
+export type Mode = "show" | "rehearsal" | "launchpad";
+export type DialogName = "settings" | "guide" | "phone" | "reorder" | "editor" | "versions" | null;
 
 interface UiStore {
   mode: Mode;

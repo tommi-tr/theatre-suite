@@ -314,6 +314,29 @@ def beep():
     return fade_edges(normalize(y, -6.0), 0.005, 0.005)
 
 
+def output_check():
+    """Soft sound for "Test output" in the Settings: a gentle chime on the left, then on the right, then on both.
+
+    Quiet on purpose (peak -18 dBFS), no harsh partials, slow attack: it can be played in an empty theatre
+    or in the middle of a rehearsal without startling anyone, and it tells left from right.
+    """
+    total = 3.2
+    out = np.zeros((int(total * SR), 2))
+
+    def chime(f0, sec=1.0):
+        t = t_axis(sec)
+        y = np.sin(2 * np.pi * f0 * t) + 0.18 * np.sin(2 * np.pi * f0 * 2 * t) * np.exp(-t / 0.25)
+        a = np.clip(t / 0.06, 0, 1) ** 2  # slow, rounded attack
+        return y * a * np.exp(-t / 0.32)
+
+    place(out[:, 0], chime(440.0), 0.15)
+    place(out[:, 1], chime(587.33), 1.25)
+    both = chime(440.0, 1.4) * 0.7 + chime(587.33, 1.4) * 0.7
+    place(out[:, 0], both, 2.2 - 0.2)
+    place(out[:, 1], both, 2.2 - 0.2)
+    return fade_edges(normalize(out, -18.0), 0.01, 0.2)
+
+
 SOUNDS = [
     ("thunder", thunder),
     ("doorbell", doorbell),
@@ -331,6 +354,15 @@ SOUNDS = [
     ("beep", beep),
 ]
 
+# Sounds that are not in the launchpad library (used by the app itself).
+UTILITY_SOUNDS = [
+    ("output-check", output_check),
+]
+
 if __name__ == "__main__":
-    for name, fn in SOUNDS:
-        write(name, fn())
+    import sys
+
+    only = sys.argv[1:]  # e.g. `make_sounds.py output-check` builds just that one
+    for name, fn in SOUNDS + UTILITY_SOUNDS:
+        if not only or name in only:
+            write(name, fn())

@@ -173,13 +173,9 @@ impl KWeight {
     }
 }
 
-/// Envelope gain at time `t` (seconds). Points are sorted. Smooth (S-shaped) between points.
-/// Level v (0…1) maps to gain v² (closer to how loudness is perceived).
-pub fn envelope_gain(points: &[EnvPoint], t: f64) -> f32 {
-    if points.is_empty() {
-        return 1.0;
-    }
-    let level = if t <= points[0].t {
+/// Value of a curve at time `t` (seconds). Points are sorted. Smooth (S-shaped) between points.
+fn interpolate(points: &[EnvPoint], t: f64) -> f64 {
+    if t <= points[0].t {
         points[0].v
     } else if t >= points[points.len() - 1].t {
         points[points.len() - 1].v
@@ -191,9 +187,34 @@ pub fn envelope_gain(points: &[EnvPoint], t: f64) -> f32 {
         let u = ((t - a.t) / span).clamp(0.0, 1.0);
         let s = u * u * (3.0 - 2.0 * u);
         a.v + (b.v - a.v) * s
-    };
-    let v = level.clamp(0.0, 1.0) as f32;
+    }
+}
+
+/// Envelope gain at time `t` (seconds). Points are sorted. Smooth (S-shaped) between points.
+/// Level v (0…1) maps to gain v² (closer to how loudness is perceived).
+pub fn envelope_gain(points: &[EnvPoint], t: f64) -> f32 {
+    if points.is_empty() {
+        return 1.0;
+    }
+    let v = interpolate(points, t).clamp(0.0, 1.0) as f32;
     v * v
+}
+
+/// Pan (-1 = left … +1 = right) of a curve at time `t`; `None` when there is no curve.
+pub fn pan_at(points: &[EnvPoint], t: f64) -> Option<f32> {
+    if points.is_empty() {
+        None
+    } else {
+        Some(interpolate(points, t).clamp(-1.0, 1.0) as f32)
+    }
+}
+
+/// Left and right gains for a pan value. Both are 1 at the centre; moving away, the far
+/// side fades along a constant-power curve and the near side stays at full level, so
+/// a centred track keeps exactly the sound it had before pan existed.
+pub fn pan_gains(p: f32) -> (f32, f32) {
+    let theta = (p.clamp(-1.0, 1.0) + 1.0) * std::f32::consts::FRAC_PI_4;
+    ((std::f32::consts::SQRT_2 * theta.cos()).min(1.0), (std::f32::consts::SQRT_2 * theta.sin()).min(1.0))
 }
 
 /// A gain ramp with an equal-power shape, counted in frames.
