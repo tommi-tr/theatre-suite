@@ -1,0 +1,81 @@
+name: Cantinella · Windows installer
+
+on:
+  push:
+    branches: [main, cantinella-dev]
+    tags: ["cantinella-v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: cantinella-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+    env:
+      # Optional: a token that may write releases in the public repository tommi-tr/theatre-suite-releases.
+      RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check (all packages)
+        run: pnpm -r typecheck
+
+      - name: Tests (file format, contacts import)
+        run: pnpm --filter cantinella test
+
+      - name: Build installer
+        run: pnpm --filter cantinella tauri build --bundles nsis
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Cantinella-Windows-installer
+          path: target/release/bundle/nsis/Cantinella_*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Rust tests
+        run: cargo test -p cantinella --lib
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/cantinella-v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: target/release/bundle/nsis/Cantinella_*.exe
+          draft: true
+
+      # The launcher installs apps from the PUBLIC releases repository: publish the installer there too.
+      - name: Publish release in the public releases repository (tags only)
+        if: startsWith(github.ref, 'refs/tags/cantinella-v') && env.RELEASES_TOKEN != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          repository: tommi-tr/theatre-suite-releases
+          token: ${{ env.RELEASES_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          target_commitish: main
+          files: target/release/bundle/nsis/Cantinella_*.exe
+          draft: false

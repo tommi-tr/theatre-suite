@@ -31,6 +31,10 @@ const DIAFRAMMA_EMPTY: &str = r#"{
 /// every missing field with its defaults, so title and language are enough.
 const BARDO_FORMAT_VERSION: u32 = 1;
 
+/// Cantinella's file format (`FILE_FORMAT_VERSION` in `apps/cantinella/src/model/types.ts`).
+/// Cantinella gives every missing field its default, so the title is enough.
+const CANTINELLA_FORMAT_VERSION: u32 = 1;
+
 /// Text of a new empty document of `app`, titled `title`; `None` if the launcher cannot make one.
 pub fn new_document_text(app: &KnownApp, title: &str) -> Option<String> {
     match app.id {
@@ -43,6 +47,16 @@ pub fn new_document_text(app: &KnownApp, title: &str) -> Option<String> {
                 "data": { "lang": "it", "meta": { "title": title.trim() } },
                 "content": [],
                 "versions": []
+            });
+            serde_json::to_string_pretty(&v).ok()
+        }
+        "cantinella" => {
+            let v = serde_json::json!({
+                "format": "cantinella",
+                "formatVersion": CANTINELLA_FORMAT_VERSION,
+                "app": { "name": "Theatre Suite", "version": env!("CARGO_PKG_VERSION") },
+                "savedAt": "",
+                "data": { "title": title.trim(), "people": [] }
             });
             serde_json::to_string_pretty(&v).ok()
         }
@@ -69,6 +83,15 @@ pub const KNOWN_APPS: &[KnownApp] = &[
         new_document: None,
         new_extension: "bardo",
     },
+    KnownApp {
+        id: "cantinella",
+        name: "Cantinella",
+        extensions: &["cantinella"],
+        multi_document: false,
+        exe: "Cantinella.exe",
+        new_document: None,
+        new_extension: "cantinella",
+    },
 ];
 
 pub fn app_for_extension(ext: &str) -> Option<&'static KnownApp> {
@@ -94,6 +117,19 @@ mod tests {
         assert_eq!(v["formatVersion"], 1);
         assert_eq!(v["data"]["meta"]["title"], "Amleto \"2\"");
         assert!(v["content"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn new_cantinella_document_is_in_the_current_format() {
+        let app = app_by_id("cantinella").unwrap();
+        assert_eq!(app_for_extension("CANTINELLA").unwrap().id, "cantinella");
+        let text = new_document_text(app, " Produzione ").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["format"], "cantinella");
+        // Must match FILE_FORMAT_VERSION in apps/cantinella/src/model/types.ts.
+        assert_eq!(v["formatVersion"], 1);
+        assert_eq!(v["data"]["title"], "Produzione");
+        assert!(v["data"]["people"].as_array().unwrap().is_empty());
     }
 
     #[test]

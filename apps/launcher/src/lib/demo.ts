@@ -22,7 +22,7 @@ let settings: Settings = {
   showOrder: [],
 };
 
-const base = { documents: 2, inShow: 3, apps: ["diaframma", "bardo"], lastOpened: now, parent: null, missing: false, error: null, subtitle: "", cover: {} };
+const base = { documents: 2, inShow: 3, apps: ["diaframma", "bardo", "cantinella"], lastOpened: now, parent: null, missing: false, error: null, subtitle: "", cover: {} };
 const shows: ShowNode[] = [
   {
     ...base, path: "C:\\Teatro\\Amleto 2027", id: "a", title: "Amleto", subtitle: "Stagione 2027 · Teatro Comunale", cover: {}, created: now - 60 * day, updated: now,
@@ -47,9 +47,10 @@ const project: ProjectView = {
       { id: "d3", app: "diaframma", title: "Prove sonore", path: "Audio/Prove.diaframma", phase: "rehearsals" },
       { id: "d4", app: "bardo", title: "AMLETO — Copione bozza 2", path: "Copione.bardo", phase: "preparation" },
       { id: "d5", app: "diaframma", title: "Scaletta — prima versione", path: "Audio/Vecchia.diaframma", phase: null },
+      { id: "d6", app: "cantinella", title: "Produzione", path: "Amleto - produzione.cantinella", phase: "rehearsals" },
     ],
   },
-  exists: { d1: true, d2: true, d3: true, d4: true, d5: false },
+  exists: { d1: true, d2: true, d3: true, d4: true, d5: false, d6: true },
   exports: {
     d4: [
       { name: "Amleto - copione 2.pdf", path: "Amleto - copione 2.pdf", modified: now - day },
@@ -79,15 +80,19 @@ const apps: AppsView = {
       id: "bardo", name: "Bardo", installed: { path: "", version: "0.1.1" }, status: { state: "upToDate" },
       latest: { version: "0.1.1", url: "", notes: "" }, held: null, versions: [v("0.1.1", 2, "", true), v("0.1.0", 9)],
     },
+    {
+      id: "cantinella", name: "Cantinella", installed: null, status: { state: "available", latest: "0.1.0", url: "" },
+      latest: { version: "0.1.0", url: "", notes: "Prima versione: struttura, rubrica, importazione vCard e CSV." }, held: null, versions: [v("0.1.0", 0)],
+    },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.3.0" }, status: { state: "upToDate" }, latest: null, held: null, versions: [v("0.3.0", 0, "", true), v("0.2.1", 1)] },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.3.1" }, status: { state: "upToDate" }, latest: null, held: null, versions: [v("0.3.1", 0, "", true), v("0.3.0", 1), v("0.2.1", 2)] },
   checkedAt: now - 3 * day,
   error: null,
 };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "app_info": return { name: "Theatre Suite", version: "0.3.0", os: "demo" };
+    case "app_info": return { name: "Theatre Suite", version: "0.3.1", os: "demo" };
     case "startup_show": return null;
     case "settings_load": return settings;
     case "settings_save": settings = args!.settings as Settings; return;

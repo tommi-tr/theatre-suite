@@ -15,3 +15,5 @@
 - 2026-11-09 · Bardo: PDF = the pages on screen, printed by WebView2 PrintToPdf on Windows (system print window elsewhere). Word (.docx) and LibreOffice (.odt) use named paragraph styles and common system fonts.
 - 2026-11-09 · Bardo: import of .docx/.txt by rules and statistics, no AI.
 - 2026-11-09 · Bardo accent: copper (rame); icon: "battute".
+- 2026-11-14 · Cantinella: one JSON file per production (`.cantinella`, format 1), sections as keys of `data`, unknown keys kept. Frame "C": sections on top, parts on the left. Accent slate (ardesia), icon "Telaio".
+- 2026-11-14 · Shared: `TitleBar` takes `show` (show name + colour band) and `version`; `StatusLight`, `CopyPreview` in `packages/ui`; show index reading and show colour in `packages/core` (`show.ts`), reused by the launcher.

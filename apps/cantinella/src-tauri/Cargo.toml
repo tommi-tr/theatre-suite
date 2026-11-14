@@ -1,0 +1,23 @@
+[package]
+name = "cantinella"
+version = "0.1.0"
+description = "Cantinella — production of a show: rehearsals, budget, departments, tour (Theatre Suite)"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "cantinella_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-clipboard-manager = "2.5.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

@@ -86,7 +86,7 @@ export function Segmented<T extends string>({
   return (
     <div className={cx("ts-seg", small && "ts-seg--sm")} role="group" aria-label={ariaLabel}>
       {options.map((o) => (
-        <button key={o.value} type="button" className="ts-seg__btn" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+        <button key={o.value} type="button" className="ts-seg__btn" title={o.label} aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
           {o.icon ? <Icon name={o.icon} size={15} /> : null}
           <span className="ts-seg__label">{o.label}</span>
         </button>
@@ -507,6 +507,22 @@ export interface WindowActions {
   maximized?: boolean;
 }
 
+/** The show (project of the launcher) the open document belongs to. */
+export interface ShowBand {
+  title: string;
+  /** Colour of the show, `#rrggbb` (see showColor in @theatre-suite/core). */
+  color: string;
+}
+
+function hexRgb(hex: string): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return Number.isFinite(n) ? `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}` : "120,120,120";
+}
+
+/**
+ * Window title bar. With `show` the bar reads "[logo] Show / document", gets a soft
+ * gradient of the show colour and a 3 px band underneath (02_design.md, launcher).
+ */
 export function TitleBar({
   logo,
   appName,
@@ -516,6 +532,8 @@ export function TitleBar({
   actions,
   windowActions,
   labels,
+  show,
+  version,
 }: {
   logo: ReactNode;
   appName: string;
@@ -525,14 +543,24 @@ export function TitleBar({
   actions?: ReactNode;
   windowActions: WindowActions;
   labels: { minimize: string; maximize: string; restore: string; close: string };
+  show?: ShowBand | null;
+  /** "Cantinella 0.1.0": shown on the right, before the window buttons. */
+  version?: string;
 }) {
-  return (
-    <header className="ts-titlebar" data-tauri-drag-region>
+  const style = show ? ({ ["--show-rgb" as string]: hexRgb(show.color) } as CSSProperties) : undefined;
+  const bar = (
+    <header className={cx("ts-titlebar", show && "ts-titlebar--show")} style={style} data-tauri-drag-region>
       <div className="ts-titlebar__side" data-tauri-drag-region>
         {logo}
-        <span className="ts-titlebar__name" data-tauri-drag-region>
-          {appName}
-        </span>
+        {show ? (
+          <span className="ts-titlebar__show" data-tauri-drag-region title={show.title}>
+            {show.title}
+          </span>
+        ) : (
+          <span className="ts-titlebar__name" data-tauri-drag-region>
+            {appName}
+          </span>
+        )}
         {fileName ? (
           <>
             <span className="ts-titlebar__sep">/</span>
@@ -551,6 +579,7 @@ export function TitleBar({
       {center}
       <div className="ts-titlebar__side ts-titlebar__side--end" data-tauri-drag-region>
         {actions}
+        {version ? <span className="ts-titlebar__version">{version}</span> : null}
         <span className="ts-titlebar__divider" />
         <button type="button" className="ts-win-btn" aria-label={labels.minimize} title={labels.minimize} onClick={windowActions.minimize}>
           <Icon name="minus" size={12} strokeWidth={1.6} />
@@ -569,6 +598,13 @@ export function TitleBar({
         </button>
       </div>
     </header>
+  );
+  if (!show) return bar;
+  return (
+    <>
+      {bar}
+      <div className="ts-showband" style={style} aria-hidden="true" />
+    </>
   );
 }
 
@@ -630,5 +666,99 @@ export function HoldButton({
     >
       {children}
     </button>
+  );
+}
+
+/* ---------------- Status light (semaforo) ---------------- */
+
+/** Green = all right, amber = in progress / at risk, red = blocked, blue = for information. */
+export type LightState = "ok" | "warn" | "stop" | "info";
+
+export const LIGHT_STATES: LightState[] = ["ok", "warn", "stop", "info"];
+
+/** Dot + word in the four colours of the suite (never the colour alone). */
+export function StatusLight({ state, label, strong }: { state: LightState; label: string; strong?: boolean }) {
+  return (
+    <span className={cx("ts-light", `ts-light--${state}`, strong && "ts-light--strong")}>
+      <span className="ts-light__dot" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+/** The four lights as a selector (one chosen). */
+export function StatusLightPicker({
+  value,
+  onChange,
+  labels,
+  ariaLabel,
+}: {
+  value: LightState;
+  onChange: (v: LightState) => void;
+  labels: Record<LightState, string>;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="ts-lights" role="radiogroup" aria-label={ariaLabel}>
+      {LIGHT_STATES.map((st) => (
+        <button key={st} type="button" role="radio" aria-checked={st === value} className="ts-lights__btn" onClick={() => onChange(st)}>
+          <StatusLight state={st} label={labels[st]} strong={st === value} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Copy preview ---------------- */
+
+/**
+ * Faithful preview of a text to paste somewhere else (WhatsApp, email…) and a
+ * "Copy" button that turns into "Copied" for a moment. `copy` does the copying
+ * (the app decides how: Tauri clipboard, browser clipboard…).
+ */
+export function CopyPreview({
+  text,
+  copy,
+  labels,
+  emptyText,
+  extra,
+  maxHeight = 320,
+}: {
+  text: string;
+  copy: (text: string) => Promise<void> | void;
+  labels: { copy: string; copied: string };
+  emptyText?: string;
+  /** More actions next to "Copy" (PDF, .ics…). */
+  extra?: ReactNode;
+  maxHeight?: number;
+}) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const id = window.setTimeout(() => setCopied(false), 1800);
+    return () => window.clearTimeout(id);
+  }, [copied]);
+  useEffect(() => setCopied(false), [text]);
+  const empty = !text.trim();
+  return (
+    <div className="ts-copy">
+      <pre className={cx("ts-copy__text", empty && "ts-copy__text--empty")} style={{ maxHeight }}>
+        {empty ? emptyText ?? "" : text}
+      </pre>
+      <div className="ts-copy__actions">
+        <Button
+          variant="primary"
+          icon={copied ? "check" : "copy"}
+          disabled={empty}
+          onClick={async () => {
+            await copy(text);
+            setCopied(true);
+          }}
+        >
+          {copied ? labels.copied : labels.copy}
+        </Button>
+        {extra}
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Cantinella",
+  "version": "0.1.0",
+  "identifier": "it.theatresuite.cantinella",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1422",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cantinella",
+        "width": 1366,
+        "height": 768,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "center": true,
+        "decorations": false,
+        "shadow": true,
+        "dragDropEnabled": false,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "Theatre Suite",
+    "copyright": "© 2026 Theatre Suite",
+    "category": "Productivity",
+    "shortDescription": "Production of a show: rehearsals, budget, departments, tour",
+    "longDescription": "Cantinella helps whoever produces a show: rehearsal dates and availability, costs and break-even, departments and company contacts, tour dates. Everything stays on this computer.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "cantinella"
+        ],
+        "name": "Cantinella production",
+        "description": "Cantinella production",
+        "role": "Editor",
+        "mimeType": "application/x-cantinella+json"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "Italian"
+        ],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    }
+  }
+}

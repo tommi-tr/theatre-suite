@@ -1,21 +1,13 @@
 import type { Cover } from "./types";
 
-/** Colours offered for a show without an image. */
-export const SHOW_COLORS = ["#7a2e4a", "#9a6a2a", "#2f6f80", "#4a5fa8", "#5b7a3a", "#7a4a8a", "#8a4a2a", "#3a5a5a"];
+import { SHOW_COLORS, showColor as coreShowColor } from "@theatre-suite/core";
 
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
+/** Colours offered for a show without an image (shared with the apps, see @theatre-suite/core). */
+export { SHOW_COLORS };
 
 /** The colour of a show: the one chosen, otherwise one derived from the title (always the same). */
 export function showColor(title: string, cover?: Cover | null): string {
-  if (cover?.color && /^#[0-9a-f]{6}$/i.test(cover.color)) return cover.color;
-  return SHOW_COLORS[hash(title.trim().toLowerCase()) % SHOW_COLORS.length];
+  return coreShowColor(title, cover);
 }
 
 function mix(hex: string, to: number, amount: number): string {

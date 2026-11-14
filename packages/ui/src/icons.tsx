@@ -163,6 +163,12 @@ export const ICONS = {
   sparkle: "M12 3l1.9 5.8L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.2z",
   video: "M2 6h14v12H2zM16 10l6-4v12l-6-4",
   layers: "M12 2l10 5-10 5L2 7zM2 12l10 5 10-5M2 17l10 5 10-5",
+  // Production (Cantinella)
+  euro: "M18 7a6 6 0 1 0 0 10M4 10h9M4 14h9",
+  trafficLight: "M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7h.01M12 12h.01M12 17h.01",
+  truck: "M2 6h12v10H2zM14 10h4l3 3v3h-7M6 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M17 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3",
+  calendar: "M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",
+  addressBook: "M6 2h13v20H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 17a4 4 0 0 1 8 0M2 7h3M2 12h3M2 17h3",
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -208,11 +214,13 @@ export interface AppLogoProps {
   inkPath: string;
   size?: number;
   label: string;
+  /** Line width on the 100×100 grid; by default it grows as the tile gets smaller. */
+  strokeWidth?: number;
 }
 
 /** App icon tile: light tile, accent + ink line marks (see 02_design.md). */
-export function AppLogo({ accentPath, inkPath, size = 22, label }: AppLogoProps) {
-  const stroke = size < 24 ? 4.5 : size <= 64 ? 3.4 : 3;
+export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth }: AppLogoProps) {
+  const stroke = strokeWidth ?? (size < 24 ? 4.5 : size <= 64 ? 3.4 : 3);
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={label} style={{ flex: "none" }}>
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />

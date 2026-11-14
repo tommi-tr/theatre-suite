@@ -13,6 +13,9 @@
     "launcher:build": "pnpm --filter launcher tauri build",
     "bardo:dev": "pnpm --filter bardo tauri dev",
     "bardo:build": "pnpm --filter bardo tauri build",
-    "bardo:test": "pnpm --filter bardo test"
+    "bardo:test": "pnpm --filter bardo test",
+    "cantinella:dev": "pnpm --filter cantinella tauri dev",
+    "cantinella:build": "pnpm --filter cantinella tauri build",
+    "cantinella:test": "pnpm --filter cantinella test"
   }
 }
