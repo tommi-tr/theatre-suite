@@ -85,7 +85,7 @@ const apps: AppsView = {
       latest: { version: "0.1.0", url: "", notes: "Prima versione: struttura, rubrica, importazione vCard e CSV." }, held: null, versions: [v("0.1.0", 0)],
     },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.3.1" }, status: { state: "upToDate" }, latest: null, held: null, versions: [v("0.3.1", 0, "", true), v("0.3.0", 1), v("0.2.1", 2)] },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.3.1" }, status: { state: "available", latest: "0.3.2", url: "" }, latest: { version: "0.3.2", url: "", notes: "" }, held: null, versions: [v("0.3.2", 0, "Pagina Theatre Suite più ordinata; il launcher si aggiorna da solo."), v("0.3.1", 1, "", true), v("0.3.0", 2)] },
   checkedAt: now - 3 * day,
   error: null,
 };

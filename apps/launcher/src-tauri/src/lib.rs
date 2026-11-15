@@ -648,7 +648,7 @@ fn app_install(
     })?;
     send("install", 0, 0);
     if app_id == "launcher" {
-        install::run_interactive(&file)?;
+        install::run_self_update(&file)?;
         app.exit(0);
         return Ok(apps_view(&app, &ctx));
     }

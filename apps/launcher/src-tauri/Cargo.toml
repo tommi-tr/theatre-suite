@@ -1,6 +1,6 @@
 [package]
 name = "launcher"
-version = "0.3.1"
+version = "0.3.2"
 description = "Theatre Suite launcher — shows, documents, installations and versions"
 authors = ["Theatre Suite"]
 edition = "2024"
