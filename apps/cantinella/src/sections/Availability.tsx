@@ -5,7 +5,7 @@ import { MONTHS, WEEKDAYS, atLabel, dayLabel, historyOf, isPast, nextState, pars
 import type { AnswerState, Person, RehearsalDate } from "../model/types";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
-import { useAvailability } from "./availability";
+import { useAvailability } from "./useAvailability";
 import { roleLabel } from "./roles";
 
 const lightOf: Record<AnswerState, LightState> = { yes: "ok", maybe: "warn", no: "stop", none: "info" };

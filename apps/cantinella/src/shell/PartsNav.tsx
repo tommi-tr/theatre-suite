@@ -2,7 +2,7 @@ import { useT } from "@theatre-suite/core";
 import type { SectionId } from "../model/types";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
-import { useAvailability } from "../sections/availability";
+import { useAvailability } from "../sections/useAvailability";
 import { sectionDef } from "./sections";
 
 /** The parts of the open section, in a narrow column on the left. */

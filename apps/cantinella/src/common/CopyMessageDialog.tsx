@@ -4,7 +4,7 @@ import { CopyPreview, Dialog, Segmented, Switch } from "@theatre-suite/ui";
 import { copyText } from "../lib/api";
 import { DEFAULT_INTRO } from "../model/defaults";
 import { datesMessage, reminderMessage } from "../model/rehearsals";
-import { useAvailability } from "../sections/availability";
+import { useAvailability } from "../sections/useAvailability";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
 
