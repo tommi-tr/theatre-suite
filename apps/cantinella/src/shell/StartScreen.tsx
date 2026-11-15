@@ -52,7 +52,7 @@ const CARDS: Card[] = [
     title: "Tour",
     text: "Venues and fees, technical sheet, travel, gear to load.",
     invite: "Add a venue",
-    arrives: "0.8",
+    arrives: null,
   },
 ];
 

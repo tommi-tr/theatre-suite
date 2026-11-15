@@ -13,6 +13,11 @@ import { Seats, SeatsActions, SeatsStatus } from "../sections/Seats";
 import { BreakEven, BreakEvenActions, BreakEvenStatus } from "../sections/BreakEven";
 import { DepartmentsPart, DepartmentsActions, DepartmentsStatus } from "../sections/Departments";
 import { Reports, ReportsActions, ReportsStatus } from "../sections/Reports";
+import { Venues, VenuesActions, VenuesStatus } from "../sections/Venues";
+import { GearPart, TechSheetActions, TechSheetPart, TourStatus, TourSummaryPart, TravelPart } from "../sections/TourParts";
+import { addVenue } from "../sections/tourCommon";
+import { CalendarActions, CalendarStatus, ListView, MonthView, WeekView } from "../sections/Calendar";
+import { Button } from "@theatre-suite/ui";
 import { partDef } from "./sections";
 
 /** The open part of a section. */
@@ -29,6 +34,14 @@ export function PartView({ section }: { section: SectionId }) {
   if (part.id === "breakeven") return <BreakEven />;
   if (part.id === "departments") return <DepartmentsPart />;
   if (part.id === "reports") return <Reports />;
+  if (part.id === "venues") return <Venues />;
+  if (part.id === "techSheet") return <TechSheetPart />;
+  if (part.id === "travel") return <TravelPart />;
+  if (part.id === "gear") return <GearPart />;
+  if (part.id === "summary") return <TourSummaryPart />;
+  if (part.id === "month") return <MonthView />;
+  if (part.id === "week") return <WeekView />;
+  if (part.id === "list") return <ListView />;
   return <ComingSoon section={section} part={part} />;
 }
 
@@ -46,6 +59,10 @@ export function PartActions({ section }: { section: SectionId }) {
   if (id === "breakeven") return <BreakEvenActions />;
   if (id === "departments") return <DepartmentsActions />;
   if (id === "reports") return <ReportsActions />;
+  if (id === "venues") return <VenuesActions />;
+  if (id === "techSheet") return <TechSheetActions />;
+  if (id === "travel" || id === "gear" || id === "summary") return <AddVenueButton />;
+  if (section === "calendar") return <CalendarActions />;
   return null;
 }
 
@@ -76,6 +93,9 @@ export function PartStatus() {
   if (part.id === "breakeven") return <BreakEvenStatus />;
   if (part.id === "departments") return <DepartmentsStatus />;
   if (part.id === "reports") return <ReportsStatus />;
+  if (part.id === "venues") return <VenuesStatus />;
+  if (section === "tour") return <TourStatus />;
+  if (section === "calendar") return <CalendarStatus />;
   return (
     <>
       <span>{t("{part}: coming in Cantinella {v}", { part: t(part.label), v: part.arrives ?? "" })}</span>
@@ -84,5 +104,14 @@ export function PartStatus() {
         <Kbd>Ctrl 1–5</Kbd> {t("sections")}
       </span>
     </>
+  );
+}
+
+function AddVenueButton() {
+  const t = useT();
+  return (
+    <Button variant="ghost" icon="plus" onClick={() => addVenue(t)}>
+      {t("Add a venue")}
+    </Button>
   );
 }

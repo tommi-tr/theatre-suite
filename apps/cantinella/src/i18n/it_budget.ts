@@ -137,6 +137,7 @@ export const itBudget: Dict = {
   "− percent": "− percentuale",
   // Kinds, states, categories, seat states (labels in budgetCommon.ts and Seats.tsx)
   "Per spectator": "Per spettatore",
+  "SIAE": "SIAE",
   "On the takings": "Sull'incasso",
   "Mixed": "Misto",
   "Estimate": "Stima",

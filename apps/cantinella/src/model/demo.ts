@@ -6,6 +6,7 @@ import { proposePlan } from "./plan";
 import type { Answer, AnswerState, CantinellaData, RehearsalDate } from "./types";
 import { newBudget, newCost, type Budget, type Cost, type SeatState } from "./budget";
 import { newTodo, noteToTodo, presetDepartments, type Departments } from "./departments";
+import { newTour, newVenue, type Tour } from "./tour";
 
 /** "La locandiera": the company of the design preview, for `/?demo`. */
 export const DEMO_SHOW: ShowInfo = { id: "demo", title: "La locandiera", color: "#6d5a3a" };
@@ -103,6 +104,7 @@ export function demoData(): CantinellaData {
   d.rehearsals.plan = proposePlan(d.rehearsals);
   d.budget = demoBudget();
   d.departments = demoDepartments(d);
+  d.tour = demoTour(d);
   return d;
 }
 
@@ -162,4 +164,76 @@ export function demoDepartments(d: CantinellaData, today = todayKey()): Departme
     { id: uid(), deptId: by("costumes").id, text: "Ortensia ha bisogno di un cambio veloce", todoId: "" },
   );
   return noteToTodo(deps, rep.id, rep.notes[1].id, addDays(today, 3));
+}
+
+/** Three venues (one done, one confirmed, one being negotiated), the technical sheet and the gear. */
+export function demoTour(d: CantinellaData, today = todayKey()): Tour {
+  const who = (n: string) => d.people.find((p) => p.name === n)?.id ?? "";
+  const t = newTour();
+  t.sheet = {
+    ...t.sheet,
+    width: 800,
+    depth: 600,
+    height: 500,
+    needs: [
+      { id: "need-pc", text: "12 PC 1 kW" },
+      { id: "need-mix", text: "Mixer 8 canali" },
+      { id: "need-black", text: "Quinte e fondale neri" },
+      { id: "need-dress", text: "Due camerini" },
+    ],
+    notes: "Buio in sala completo. Una presa da 32 A vicino al palco.",
+  };
+  t.gear = [
+    { id: "g1", name: "Bancone della locanda", group: "set", qty: 1 },
+    { id: "g2", name: "Porta praticabile", group: "set", qty: 1 },
+    { id: "g3", name: "Bauli costumi", group: "costumes", qty: 3 },
+    { id: "g4", name: "Vassoi e bicchieri", group: "props", qty: 1 },
+    { id: "g5", name: "Mixer e cavi", group: "tech", qty: 1 },
+  ];
+  const car = (vehicle: string, people: string[], km: number, fuel: number, tolls: number) => ({ id: uid(), vehicle, people: people.map(who), km, fuel, tolls });
+  t.venues = [
+    newVenue({
+      theatre: "Teatro Verdi",
+      city: "Pisa",
+      address: "Via Palestro 40",
+      day: addDays(today, -12),
+      contact: "Laura · 333 555 0201",
+      state: "done",
+      deal: "fee",
+      amount: 120000,
+      hostWidth: 900,
+      hostDepth: 700,
+      hostHeight: 600,
+      has: { "need-pc": "yes", "need-mix": "bring", "need-black": "yes", "need-dress": "yes" },
+      schedule: { depart: "13:00", arrive: "14:30", setup: "15:00", check: "18:00", doors: "20:30", show: "21:00", strike: "23:00", back: "00:30" },
+      trips: [car("Furgone", ["Davide Conti", "Paolo Greco"], 160, 3200, 900), car("Auto di Anna", ["Anna Morelli", "Giulia Ferri", "Enrico Sala", "Marco Bellini"], 160, 2400, 900)],
+      takings: 0,
+      audience: 212,
+      siae: "Borderò n. 1187",
+      notes: "Camerini al primo piano: servono 10 minuti per scendere.",
+      gear: { g1: { out: true, back: true }, g2: { out: true, back: true }, g3: { out: true, back: true }, g4: { out: true, back: true }, g5: { out: true, back: true } },
+    }),
+    newVenue({
+      theatre: "Teatro dei Rinnovati",
+      city: "Siena",
+      address: "Piazza del Campo 1",
+      day: addDays(today, 30),
+      contact: "Marco · 333 555 0202",
+      state: "confirmed",
+      deal: "split",
+      amount: 80000,
+      percent: 6000,
+      hostWidth: 750,
+      hostDepth: 650,
+      hostHeight: 0,
+      has: { "need-pc": "yes", "need-mix": "bring", "need-black": "no" },
+      schedule: { depart: "12:00", arrive: "13:30", setup: "14:00", check: "17:30", doors: "20:30", show: "21:00", strike: "", back: "" },
+      trips: [car("Furgone", ["Davide Conti", "Paolo Greco"], 230, 4600, 1500)],
+      rooms: 4,
+      roomCost: 7000,
+      gear: { g1: { out: true, back: false } },
+    }),
+    newVenue({ theatre: "Teatro Comunale", city: "Lucca", day: addDays(today, 44), contact: "Ufficio programmazione", state: "proposal", deal: "takings" }),
+  ];
+  return t;
 }

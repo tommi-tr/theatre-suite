@@ -41,7 +41,6 @@ export interface SectionDef {
   parts: PartDef[];
 }
 
-const soon = (id: PartId, label: string, arrives: string, ...about: string[]): PartDef => ({ id, label, arrives, about });
 
 export const SECTIONS: SectionDef[] = [
   {
@@ -84,11 +83,11 @@ export const SECTIONS: SectionDef[] = [
     short: "Tour",
     icon: "truck",
     parts: [
-      soon("venues", "Venues", "0.8", "Every date of the tour: theatre, contact, state of the negotiation, fee."),
-      soon("techSheet", "Technical sheet", "0.8", "One technical sheet of the show, compared with the sheet of each theatre."),
-      soon("travel", "Travel", "0.8", "Who travels how, kilometres, costs and rooms; the costs go into the Budget."),
-      soon("gear", "Gear", "0.8", "Load list with ticks for loading and unloading."),
-      soon("summary", "Summary", "0.8", "Confirmed dates, fees, costs and balance of the tour."),
+      { id: "venues", label: "Venues", arrives: null, about: [] },
+      { id: "techSheet", label: "Technical sheet", arrives: null, about: [] },
+      { id: "travel", label: "Travel", arrives: null, about: [] },
+      { id: "gear", label: "Gear", arrives: null, about: [] },
+      { id: "summary", label: "Summary", arrives: null, about: [] },
     ],
   },
   {
@@ -97,9 +96,9 @@ export const SECTIONS: SectionDef[] = [
     short: "Calendar",
     icon: "calendar",
     parts: [
-      soon("month", "Month", "0.7", "Rehearsals, performances, tour days and deadlines in one calendar.", "Filter by person and export to your phone's calendar (.ics)."),
-      soon("week", "Week", "0.7", "The week at a glance, by day and time."),
-      soon("list", "List", "0.7", "Everything that is coming, in order."),
+      { id: "month", label: "Month", arrives: null, about: [] },
+      { id: "week", label: "Week", arrives: null, about: [] },
+      { id: "list", label: "List", arrives: null, about: [] },
     ],
   },
 ];

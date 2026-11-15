@@ -8,6 +8,9 @@ function keysIn(code: string): string[] {
   const out: string[] = [];
   const re = /\bt\(\s*"((?:[^"\\]|\\.)*)"/g;
   for (let m = re.exec(code); m; m = re.exec(code)) out.push(JSON.parse(`"${m[1]}"`));
+  // Label tables translated later with t(TABLE[key]): every value is a text of the interface.
+  const tables = /(?:const|let)\s+[A-Z_]*LABELS?\b[^=]*=\s*\{([^}]*)\}/g;
+  for (let m = tables.exec(code); m; m = tables.exec(code)) for (const v of m[1].matchAll(/:\s*"((?:[^"\\]|\\.)*)"/g)) out.push(JSON.parse(`"${v[1]}"`));
   return out;
 }
 
