@@ -133,6 +133,27 @@ export function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [onKey]);
 
+  // Text pasted while the rehearsals are open and nothing is being typed: it is the replies to read.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const ui = useUi.getState();
+      if (ui.dialog || ui.section !== "rehearsals") return;
+      if ((e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!text.trim()) return;
+      e.preventDefault();
+      if (useDoc.getState().data.rehearsals.dates.length === 0) {
+        ui.go("rehearsals", "dates");
+        ui.showToast(t("Add the dates first: the replies are read against them."), "error");
+        return;
+      }
+      ui.go("rehearsals", "availability");
+      ui.openPaste(text);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [t]);
+
   const docLabel = title.trim() || t("Production");
   const fileLabel = filePath ? basename(filePath).replace(/\.cantinella$/i, "") : `${docLabel} · ${t("not saved yet")}`;
   return (

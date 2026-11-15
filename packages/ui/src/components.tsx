@@ -762,3 +762,40 @@ export function CopyPreview({
     </div>
   );
 }
+
+/* ---------------- State cell ---------------- */
+
+/** Answer of a grid "who × when": yes, maybe, no, or nothing yet. */
+export type CellState = "yes" | "maybe" | "no" | "none";
+
+/**
+ * Cell of a table "who × when" (availability; other apps later). Shows the state with colour **and**
+ * a letter, a dot when there is a note, a ring in the accent when selected. The app decides what a click does
+ * (Cantinella: it cycles through the states).
+ */
+export function StateCell({
+  state,
+  letter,
+  label,
+  note,
+  selected,
+  className,
+  ...rest
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
+  state: CellState;
+  /** One character: S, F, N… The dash for "nothing yet" is drawn by the cell itself. */
+  letter: string;
+  /** Spoken and tooltip text ("Giovanni, lunedì 16 novembre: sì"). */
+  label: string;
+  /** Show the "there is a note" dot. */
+  note?: boolean;
+  selected?: boolean;
+}) {
+  return (
+    <button type="button" className={cx("ts-state", `ts-state--${state}`, selected && "ts-state--on", className)} aria-label={label} title={label} {...rest}>
+      <span aria-hidden="true">{state === "none" ? "–" : letter}</span>
+      {note ? <span className="ts-state__note" aria-hidden="true" /> : null}
+    </button>
+  );
+}
+

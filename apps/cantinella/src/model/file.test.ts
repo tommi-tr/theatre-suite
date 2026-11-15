@@ -24,10 +24,10 @@ describe("file format 1", () => {
   });
 
   it("keeps fields it does not know (sections of later versions)", () => {
-    const text = JSON.stringify({ format: "cantinella", formatVersion: 1, data: { id: "x", title: "", people: [], rehearsals: { dates: [1, 2] } } });
+    const text = JSON.stringify({ format: "cantinella", formatVersion: 1, data: { id: "x", title: "", people: [], budget: { costs: [1, 2] } } });
     const d = parse(text);
-    expect(d.extra).toEqual({ rehearsals: { dates: [1, 2] } });
-    expect(JSON.parse(serialize(d, APP)).data.rehearsals).toEqual({ dates: [1, 2] });
+    expect(d.extra).toEqual({ budget: { costs: [1, 2] } });
+    expect(JSON.parse(serialize(d, APP)).data.budget).toEqual({ costs: [1, 2] });
     expect(isEmpty(d)).toBe(false);
   });
 
@@ -83,5 +83,52 @@ describe("comparison keys", () => {
     expect(phoneKey("+39 347 555 0192")).toBe("3475550192");
     expect(phoneKey("0039 347-555-0192")).toBe("3475550192");
     expect(phoneKey("347 5550192")).toBe("3475550192");
+  });
+});
+
+describe("rehearsals in the file", () => {
+  const doc = (rehearsals: unknown, people: unknown[] = [{ id: "p1", name: "Giovanni Rota" }]) =>
+    parse(JSON.stringify({ format: "cantinella", formatVersion: 1, data: { id: "x", title: "", people, rehearsals } }));
+
+  it("a document without rehearsals gets empty ones with the default intro", () => {
+    const d = parse(JSON.stringify({ format: "cantinella", formatVersion: 1, data: { people: [] } }));
+    expect(d.rehearsals.dates).toEqual([]);
+    expect(d.rehearsals.answers).toEqual([]);
+    expect(d.rehearsals.intro).toMatch(/date delle prove/);
+  });
+
+  it("is written and read back as it was", () => {
+    const rehearsals = {
+      dates: [{ id: "d1", day: "2026-11-16", time: "16:00", minutes: 90, place: "Sala prove" }],
+      answers: [{ id: "a1", personId: "p1", dateId: "d1", state: "maybe", note: "esco alle 17", at: "2026-11-15T20:05", source: "paste" }],
+      words: { yes: ["x"], maybe: ["boh"], no: [] },
+      intro: "Ciao!",
+    };
+    const d = doc(rehearsals);
+    expect(d.rehearsals).toEqual(rehearsals);
+    expect(parse(serialize(d, APP)).rehearsals).toEqual(rehearsals);
+    expect(isEmpty(d)).toBe(false);
+  });
+
+  it("repairs what is wrong instead of failing", () => {
+    const d = doc({
+      dates: [
+        { id: "d1", day: "2026-11-16", time: "25:99", minutes: 5 },
+        { id: "d1", day: "2026-11-17", time: "18:00", minutes: 99999 },
+        { day: "2026-02-31x" },
+        "nonsense",
+      ],
+      answers: [
+        { id: "a1", personId: "p1", dateId: "d1", state: "yes", at: "yesterday", source: "other" },
+        { id: "a2", personId: "ghost", dateId: "d1", state: "yes" },
+        { id: "a3", personId: "p1", dateId: "ghost", state: "yes" },
+        { id: "a4", personId: "p1", dateId: "d1", state: "perhaps" },
+      ],
+      intro: 5,
+    });
+    expect(d.rehearsals.dates.map((x) => [x.day, x.time, x.minutes])).toEqual([["2026-11-16", "18:00", 15], ["2026-11-17", "18:00", 1440]]);
+    expect(new Set(d.rehearsals.dates.map((x) => x.id)).size).toBe(2);
+    expect(d.rehearsals.answers.map((a) => [a.id, a.at, a.source])).toEqual([["a1", "", "manual"]]);
+    expect(d.rehearsals.intro).toMatch(/date delle prove/);
   });
 });

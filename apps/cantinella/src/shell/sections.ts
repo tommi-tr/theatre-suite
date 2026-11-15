@@ -50,14 +50,8 @@ export const SECTIONS: SectionDef[] = [
     short: "Rehearsals",
     icon: "users",
     parts: [
-      soon("dates", "Dates", "0.2", "Enter the dates you can rehearse: day, time, length, place.", "Copy the message of the dates and send it on WhatsApp in one go."),
-      soon(
-        "availability",
-        "Availability",
-        "0.2",
-        "Paste all the replies at once: Cantinella recognises who writes, the date and yes / no / maybe.",
-        "A table of actors × dates, with who has not replied yet and a reminder to copy.",
-      ),
+      { id: "dates", label: "Dates", arrives: null, about: [] },
+      { id: "availability", label: "Availability", arrives: null, about: [] },
       soon("scenes", "Scenes and roles", "0.3", "Scenes and characters by hand, or read from a Bardo script.", "Who plays whom, and who is needed in every scene."),
       soon("plan", "Plan", "0.3", "A rehearsal plan proposed from availability, that you can change and lock.", "Copy the plan for everyone or for one actor, PDF and calendar."),
     ],

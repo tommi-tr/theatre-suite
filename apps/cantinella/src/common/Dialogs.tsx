@@ -5,6 +5,9 @@ import { useUi } from "../store/ui";
 import { SettingsDialog } from "./SettingsDialog";
 import { ImportDialog } from "./ImportDialog";
 import { CopyListDialog } from "./CopyListDialog";
+import { CopyMessageDialog } from "./CopyMessageDialog";
+import { PasteDialog } from "./PasteDialog";
+import { dayLabel } from "../model/rehearsals";
 
 /** Shows the window asked for (one at a time). */
 export function Dialogs() {
@@ -17,8 +20,14 @@ export function Dialogs() {
       return <ImportDialog />;
     case "copyList":
       return <CopyListDialog />;
+    case "pasteReplies":
+      return <PasteDialog />;
+    case "copyMessage":
+      return <CopyMessageDialog initial={d.extra === "reminder" ? "reminder" : "dates"} />;
     case "deletePerson":
       return d.extra ? <DeletePersonDialog id={d.extra} /> : null;
+    case "deleteDate":
+      return d.extra ? <DeleteDateDialog id={d.extra} /> : null;
     default:
       return null;
   }
@@ -43,7 +52,11 @@ function DeletePersonDialog({ id }: { id: string }) {
             variant="danger"
             icon="trash"
             onClick={() => {
-              useDoc.getState().change((d) => ({ ...d, people: d.people.filter((p) => p.id !== id) }));
+              useDoc.getState().change((d) => ({
+                ...d,
+                people: d.people.filter((p) => p.id !== id),
+                rehearsals: { ...d.rehearsals, answers: d.rehearsals.answers.filter((a) => a.personId !== id) },
+              }));
               useUi.getState().selectPerson(null);
               close();
               useUi.getState().showToast(t("{name} deleted. Ctrl Z brings it back.", { name: person.name }));
@@ -55,6 +68,55 @@ function DeletePersonDialog({ id }: { id: string }) {
       }
     >
       <p className="cn-dialog-text">{t("The person is removed from the contacts of this production.")}</p>
+    </Dialog>
+  );
+}
+
+/** Confirmation before deleting a date: the replies given for it go with it. */
+function DeleteDateDialog({ id }: { id: string }) {
+  const t = useT();
+  const date = useDoc((s) => s.data.rehearsals.dates.find((d) => d.id === id));
+  const replies = useDoc((s) => s.data.rehearsals.answers.filter((a) => a.dateId === id).length);
+  const close = () => useUi.getState().closeDialog();
+  if (!date) return null;
+  const label = dayLabel(date.day);
+  return (
+    <Dialog
+      title={t("Delete {name}?", { name: label })}
+      icon="trash"
+      onClose={close}
+      width={460}
+      footer={
+        <>
+          <Button onClick={close}>{t("Cancel")}</Button>
+          <Button
+            variant="danger"
+            icon="trash"
+            onClick={() => {
+              useDoc.getState().change((d) => ({
+                ...d,
+                rehearsals: {
+                  ...d.rehearsals,
+                  dates: d.rehearsals.dates.filter((x) => x.id !== id),
+                  answers: d.rehearsals.answers.filter((a) => a.dateId !== id),
+                },
+              }));
+              close();
+              useUi.getState().showToast(t("{name} deleted. Ctrl Z brings it back.", { name: label }));
+            }}
+          >
+            {t("Delete")}
+          </Button>
+        </>
+      }
+    >
+      <p className="cn-dialog-text">
+        {replies
+          ? replies === 1
+            ? t("The date is removed from the rehearsals, with the 1 reply given for it.")
+            : t("The date is removed from the rehearsals, with the {n} replies given for it.", { n: replies })
+          : t("The date is removed from the rehearsals.")}
+      </p>
     </Dialog>
   );
 }

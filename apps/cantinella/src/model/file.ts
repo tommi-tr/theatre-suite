@@ -1,5 +1,7 @@
 import { uid } from "@theatre-suite/core";
-import { FILE_FORMAT, FILE_FORMAT_VERSION, type CantinellaData, type Person } from "./types";
+import { DEFAULT_INTRO, newRehearsals } from "./defaults";
+import { isRealDay, parseDay } from "./rehearsals";
+import { FILE_FORMAT, FILE_FORMAT_VERSION, type Answer, type CantinellaData, type CustomWords, type Person, type RehearsalDate, type Rehearsals } from "./types";
 
 export type FileProblem = "not-json" | "not-cantinella" | "newer" | "unsupported" | "damaged";
 
@@ -9,7 +11,7 @@ export class CantinellaFileError extends Error {
   }
 }
 
-const KNOWN_KEYS = new Set(["id", "title", "people"]);
+const KNOWN_KEYS = new Set(["id", "title", "people", "rehearsals"]);
 
 const str = (v: unknown, max = 2000): string => (typeof v === "string" ? v.slice(0, max) : "");
 const strList = (v: unknown): string[] =>
@@ -31,6 +33,70 @@ export function normalizePerson(raw: unknown): Person | null {
   };
 }
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const AT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+export function normalizeDate(raw: unknown): RehearsalDate | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const day = str(r.day, 20);
+  if (!DAY_RE.test(day)) return null;
+  const { y, m, d } = parseDay(day);
+  if (!isRealDay(y, m, d)) return null;
+  const time = str(r.time, 5);
+  const minutes = typeof r.minutes === "number" && Number.isFinite(r.minutes) ? Math.min(1440, Math.max(15, Math.round(r.minutes))) : 120;
+  return { id: str(r.id, 100) || uid(), day, time: TIME_RE.test(time) ? time : "18:00", minutes, place: str(r.place, 200).trim() };
+}
+
+const wordList = (v: unknown): string[] => [...new Set(strList(v).map((w) => w.slice(0, 40)))].slice(0, 30);
+
+function normalizeWords(raw: unknown): CustomWords {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return { yes: wordList(r.yes), maybe: wordList(r.maybe), no: wordList(r.no) };
+}
+
+/** Reads the rehearsals block; answers that point to a missing person or date are dropped. */
+export function normalizeRehearsals(raw: unknown, people: Person[]): Rehearsals {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out = newRehearsals();
+  const seen = new Set<string>();
+  for (const d of Array.isArray(r.dates) ? r.dates : []) {
+    const date = normalizeDate(d);
+    if (!date) continue;
+    if (seen.has(date.id)) date.id = uid();
+    seen.add(date.id);
+    out.dates.push(date);
+  }
+  const personIds = new Set(people.map((p) => p.id));
+  const answerIds = new Set<string>();
+  for (const a of Array.isArray(r.answers) ? r.answers : []) {
+    if (!a || typeof a !== "object") continue;
+    const x = a as Record<string, unknown>;
+    const personId = str(x.personId, 100);
+    const dateId = str(x.dateId, 100);
+    if (!personIds.has(personId) || !seen.has(dateId)) continue;
+    if (x.state !== "yes" && x.state !== "maybe" && x.state !== "no" && x.state !== "none") continue;
+    let id = str(x.id, 100) || uid();
+    if (answerIds.has(id)) id = uid();
+    answerIds.add(id);
+    const at = str(x.at, 16);
+    const answer: Answer = {
+      id,
+      personId,
+      dateId,
+      state: x.state,
+      note: str(x.note, 2000).trim(),
+      at: AT_RE.test(at) ? at : "",
+      source: x.source === "paste" ? "paste" : "manual",
+    };
+    out.answers.push(answer);
+  }
+  out.words = normalizeWords(r.words);
+  out.intro = typeof r.intro === "string" ? r.intro.slice(0, 1000) : DEFAULT_INTRO;
+  return out;
+}
+
 /** Reads the `data` block of a file. Missing fields get their defaults; unknown ones are kept. */
 export function normalizeData(raw: unknown): CantinellaData {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -46,7 +112,7 @@ export function normalizeData(raw: unknown): CantinellaData {
   }
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(r)) if (!KNOWN_KEYS.has(k)) extra[k] = v;
-  return { id: str(r.id, 100) || uid(), title: str(r.title, 200), people, extra };
+  return { id: str(r.id, 100) || uid(), title: str(r.title, 200), people, rehearsals: normalizeRehearsals(r.rehearsals, people), extra };
 }
 
 export function serialize(data: CantinellaData, app: { name: string; version: string }, now = new Date()): string {
@@ -55,7 +121,7 @@ export function serialize(data: CantinellaData, app: { name: string; version: st
     formatVersion: FILE_FORMAT_VERSION,
     app,
     savedAt: now.toISOString(),
-    data: { ...data.extra, id: data.id, title: data.title, people: data.people },
+    data: { ...data.extra, id: data.id, title: data.title, people: data.people, rehearsals: data.rehearsals },
   };
   return `${JSON.stringify(file, null, 2)}\n`;
 }

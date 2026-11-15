@@ -1,8 +1,15 @@
 import { uid } from "@theatre-suite/core";
-import type { CantinellaData, Person } from "./types";
+import type { CantinellaData, Person, Rehearsals } from "./types";
+
+/** First line of the message with the dates. Messages for the company are always in Italian. */
+export const DEFAULT_INTRO = "Ecco le date delle prove. Scrivete accanto a ogni data sì, no o forse:";
+
+export function newRehearsals(): Rehearsals {
+  return { dates: [], answers: [], words: { yes: [], maybe: [], no: [] }, intro: DEFAULT_INTRO };
+}
 
 export function newData(title = ""): CantinellaData {
-  return { id: uid(), title, people: [], extra: {} };
+  return { id: uid(), title, people: [], rehearsals: newRehearsals(), extra: {} };
 }
 
 export function newPerson(name = ""): Person {
@@ -11,7 +18,7 @@ export function newPerson(name = ""): Person {
 
 /** Is the document still empty (nothing entered in any section)? */
 export function isEmpty(data: CantinellaData): boolean {
-  return data.people.length === 0 && Object.keys(data.extra).length === 0;
+  return data.people.length === 0 && data.rehearsals.dates.length === 0 && Object.keys(data.extra).length === 0;
 }
 
 /** Letters and digits only, lower case, no accents: for comparing names. */

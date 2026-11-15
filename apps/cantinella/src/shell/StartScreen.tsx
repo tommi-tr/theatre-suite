@@ -24,7 +24,7 @@ const CARDS: Card[] = [
     title: "Rehearsals",
     text: "Dates, who can come, scenes and a rehearsal plan to send to the company.",
     invite: "Add the dates",
-    arrives: "0.2",
+    arrives: null,
   },
   {
     section: "budget",

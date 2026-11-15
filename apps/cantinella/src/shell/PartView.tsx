@@ -4,6 +4,8 @@ import type { SectionId } from "../model/types";
 import { useUi } from "../store/ui";
 import { ComingSoon } from "../sections/ComingSoon";
 import { People, PeopleActions, PeopleStatus } from "../sections/People";
+import { Dates, DatesActions, DatesStatus } from "../sections/Dates";
+import { Availability, AvailabilityActions, AvailabilityStatus } from "../sections/Availability";
 import { partDef } from "./sections";
 
 /** The open part of a section. */
@@ -11,13 +13,18 @@ export function PartView({ section }: { section: SectionId }) {
   const partId = useUi((s) => s.parts[section]);
   const part = partDef(section, partId);
   if (part.id === "people") return <People />;
+  if (part.id === "dates") return <Dates />;
+  if (part.id === "availability") return <Availability />;
   return <ComingSoon section={section} part={part} />;
 }
 
 /** Actions of the open part, on the right of the section bar. */
 export function PartActions({ section }: { section: SectionId }) {
   const partId = useUi((s) => s.parts[section]);
-  if (partDef(section, partId).id === "people") return <PeopleActions />;
+  const id = partDef(section, partId).id;
+  if (id === "people") return <PeopleActions />;
+  if (id === "dates") return <DatesActions />;
+  if (id === "availability") return <AvailabilityActions />;
   return null;
 }
 
@@ -39,6 +46,8 @@ export function PartStatus() {
   }
   const part = partDef(section, partId);
   if (part.id === "people") return <PeopleStatus />;
+  if (part.id === "dates") return <DatesStatus />;
+  if (part.id === "availability") return <AvailabilityStatus />;
   return (
     <>
       <span>{t("{part}: coming in Cantinella {v}", { part: t(part.label), v: part.arrives ?? "" })}</span>
