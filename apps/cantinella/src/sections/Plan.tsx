@@ -263,7 +263,7 @@ function DateColumn({
         {items.map((p) => (
           <SceneCard key={p.id} p={p} r={r} names={names} past={past} map={map} onDrag={setDragging} />
         ))}
-        {!items.length ? <span className="cx-col__none">{past ? t("Nothing was rehearsed") : t("Free")}</span> : null}
+        {!items.length ? <span className="cx-col__none">{past ? t("Nothing was rehearsed") : t("Free day")}</span> : null}
       </div>
       {!past && free.length ? (
         <select className="ts-select cx-col__add" value="" aria-label={t("Add a scene to {day}", { day: dayLabel(d.day) })} onChange={(e) => e.currentTarget.value && addItem(d.id, e.currentTarget.value)}>

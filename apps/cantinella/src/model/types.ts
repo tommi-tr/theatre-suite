@@ -6,6 +6,8 @@
  * changes when it is renamed or moved.
  */
 
+import type { Budget } from "./budget";
+
 export const FILE_FORMAT = "cantinella";
 /** Until the suite is published only this format is read (00_indice_e_stato.md). */
 export const FILE_FORMAT_VERSION = 1;
@@ -132,6 +134,7 @@ export interface CantinellaData {
   title: string;
   people: Person[];
   rehearsals: Rehearsals;
+  budget: Budget;
   /**
    * Data of the sections that arrive in later versions (rehearsals, budget…) and fields
    * written by newer versions: kept untouched when the file is saved again.

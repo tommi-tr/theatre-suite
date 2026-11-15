@@ -1,6 +1,6 @@
 [package]
 name = "cantinella"
-version = "0.3.0"
+version = "0.5.0"
 description = "Cantinella — production of a show: rehearsals, budget, departments, tour (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"

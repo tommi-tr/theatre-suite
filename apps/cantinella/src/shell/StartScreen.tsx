@@ -34,7 +34,7 @@ const CARDS: Card[] = [
     title: "Budget",
     text: "Costs and quotes, the theatre and its seats, how many tickets to break even.",
     invite: "Start from the costs",
-    arrives: "0.4",
+    arrives: null,
   },
   {
     section: "departments",

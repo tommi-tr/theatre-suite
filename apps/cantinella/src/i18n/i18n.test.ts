@@ -21,3 +21,17 @@ describe("Italian dictionary", () => {
     expect([...missing].sort()).toEqual([]);
   });
 });
+
+describe("Italian dictionaries", () => {
+  it("never translate the same text in two different ways", async () => {
+    const { IT_PARTS } = await import("./index");
+    const seen = new Map<string, string>();
+    const clashes: string[] = [];
+    for (const d of IT_PARTS)
+      for (const [k, v] of Object.entries(d)) {
+        if (seen.has(k) && seen.get(k) !== v) clashes.push(`${k}: ${seen.get(k)} / ${v}`);
+        seen.set(k, v);
+      }
+    expect(clashes).toEqual([]);
+  });
+});

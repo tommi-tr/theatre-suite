@@ -1,4 +1,5 @@
 import { uid } from "@theatre-suite/core";
+import { newBudget } from "./budget";
 import type { CantinellaData, Person, Rehearsals } from "./types";
 
 /** First line of the message with the dates. Messages for the company are always in Italian. */
@@ -9,7 +10,7 @@ export function newRehearsals(): Rehearsals {
 }
 
 export function newData(title = ""): CantinellaData {
-  return { id: uid(), title, people: [], rehearsals: newRehearsals(), extra: {} };
+  return { id: uid(), title, people: [], rehearsals: newRehearsals(), budget: newBudget(), extra: {} };
 }
 
 export function newPerson(name = ""): Person {
@@ -18,7 +19,17 @@ export function newPerson(name = ""): Person {
 
 /** Is the document still empty (nothing entered in any section)? */
 export function isEmpty(data: CantinellaData): boolean {
-  return data.people.length === 0 && data.rehearsals.dates.length === 0 && Object.keys(data.extra).length === 0;
+  const b = data.budget;
+  return (
+    data.people.length === 0 &&
+    data.rehearsals.dates.length === 0 &&
+    data.rehearsals.scenes.length === 0 &&
+    data.rehearsals.characters.length === 0 &&
+    b.costs.length === 0 &&
+    b.sectors.length === 0 &&
+    b.performances.length === 0 &&
+    Object.keys(data.extra).length === 0
+  );
 }
 
 /** Letters and digits only, lower case, no accents: for comparing names. */

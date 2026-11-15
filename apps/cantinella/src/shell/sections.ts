@@ -62,9 +62,9 @@ export const SECTIONS: SectionDef[] = [
     short: "Budget",
     icon: "euro",
     parts: [
-      soon("costs", "Costs", "0.4", "Costs and quotes: fixed, per performance, per seat, a percentage of the takings.", "Net and gross with VAT, from estimate to paid."),
-      soon("seats", "Theatre and seats", "0.5", "Sectors, prices and a seat map drawn by itself, one per performance."),
-      soon("breakeven", "Break-even", "0.5", "How many tickets you need to break even, and what a full or half-empty house brings in.", "Scenarios side by side."),
+      { id: "costs", label: "Costs", arrives: null, about: [] },
+      { id: "seats", label: "Theatre and seats", arrives: null, about: [] },
+      { id: "breakeven", label: "Break-even", arrives: null, about: [] },
     ],
   },
   {

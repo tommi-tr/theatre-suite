@@ -24,10 +24,10 @@ describe("file format 1", () => {
   });
 
   it("keeps fields it does not know (sections of later versions)", () => {
-    const text = JSON.stringify({ format: "cantinella", formatVersion: 1, data: { id: "x", title: "", people: [], budget: { costs: [1, 2] } } });
+    const text = JSON.stringify({ format: "cantinella", formatVersion: 1, data: { id: "x", title: "", people: [], props: { items: [1, 2] } } });
     const d = parse(text);
-    expect(d.extra).toEqual({ budget: { costs: [1, 2] } });
-    expect(JSON.parse(serialize(d, APP)).data.budget).toEqual({ costs: [1, 2] });
+    expect(d.extra).toEqual({ props: { items: [1, 2] } });
+    expect(JSON.parse(serialize(d, APP)).data.props).toEqual({ items: [1, 2] });
     expect(isEmpty(d)).toBe(false);
   });
 

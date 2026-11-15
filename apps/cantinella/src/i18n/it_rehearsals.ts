@@ -32,7 +32,7 @@ export const itRehearsals: Dict = {
   "Fill again what is not locked": "Riempie di nuovo ciò che non è fissato",
   "For example: Atto I": "Per esempio: Atto I",
   "For one actor": "Per un attore",
-  "Free": "Libera",
+  "Free day": "Libera",
   "From the Bardo script": "Dal copione di Bardo",
   "From the Bardo script: «Update» brings back the name written there.": "Dal copione di Bardo: «Aggiorna» riporta il nome scritto lì.",
   "Give the characters an actor to see who is needed in every scene.": "Assegna un attore ai personaggi per vedere chi serve in ogni scena.",

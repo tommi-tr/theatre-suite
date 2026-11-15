@@ -2,6 +2,7 @@ import { uid } from "@theatre-suite/core";
 import { DEFAULT_INTRO, newRehearsals } from "./defaults";
 import { isRealDay, parseDay } from "./rehearsals";
 import { normalizeScenes } from "./scenes";
+import { normalizeBudget } from "./budget";
 import { FILE_FORMAT, FILE_FORMAT_VERSION, type Answer, type CantinellaData, type CustomWords, type Person, type RehearsalDate, type Rehearsals } from "./types";
 
 export type FileProblem = "not-json" | "not-cantinella" | "newer" | "unsupported" | "damaged";
@@ -12,7 +13,7 @@ export class CantinellaFileError extends Error {
   }
 }
 
-const KNOWN_KEYS = new Set(["id", "title", "people", "rehearsals"]);
+const KNOWN_KEYS = new Set(["id", "title", "people", "rehearsals", "budget"]);
 
 const str = (v: unknown, max = 2000): string => (typeof v === "string" ? v.slice(0, max) : "");
 const strList = (v: unknown): string[] =>
@@ -114,7 +115,7 @@ export function normalizeData(raw: unknown): CantinellaData {
   }
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(r)) if (!KNOWN_KEYS.has(k)) extra[k] = v;
-  return { id: str(r.id, 100) || uid(), title: str(r.title, 200), people, rehearsals: normalizeRehearsals(r.rehearsals, people), extra };
+  return { id: str(r.id, 100) || uid(), title: str(r.title, 200), people, rehearsals: normalizeRehearsals(r.rehearsals, people), budget: normalizeBudget(r.budget), extra };
 }
 
 export function serialize(data: CantinellaData, app: { name: string; version: string }, now = new Date()): string {
@@ -123,7 +124,7 @@ export function serialize(data: CantinellaData, app: { name: string; version: st
     formatVersion: FILE_FORMAT_VERSION,
     app,
     savedAt: now.toISOString(),
-    data: { ...data.extra, id: data.id, title: data.title, people: data.people, rehearsals: data.rehearsals },
+    data: { ...data.extra, id: data.id, title: data.title, people: data.people, rehearsals: data.rehearsals, budget: data.budget },
   };
   return `${JSON.stringify(file, null, 2)}\n`;
 }

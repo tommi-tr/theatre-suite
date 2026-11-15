@@ -4,6 +4,7 @@ import { uid } from "@theatre-suite/core";
 import { addDays, todayKey } from "./rehearsals";
 import { proposePlan } from "./plan";
 import type { Answer, AnswerState, CantinellaData, RehearsalDate } from "./types";
+import { newBudget, newCost, type Budget, type Cost, type SeatState } from "./budget";
 
 /** "La locandiera": the company of the design preview, for `/?demo`. */
 export const DEMO_SHOW: ShowInfo = { id: "demo", title: "La locandiera", color: "#6d5a3a" };
@@ -99,5 +100,41 @@ export function demoData(): CantinellaData {
   ];
   d.rehearsals.scenes[6].characterIds = d.rehearsals.characters.map((c) => c.id);
   d.rehearsals.plan = proposePlan(d.rehearsals);
+  d.budget = demoBudget();
   return d;
+}
+
+/** Costs, a theatre with stalls and gallery, four performances (two weekends after the rehearsals). */
+export function demoBudget(today = todayKey()): Budget {
+  const b = newBudget();
+  const c = (name: string, category: string, p: Partial<Cost>) => newCost({ name, category, ...p });
+  b.costs = [
+    c("SIAE", "siae", { kind: "mixed", mix: "max", amount: 15000, entered: "gross", vat: 22, percent: 1000, state: "confirmed", supplier: "SIAE Mandato di Firenze" }),
+    c("Affitto del teatro", "rent", { kind: "perShow", amount: 45000, entered: "net", vat: 22, state: "quote", supplier: "Teatro comunale" }),
+    c("Service audio e luci", "service", { kind: "perShow", amount: 35000, entered: "net", vat: 22, state: "confirmed", supplier: "Fonica Davide" }),
+    c("Scenografie", "set", { amount: 120000, entered: "gross", vat: 22, state: "paid", supplier: "Laboratorio Ferri" }),
+    c("Costumi", "costumes", { amount: 80000, entered: "gross", vat: 22, state: "paid" }),
+    c("Pubblicità e stampa", "promo", { amount: 30000, entered: "gross", vat: 22, state: "estimate" }),
+    c("Programma di sala", "promo", { kind: "perSeat", amount: 30, entered: "gross", vat: 4, state: "estimate", notes: "Un foglio piegato a ogni spettatore" }),
+    c("Assicurazione", "insurance", { amount: 18000, entered: "gross", vat: 0, state: "paid" }),
+  ];
+  b.basePrice = 1800;
+  b.sectors = [
+    { id: "sec-pl", name: "Platea", rows: 12, perRow: 20, seats: 0, level: "stalls", price: { mode: "base", value: 0 } },
+    { id: "sec-ga", name: "Galleria", rows: 4, perRow: 16, seats: 0, level: "upper", price: { mode: "percent", value: 2500 } },
+  ];
+  b.costs[6].sectors = ["sec-pl"];
+  b.reductions = [{ id: "red-u26", name: "Under 26", rule: { mode: "percent", value: 3000 }, share: 1500 }];
+  b.performances = [16, 17, 23, 24].map((n, i) => ({ id: `perf-${i + 1}`, day: addDays(today, n), time: i % 2 ? "17:00" : "21:00", label: "" }));
+  const all: Record<string, SeatState> = {};
+  for (let n = 8; n < 12; n++) all[`sec-pl:11:${n}`] = "blocked";
+  for (let n = 0; n < 20; n += 19) all[`sec-pl:0:${n}`] = "limited";
+  const first: Record<string, SeatState> = {};
+  for (let r = 1; r < 8; r++) for (let n = 2; n < 18; n++) if ((r * 7 + n * 3) % 5 !== 0) first[`sec-pl:${r}:${n}`] = "sold";
+  for (let n = 6; n < 14; n++) first[`sec-pl:0:${n}`] = "reserved";
+  first["sec-pl:8:9"] = "comp";
+  first["sec-pl:8:10"] = "comp";
+  for (let n = 3; n < 13; n++) first[`sec-ga:0:${n}`] = "sold";
+  b.seats = { all, "perf-1": first };
+  return b;
 }
