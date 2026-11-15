@@ -1,6 +1,7 @@
 import { uid } from "@theatre-suite/core";
 import { DEFAULT_INTRO, newRehearsals } from "./defaults";
 import { isRealDay, parseDay } from "./rehearsals";
+import { normalizeScenes } from "./scenes";
 import { FILE_FORMAT, FILE_FORMAT_VERSION, type Answer, type CantinellaData, type CustomWords, type Person, type RehearsalDate, type Rehearsals } from "./types";
 
 export type FileProblem = "not-json" | "not-cantinella" | "newer" | "unsupported" | "damaged";
@@ -94,6 +95,7 @@ export function normalizeRehearsals(raw: unknown, people: Person[]): Rehearsals 
   }
   out.words = normalizeWords(r.words);
   out.intro = typeof r.intro === "string" ? r.intro.slice(0, 1000) : DEFAULT_INTRO;
+  normalizeScenes(r, out, people);
   return out;
 }
 

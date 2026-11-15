@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { SectionId } from "../model/types";
 import { DEFAULT_PARTS, type PartId } from "../shell/sections";
 
-export type DialogKind = "settings" | "import" | "copyList" | "deletePerson" | "pasteReplies" | "copyMessage" | "deleteDate";
+export type DialogKind = "settings" | "import" | "copyList" | "deletePerson" | "pasteReplies" | "copyMessage" | "deleteDate" | "confirm";
 
 export interface DialogState {
   kind: DialogKind;
@@ -33,6 +33,12 @@ interface UiStore {
   onlyMissing: boolean;
   /** Text to read when "Paste the replies" opens (what was pasted outside the window). */
   pasteText: string;
+  /** Selected item of every part (`scene`, `cost`, `department`…). */
+  sel: Record<string, string | null>;
+  /** Small view choices of every part (`scenes` → `list` / `characters` / `matrix`…). */
+  view: Record<string, string>;
+  /** Pending confirmation ("confirm" dialog). */
+  confirm: { title: string; text: string; action: string; run: () => void } | null;
   go: (section: SectionId | null, part?: PartId) => void;
   openDialog: (kind: DialogKind, extra?: string) => void;
   closeDialog: () => void;
@@ -43,7 +49,11 @@ interface UiStore {
   selectCell: (cell: { personId: string; dateId: string } | null) => void;
   setOnlyMissing: (v: boolean) => void;
   openPaste: (text?: string) => void;
-  openCopyMessage: (which: "dates" | "reminder") => void;
+  openCopyMessage: (which: "dates" | "reminder" | "plan" | "actor") => void;
+  select: (key: string, id: string | null) => void;
+  setView: (key: string, v: string) => void;
+  /** Asks before something that removes work: "Cancel" is the default choice. */
+  ask: (c: { title: string; text: string; action: string; run: () => void }) => void;
 }
 
 export const useUi = create<UiStore>((set) => ({
@@ -56,6 +66,9 @@ export const useUi = create<UiStore>((set) => ({
   cell: null,
   onlyMissing: false,
   pasteText: "",
+  sel: {},
+  view: {},
+  confirm: null,
   go: (section, part) =>
     set((s) => ({ section, parts: section && part ? { ...s.parts, [section]: part } : s.parts })),
   openDialog: (kind, extra) => set({ dialog: { kind, extra } }),
@@ -68,4 +81,7 @@ export const useUi = create<UiStore>((set) => ({
   setOnlyMissing: (onlyMissing) => set({ onlyMissing }),
   openPaste: (text = "") => set({ pasteText: text, dialog: { kind: "pasteReplies" } }),
   openCopyMessage: (which) => set({ dialog: { kind: "copyMessage", extra: which } }),
+  select: (key, id) => set((s) => ({ sel: { ...s.sel, [key]: id } })),
+  setView: (key, v) => set((s) => ({ view: { ...s.view, [key]: v } })),
+  ask: (confirm) => set({ confirm, dialog: { kind: "confirm" } }),
 }));

@@ -103,6 +103,11 @@ describe("rehearsals in the file", () => {
       answers: [{ id: "a1", personId: "p1", dateId: "d1", state: "maybe", note: "esco alle 17", at: "2026-11-15T20:05", source: "paste" }],
       words: { yes: ["x"], maybe: ["boh"], no: [] },
       intro: "Ciao!",
+      characters: [{ id: "c1", name: "Mirandolina", actorIds: ["p1"], bardoId: "" }],
+      scenes: [{ id: "s1", name: "Scena 1", act: "Atto I", characterIds: ["c1"], optional: [], weight: 3, minutes: 40, bardoId: "b1" }],
+      plan: [{ id: "x1", dateId: "d1", sceneId: "s1", locked: true }],
+      allowMaybe: true,
+      bardo: { path: "C:/x/copione.bardo", title: "La locandiera", hash: "abc", readAt: "2026-11-15T20:00" },
     };
     const d = doc(rehearsals);
     expect(d.rehearsals).toEqual(rehearsals);

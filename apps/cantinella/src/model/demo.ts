@@ -2,6 +2,7 @@ import type { ShowInfo } from "@theatre-suite/core";
 import { newData, newPerson } from "./defaults";
 import { uid } from "@theatre-suite/core";
 import { addDays, todayKey } from "./rehearsals";
+import { proposePlan } from "./plan";
 import type { Answer, AnswerState, CantinellaData, RehearsalDate } from "./types";
 
 /** "La locandiera": the company of the design preview, for `/?demo`. */
@@ -64,5 +65,39 @@ export function demoData(): CantinellaData {
   const g3 = answers.find((a) => a.personId === giovanni.id && a.dateId === dates[2].id);
   if (g3) g3.note = "esco alle 17";
   d.rehearsals = { ...d.rehearsals, dates, answers };
+  // Scenes and characters of act I, and a proposed plan.
+  const who = (n: string) => d.people.find((p) => p.name === n)!.id;
+  const C = (id: string, name: string, actor: string, sub?: string) => ({ id, name, actorIds: sub ? [who(actor), who(sub)] : [who(actor)], bardoId: "" });
+  d.rehearsals.characters = [
+    C("ch-mir", "Mirandolina", "Giulia Ferri"),
+    C("ch-cav", "Il Cavaliere di Ripafratta", "Enrico Sala"),
+    C("ch-mar", "Il Marchese di Forlipopoli", "Giovanni Rota"),
+    C("ch-con", "Il Conte d'Albafiorita", "Marco Bellini"),
+    C("ch-fab", "Fabrizio", "Luca Fadda"),
+    C("ch-ort", "Ortensia", "Stefania Neri"),
+    C("ch-dej", "Dejanira", "Chiara Valli"),
+    C("ch-ser", "Servitore del Cavaliere", "Paolo Greco", "Luca Fadda"),
+  ];
+  const S = (n: number, title: string, chars: string[], weight: number, minutes: number, act = "Atto I") => ({
+    id: `sc-${n}`,
+    name: title ? `Scena ${n} · ${title}` : `Scena ${n}`,
+    act,
+    characterIds: chars.map((c) => `ch-${c}`),
+    optional: [] as string[],
+    weight,
+    minutes,
+    bardoId: "",
+  });
+  d.rehearsals.scenes = [
+    S(1, "Il Marchese e il Conte", ["mar", "con"], 2, 30),
+    S(2, "Arriva il Cavaliere", ["mar", "con", "cav"], 2, 30),
+    S(3, "Mirandolina", ["mar", "con", "cav", "mir"], 3, 45),
+    S(4, "Fabrizio", ["mir", "fab"], 2, 20),
+    S(5, "Il Cavaliere solo", ["cav", "ser"], 1, 15),
+    S(6, "Le commedianti", ["ort", "dej", "fab"], 2, 30),
+    { ...S(7, "Saluti", [], 1, 15, ""), name: "Saluti finali", optional: [] },
+  ];
+  d.rehearsals.scenes[6].characterIds = d.rehearsals.characters.map((c) => c.id);
+  d.rehearsals.plan = proposePlan(d.rehearsals);
   return d;
 }

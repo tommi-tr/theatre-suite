@@ -6,6 +6,8 @@ import { ComingSoon } from "../sections/ComingSoon";
 import { People, PeopleActions, PeopleStatus } from "../sections/People";
 import { Dates, DatesActions, DatesStatus } from "../sections/Dates";
 import { Availability, AvailabilityActions, AvailabilityStatus } from "../sections/Availability";
+import { Scenes, ScenesActions, ScenesStatus } from "../sections/Scenes";
+import { Plan, PlanActions, PlanStatus } from "../sections/Plan";
 import { partDef } from "./sections";
 
 /** The open part of a section. */
@@ -15,6 +17,8 @@ export function PartView({ section }: { section: SectionId }) {
   if (part.id === "people") return <People />;
   if (part.id === "dates") return <Dates />;
   if (part.id === "availability") return <Availability />;
+  if (part.id === "scenes") return <Scenes />;
+  if (part.id === "plan") return <Plan />;
   return <ComingSoon section={section} part={part} />;
 }
 
@@ -25,6 +29,8 @@ export function PartActions({ section }: { section: SectionId }) {
   if (id === "people") return <PeopleActions />;
   if (id === "dates") return <DatesActions />;
   if (id === "availability") return <AvailabilityActions />;
+  if (id === "scenes") return <ScenesActions />;
+  if (id === "plan") return <PlanActions />;
   return null;
 }
 
@@ -48,6 +54,8 @@ export function PartStatus() {
   if (part.id === "people") return <PeopleStatus />;
   if (part.id === "dates") return <DatesStatus />;
   if (part.id === "availability") return <AvailabilityStatus />;
+  if (part.id === "scenes") return <ScenesStatus />;
+  if (part.id === "plan") return <PlanStatus />;
   return (
     <>
       <span>{t("{part}: coming in Cantinella {v}", { part: t(part.label), v: part.arrives ?? "" })}</span>

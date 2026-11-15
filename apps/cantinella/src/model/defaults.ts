@@ -5,7 +5,7 @@ import type { CantinellaData, Person, Rehearsals } from "./types";
 export const DEFAULT_INTRO = "Ecco le date delle prove. Scrivete accanto a ogni data sì, no o forse:";
 
 export function newRehearsals(): Rehearsals {
-  return { dates: [], answers: [], words: { yes: [], maybe: [], no: [] }, intro: DEFAULT_INTRO };
+  return { dates: [], answers: [], words: { yes: [], maybe: [], no: [] }, intro: DEFAULT_INTRO, characters: [], scenes: [], plan: [], allowMaybe: false, bardo: null };
 }
 
 export function newData(title = ""): CantinellaData {

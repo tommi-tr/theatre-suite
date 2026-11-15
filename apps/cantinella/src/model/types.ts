@@ -65,13 +65,61 @@ export interface CustomWords {
   no: string[];
 }
 
-/** Rehearsals, section 1 of the app (fase 1: dates and availability). */
+/** A character of the show. `actorIds[0]` plays it; the others are understudies, in order. */
+export interface Character {
+  id: string;
+  name: string;
+  actorIds: string[];
+  /** Id of the character in the linked Bardo script (stable), if it came from there. */
+  bardoId: string;
+}
+
+/** A scene (or anything to rehearse: "final dance", "bows"). */
+export interface Scene {
+  id: string;
+  name: string;
+  /** Act or group, free text ("Atto I"). */
+  act: string;
+  characterIds: string[];
+  /** People whose presence is welcome but not required for this scene. */
+  optional: string[];
+  /** How many times it should be rehearsed. */
+  weight: number;
+  /** Rehearsal time it needs, in minutes. */
+  minutes: number;
+  bardoId: string;
+}
+
+/** A scene put on a date of the plan. `locked` = fixed by the director: "recalculate" keeps it. */
+export interface PlanItem {
+  id: string;
+  dateId: string;
+  sceneId: string;
+  locked: boolean;
+}
+
+/** The Bardo script scenes and characters are read from (read only, never written). */
+export interface BardoLink {
+  path: string;
+  title: string;
+  /** Fingerprint of the file when it was read: a different one means "the script has changed". */
+  hash: string;
+  readAt: string;
+}
+
+/** Rehearsals, section 1 of the app. */
 export interface Rehearsals {
   dates: RehearsalDate[];
   answers: Answer[];
   words: CustomWords;
   /** First line of the message with the dates (editable). */
   intro: string;
+  characters: Character[];
+  scenes: Scene[];
+  plan: PlanItem[];
+  /** The plan may convene someone who answered "maybe" (shown in amber). */
+  allowMaybe: boolean;
+  bardo: BardoLink | null;
 }
 
 /** The five sections of the app. */

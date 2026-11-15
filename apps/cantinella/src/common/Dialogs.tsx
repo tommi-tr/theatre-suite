@@ -8,6 +8,7 @@ import { CopyListDialog } from "./CopyListDialog";
 import { CopyMessageDialog } from "./CopyMessageDialog";
 import { PasteDialog } from "./PasteDialog";
 import { dayLabel } from "../model/rehearsals";
+import { forgetPerson } from "../model/scenes";
 
 /** Shows the window asked for (one at a time). */
 export function Dialogs() {
@@ -23,14 +24,49 @@ export function Dialogs() {
     case "pasteReplies":
       return <PasteDialog />;
     case "copyMessage":
-      return <CopyMessageDialog initial={d.extra === "reminder" ? "reminder" : "dates"} />;
+      return <CopyMessageDialog initial={(d.extra as "dates" | "reminder" | "plan" | "actor" | undefined) ?? "dates"} />;
     case "deletePerson":
       return d.extra ? <DeletePersonDialog id={d.extra} /> : null;
     case "deleteDate":
       return d.extra ? <DeleteDateDialog id={d.extra} /> : null;
+    case "confirm":
+      return <ConfirmDialog />;
     default:
       return null;
   }
+}
+
+/** Generic confirmation (asked with `useUi.ask`). */
+function ConfirmDialog() {
+  const t = useT();
+  const c = useUi((s) => s.confirm);
+  const close = () => useUi.getState().closeDialog();
+  if (!c) return null;
+  return (
+    <Dialog
+      title={c.title}
+      icon="trash"
+      onClose={close}
+      width={440}
+      footer={
+        <>
+          <Button onClick={close}>{t("Cancel")}</Button>
+          <Button
+            variant="danger"
+            icon="trash"
+            onClick={() => {
+              c.run();
+              close();
+            }}
+          >
+            {c.action}
+          </Button>
+        </>
+      }
+    >
+      <p className="cn-dialog-text">{c.text}</p>
+    </Dialog>
+  );
 }
 
 /** Confirmation before deleting: "Cancel" is the default choice. */
@@ -55,7 +91,7 @@ function DeletePersonDialog({ id }: { id: string }) {
               useDoc.getState().change((d) => ({
                 ...d,
                 people: d.people.filter((p) => p.id !== id),
-                rehearsals: { ...d.rehearsals, answers: d.rehearsals.answers.filter((a) => a.personId !== id) },
+                rehearsals: forgetPerson({ ...d.rehearsals, answers: d.rehearsals.answers.filter((a) => a.personId !== id) }, id),
               }));
               useUi.getState().selectPerson(null);
               close();
@@ -99,6 +135,7 @@ function DeleteDateDialog({ id }: { id: string }) {
                   ...d.rehearsals,
                   dates: d.rehearsals.dates.filter((x) => x.id !== id),
                   answers: d.rehearsals.answers.filter((a) => a.dateId !== id),
+                  plan: d.rehearsals.plan.filter((p) => p.dateId !== id),
                 },
               }));
               close();

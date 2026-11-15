@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@theatre-suite/ui/theme.css";
 import "./app.css";
+import "./parts.css";
 import { App } from "./App";
 
 // This is an app, not a web page: no browser menu, no accidental reloads.

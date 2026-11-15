@@ -3,6 +3,7 @@ import { Button, Icon, type IconName } from "@theatre-suite/ui";
 import type { SectionId } from "../model/types";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
+import { importBardo } from "../lib/bardo";
 import type { PartId } from "./sections";
 
 interface Card {
@@ -91,13 +92,15 @@ export function StartScreen() {
         <div className="cn-start__have">
           <div className="ts-label">{t("Already have something?")}</div>
           <div className="cn-start__haverow">
-            <div className="cn-haveitem cn-haveitem--off">
+            <div className="cn-haveitem">
               <Icon name="book" size={18} />
               <div>
                 <div className="cn-haveitem__title">{t("Read scenes and characters from Bardo")}</div>
                 <div className="cn-haveitem__text">{t("The script is only read, never changed.")}</div>
               </div>
-              <span className="cn-soon">{t("Coming in {v}", { v: "0.3" })}</span>
+              <Button variant="sm" icon="book" onClick={() => importBardo(t)}>
+                {t("Choose the script…")}
+              </Button>
             </div>
             <div className="cn-haveitem">
               <Icon name="addressBook" size={18} />

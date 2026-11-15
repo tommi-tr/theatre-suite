@@ -52,8 +52,8 @@ export const SECTIONS: SectionDef[] = [
     parts: [
       { id: "dates", label: "Dates", arrives: null, about: [] },
       { id: "availability", label: "Availability", arrives: null, about: [] },
-      soon("scenes", "Scenes and roles", "0.3", "Scenes and characters by hand, or read from a Bardo script.", "Who plays whom, and who is needed in every scene."),
-      soon("plan", "Plan", "0.3", "A rehearsal plan proposed from availability, that you can change and lock.", "Copy the plan for everyone or for one actor, PDF and calendar."),
+      { id: "scenes", label: "Scenes and roles", arrives: null, about: [] },
+      { id: "plan", label: "Plan", arrives: null, about: [] },
     ],
   },
   {
