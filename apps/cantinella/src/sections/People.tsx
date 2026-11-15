@@ -5,6 +5,7 @@ import { nameKey, newPerson } from "../model/defaults";
 import { PRESET_ROLES, type Person } from "../model/types";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
+import { ExportContactsDialog } from "../common/ExportContactsDialog";
 import { isPreset, roleLabel, rolePlural } from "./roles";
 
 type Filter = "all" | (typeof PRESET_ROLES)[number];
@@ -52,6 +53,7 @@ export function addPerson() {
 export function PeopleActions() {
   const t = useT();
   const count = useDoc((s) => s.data.people.length);
+  const [exporting, setExporting] = useState(false);
   return (
     <>
       <Button variant="ghost" icon="upload" className="cn-bl" title={t("Import from vCard or CSV")} onClick={() => useUi.getState().openDialog("import")}>
@@ -60,6 +62,10 @@ export function PeopleActions() {
       <Button variant="ghost" icon="copy" className="cn-bl" disabled={!count} title={t("Copy the list")} onClick={() => useUi.getState().openDialog("copyList")}>
         <span>{t("Copy the list")}</span>
       </Button>
+      <Button variant="ghost" icon="download" className="cn-bl" disabled={!count} title={t("Export as vCard or CSV")} onClick={() => setExporting(true)}>
+        <span>{t("Export…")}</span>
+      </Button>
+      {exporting ? <ExportContactsDialog onClose={() => setExporting(false)} /> : null}
       <Button variant="primary" icon="plus" title={`${t("Add a person")} · Ctrl Shift N`} onClick={addPerson}>
         {t("Add a person")}
       </Button>
@@ -319,6 +325,22 @@ function PersonPanel({ person }: { person: Person }) {
           <span className="ts-label">{t("Notes")}</span>
           <textarea className="ts-input cn-textarea" value={person.notes} rows={4} onChange={(e) => set({ notes: e.currentTarget.value }, "notes")} />
         </label>
+        <details className="cx-details" open={!!(person.prod.sizes || person.prod.needs || person.prod.documents || person.prod.tour)}>
+          <summary className="ts-label">{t("Production details (optional)")}</summary>
+          {(
+            [
+              ["sizes", t("Sizes for the costumes"), t("For example: M, 44, shoes 39")],
+              ["needs", t("Allergies and needs"), ""],
+              ["documents", t("Documents for the permits"), t("Tax code, IBAN… only what is needed")],
+              ["tour", t("Availability for the tour"), ""],
+            ] as const
+          ).map(([k, label, ph]) => (
+            <label key={k} className="ts-field">
+              <span className="ts-label">{label}</span>
+              <input className="ts-input" value={person.prod[k]} placeholder={ph} onChange={(e) => set({ prod: { ...person.prod, [k]: e.currentTarget.value } }, `prod-${k}`)} />
+            </label>
+          ))}
+        </details>
         <p className="cn-panel__privacy">
           <Icon name="lock" size={12} />
           {t("These details stay in this file. Messages copied for the company contain only names.")}

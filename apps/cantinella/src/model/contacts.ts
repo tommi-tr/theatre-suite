@@ -273,3 +273,47 @@ export function contactToPerson(c: ImportedContact): Person {
     notes: c.notes,
   };
 }
+
+/* ---------------- Export ---------------- */
+
+const vEsc = (s: string) => s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1");
+
+/** vCard 3.0, read by phones, Google and Outlook. `roleNames` turns role keys into words. */
+export function toVCard(people: Person[], roleNames: (r: string) => string, opts: { production?: boolean } = {}): string {
+  const out: string[] = [];
+  for (const p of people) {
+    const parts = p.name.trim().split(/\s+/);
+    const family = parts.length > 1 ? parts[parts.length - 1] : "";
+    const given = parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] ?? "";
+    out.push("BEGIN:VCARD", "VERSION:3.0", `FN:${vEsc(p.name)}`, `N:${vEsc(family)};${vEsc(given)};;;`);
+    if (p.aliases.length) out.push(`NICKNAME:${p.aliases.map(vEsc).join(",")}`);
+    if (p.phone) out.push(`TEL;TYPE=CELL:${p.phone}`);
+    if (p.email) out.push(`EMAIL;TYPE=INTERNET:${p.email}`);
+    if (p.roles.length) out.push(`ROLE:${vEsc(p.roles.map(roleNames).join(", "))}`);
+    const notes = [p.notes.trim()];
+    if (opts.production) {
+      if (p.prod.sizes.trim()) notes.push(`Taglie: ${p.prod.sizes.trim()}`);
+      if (p.prod.needs.trim()) notes.push(`Esigenze: ${p.prod.needs.trim()}`);
+      if (p.prod.documents.trim()) notes.push(`Documenti: ${p.prod.documents.trim()}`);
+      if (p.prod.tour.trim()) notes.push(`Tournée: ${p.prod.tour.trim()}`);
+    }
+    const note = notes.filter(Boolean).join("\n");
+    if (note) out.push(`NOTE:${vEsc(note)}`);
+    out.push("END:VCARD");
+  }
+  return out.length ? `${out.join("\r\n")}\r\n` : "";
+}
+
+const csvCell = (s: string) => (/[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+
+/** CSV with ";" (what Excel expects in Italy), with a byte-order mark so accents survive. */
+export function toCsv(people: Person[], roleNames: (r: string) => string, opts: { production?: boolean } = {}): string {
+  const head = ["Nome", "Alias", "Telefono", "Email", "Ruoli", "Note"];
+  if (opts.production) head.push("Taglie", "Esigenze", "Documenti", "Tournée");
+  const rows = people.map((p) => {
+    const r = [p.name, p.aliases.join(", "), p.phone, p.email, p.roles.map(roleNames).join(", "), p.notes];
+    if (opts.production) r.push(p.prod.sizes, p.prod.needs, p.prod.documents, p.prod.tour);
+    return r;
+  });
+  return `\uFEFF${[head, ...rows].map((r) => r.map(csvCell).join(";")).join("\r\n")}\r\n`;
+}

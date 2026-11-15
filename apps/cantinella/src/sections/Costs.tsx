@@ -19,6 +19,7 @@ import {
   type CostKind,
 } from "../model/budget";
 import { useDoc } from "../store/doc";
+import { tourCosts } from "../model/tour";
 import { useUi } from "../store/ui";
 import { categoryLabel, changeB, euro, KIND_LABELS, pct, ruleText, STATE_LABELS, STATE_PILL, STATE_TONES } from "./budgetCommon";
 
@@ -53,7 +54,8 @@ export function CostsStatus() {
   const b = useDoc((s) => s.data.budget);
   const shows = showsOf(b);
   const real = b.scenarios[1] ?? b.scenarios[0];
-  const tot = useMemo(() => costTotals(b, shows, real ? scenarioTickets(b, real, shows) : {}), [b, shows, real]);
+  const tourExtra = useDoc((s) => tourCosts(s.data.tour));
+  const tot = useMemo(() => costTotals(b, shows, real ? scenarioTickets(b, real, shows) : {}, tourExtra), [b, shows, real, tourExtra]);
   return (
     <>
       <span>{t("{n} items", { n: b.costs.length })}</span>
@@ -71,7 +73,8 @@ export function Costs() {
   const shows = showsOf(b);
   const sum = useMemo(() => costSummary(b, shows), [b, shows]);
   const real = b.scenarios.find((s) => s.id === "realistic") ?? b.scenarios[0];
-  const tot = useMemo(() => costTotals(b, shows, real ? scenarioTickets(b, real, shows) : {}), [b, shows, real]);
+  const tourExtra = useDoc((s) => tourCosts(s.data.tour));
+  const tot = useMemo(() => costTotals(b, shows, real ? scenarioTickets(b, real, shows) : {}, tourExtra), [b, shows, real, tourExtra]);
 
   if (!b.costs.length) {
     return (
@@ -181,6 +184,24 @@ export function Costs() {
             </Fragment>
           );
         })}
+        {tourExtra ? (
+          <div className="cx-row cx-cost cx-row--auto" role="row" title={t("Travel and lodging of the confirmed tour dates: change them in Tour")}>
+            <span role="cell" className="cx-stack">
+              <span className="cx-name ts-ellipsis">{t("Tour: travel and lodging")}</span>
+              <span className="cx-sub ts-ellipsis">{t("From Tour")}</span>
+            </span>
+            <span role="cell" className="cx-sub">{t("confirmed dates")}</span>
+            <span role="cell" className="mono cx-right">–</span>
+            <span role="cell" className="mono cx-right">–</span>
+            <span role="cell" className="mono cx-right cx-sum">{euro(tourExtra)}</span>
+            <span role="cell">
+              <button type="button" className="cn-linkbtn" onClick={() => useUi.getState().go("tour", "travel")}>
+                {t("Open")}
+              </button>
+            </span>
+            <span />
+          </div>
+        ) : null}
         <div className="cx-add">
           <Button variant="sm" icon="plus" onClick={addCost}>
             {t("Add an item")}

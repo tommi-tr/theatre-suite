@@ -9,6 +9,7 @@ import { CopyMessageDialog } from "./CopyMessageDialog";
 import { PasteDialog } from "./PasteDialog";
 import { dayLabel } from "../model/rehearsals";
 import { forgetPerson } from "../model/scenes";
+import { forgetPersonInDepartments } from "../model/departments";
 
 /** Shows the window asked for (one at a time). */
 export function Dialogs() {
@@ -92,6 +93,8 @@ function DeletePersonDialog({ id }: { id: string }) {
                 ...d,
                 people: d.people.filter((p) => p.id !== id),
                 rehearsals: forgetPerson({ ...d.rehearsals, answers: d.rehearsals.answers.filter((a) => a.personId !== id) }, id),
+                departments: forgetPersonInDepartments(d.departments, id),
+                tour: { ...d.tour, venues: d.tour.venues.map((v) => ({ ...v, contactId: v.contactId === id ? "" : v.contactId, trips: v.trips.map((x) => ({ ...x, people: x.people.filter((p) => p !== id) })) })) },
               }));
               useUi.getState().selectPerson(null);
               close();
@@ -137,6 +140,7 @@ function DeleteDateDialog({ id }: { id: string }) {
                   answers: d.rehearsals.answers.filter((a) => a.dateId !== id),
                   plan: d.rehearsals.plan.filter((p) => p.dateId !== id),
                 },
+                departments: { ...d.departments, reports: d.departments.reports.map((r) => (r.dateId === id ? { ...r, dateId: "" } : r)) },
               }));
               close();
               useUi.getState().showToast(t("{name} deleted. Ctrl Z brings it back.", { name: label }));

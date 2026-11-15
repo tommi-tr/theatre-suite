@@ -3,6 +3,8 @@ import { DEFAULT_INTRO, newRehearsals } from "./defaults";
 import { isRealDay, parseDay } from "./rehearsals";
 import { normalizeScenes } from "./scenes";
 import { normalizeBudget } from "./budget";
+import { normalizeDepartments } from "./departments";
+import { normalizeTour } from "./tour";
 import { FILE_FORMAT, FILE_FORMAT_VERSION, type Answer, type CantinellaData, type CustomWords, type Person, type RehearsalDate, type Rehearsals } from "./types";
 
 export type FileProblem = "not-json" | "not-cantinella" | "newer" | "unsupported" | "damaged";
@@ -13,11 +15,16 @@ export class CantinellaFileError extends Error {
   }
 }
 
-const KNOWN_KEYS = new Set(["id", "title", "people", "rehearsals", "budget"]);
+const KNOWN_KEYS = new Set(["id", "title", "people", "rehearsals", "budget", "departments", "tour"]);
 
 const str = (v: unknown, max = 2000): string => (typeof v === "string" ? v.slice(0, max) : "");
 const strList = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean).slice(0, 50) : [];
+
+function normalizeProd(v: unknown): Person["prod"] {
+  const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  return { sizes: str(r.sizes, 2000), needs: str(r.needs, 2000), documents: str(r.documents, 2000), tour: str(r.tour, 2000) };
+}
 
 export function normalizePerson(raw: unknown): Person | null {
   if (!raw || typeof raw !== "object") return null;
@@ -32,6 +39,7 @@ export function normalizePerson(raw: unknown): Person | null {
     email: str(r.email, 200).trim(),
     roles: strList(r.roles),
     notes: str(r.notes, 20000),
+    prod: normalizeProd(r.prod),
   };
 }
 
@@ -115,7 +123,18 @@ export function normalizeData(raw: unknown): CantinellaData {
   }
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(r)) if (!KNOWN_KEYS.has(k)) extra[k] = v;
-  return { id: str(r.id, 100) || uid(), title: str(r.title, 200), people, rehearsals: normalizeRehearsals(r.rehearsals, people), budget: normalizeBudget(r.budget), extra };
+  const rehearsals = normalizeRehearsals(r.rehearsals, people);
+  const personIds = new Set(people.map((p) => p.id));
+  return {
+    id: str(r.id, 100) || uid(),
+    title: str(r.title, 200),
+    people,
+    rehearsals,
+    budget: normalizeBudget(r.budget),
+    departments: normalizeDepartments(r.departments, personIds, new Set(rehearsals.dates.map((d) => d.id))),
+    tour: normalizeTour(r.tour, personIds),
+    extra,
+  };
 }
 
 export function serialize(data: CantinellaData, app: { name: string; version: string }, now = new Date()): string {
@@ -124,7 +143,7 @@ export function serialize(data: CantinellaData, app: { name: string; version: st
     formatVersion: FILE_FORMAT_VERSION,
     app,
     savedAt: now.toISOString(),
-    data: { ...data.extra, id: data.id, title: data.title, people: data.people, rehearsals: data.rehearsals, budget: data.budget },
+    data: { ...data.extra, id: data.id, title: data.title, people: data.people, rehearsals: data.rehearsals, budget: data.budget, departments: data.departments, tour: data.tour },
   };
   return `${JSON.stringify(file, null, 2)}\n`;
 }

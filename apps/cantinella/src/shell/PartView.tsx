@@ -11,6 +11,8 @@ import { Plan, PlanActions, PlanStatus } from "../sections/Plan";
 import { Costs, CostsActions, CostsStatus } from "../sections/Costs";
 import { Seats, SeatsActions, SeatsStatus } from "../sections/Seats";
 import { BreakEven, BreakEvenActions, BreakEvenStatus } from "../sections/BreakEven";
+import { DepartmentsPart, DepartmentsActions, DepartmentsStatus } from "../sections/Departments";
+import { Reports, ReportsActions, ReportsStatus } from "../sections/Reports";
 import { partDef } from "./sections";
 
 /** The open part of a section. */
@@ -25,6 +27,8 @@ export function PartView({ section }: { section: SectionId }) {
   if (part.id === "costs") return <Costs />;
   if (part.id === "seats") return <Seats />;
   if (part.id === "breakeven") return <BreakEven />;
+  if (part.id === "departments") return <DepartmentsPart />;
+  if (part.id === "reports") return <Reports />;
   return <ComingSoon section={section} part={part} />;
 }
 
@@ -40,6 +44,8 @@ export function PartActions({ section }: { section: SectionId }) {
   if (id === "costs") return <CostsActions />;
   if (id === "seats") return <SeatsActions />;
   if (id === "breakeven") return <BreakEvenActions />;
+  if (id === "departments") return <DepartmentsActions />;
+  if (id === "reports") return <ReportsActions />;
   return null;
 }
 
@@ -68,6 +74,8 @@ export function PartStatus() {
   if (part.id === "costs") return <CostsStatus />;
   if (part.id === "seats") return <SeatsStatus />;
   if (part.id === "breakeven") return <BreakEvenStatus />;
+  if (part.id === "departments") return <DepartmentsStatus />;
+  if (part.id === "reports") return <ReportsStatus />;
   return (
     <>
       <span>{t("{part}: coming in Cantinella {v}", { part: t(part.label), v: part.arrives ?? "" })}</span>

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { dueTodos } from "../model/departments";
+import { todayKey } from "../model/rehearsals";
 import { basename, useT } from "@theatre-suite/core";
 import { AppLogo, Button, StatusBar, TitleBar } from "@theatre-suite/ui";
 import { api, appWindow, isTauri, onEvent } from "../lib/api";
@@ -205,6 +207,7 @@ export function Shell() {
           </Button>
         </div>
       ) : null}
+      {!banner ? <DueBanner /> : null}
       <SectionBar />
       <div className="cn-body">
         {section === null ? (
@@ -223,6 +226,46 @@ export function Shell() {
       </StatusBar>
       <Dialogs />
       <AppToast />
+    </div>
+  );
+}
+
+/**
+ * In-app reminder (no notifications outside Cantinella): when a file is opened with things to do
+ * that are overdue or due this week, a line under the title bar says so until it is dismissed.
+ */
+function DueBanner() {
+  const t = useT();
+  const loadRev = useDoc((s) => s.loadRev);
+  const depts = useDoc((s) => s.data.departments);
+  const [hidden, setHidden] = useState<number | null>(null);
+  const due = useMemo(() => dueTodos(depts, todayKey()), [depts]);
+  if (hidden === loadRev || (!due.overdue.length && !due.week.length)) return null;
+  return (
+    <div className="ts-banner" role="status">
+      <span className={`ts-dot ${due.overdue.length ? "ts-dot--stop" : "ts-dot--sb"}`} />
+      {t("Departments: {list}.", {
+        list: [
+          due.overdue.length ? (due.overdue.length === 1 ? t("1 thing overdue") : t("{n} things overdue", { n: due.overdue.length })) : "",
+          due.week.length ? (due.week.length === 1 ? t("1 due in the next 7 days") : t("{n} due in the next 7 days", { n: due.week.length })) : "",
+        ]
+          .filter(Boolean)
+          .join(t(" and ")),
+      })}
+      <span className="ts-spacer" />
+      <Button
+        variant="sm"
+        icon="trafficLight"
+        onClick={() => {
+          useUi.getState().go("departments", "departments");
+          setHidden(loadRev);
+        }}
+      >
+        {t("Open the departments")}
+      </Button>
+      <Button variant="sm" icon="x" onClick={() => setHidden(loadRev)}>
+        {t("Dismiss")}
+      </Button>
     </div>
   );
 }

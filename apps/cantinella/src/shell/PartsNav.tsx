@@ -1,4 +1,7 @@
+import { useMemo } from "react";
 import { useT } from "@theatre-suite/core";
+import { dueTodos } from "../model/departments";
+import { todayKey } from "../model/rehearsals";
 import type { SectionId } from "../model/types";
 import { useDoc } from "../store/doc";
 import { useUi } from "../store/ui";
@@ -13,6 +16,8 @@ export function PartsNav({ section }: { section: SectionId }) {
   const people = useDoc((s) => s.data.people.length);
   const dates = useDoc((s) => s.data.rehearsals.dates.length);
   const { miss } = useAvailability();
+  const depts = useDoc((s) => s.data.departments);
+  const due = useMemo(() => dueTodos(depts, todayKey()), [depts]);
   return (
     <nav className="cn-parts" aria-label={t("Parts of {section}", { section: t(def.label) })}>
       <div className="cn-parts__title">{t(def.label)}</div>
@@ -32,9 +37,24 @@ export function PartsNav({ section }: { section: SectionId }) {
               {miss.people.length}
             </span>
           ) : null}
+          {p.id === "departments" && due.overdue.length > 0 ? (
+            <span className="cn-parts__count cn-parts__count--stop" title={t("{n} overdue", { n: due.overdue.length })}>
+              {due.overdue.length}
+            </span>
+          ) : p.id === "departments" && due.week.length > 0 ? (
+            <span className="cn-parts__count cn-parts__count--warn" title={t("{n} due soon", { n: due.week.length })}>
+              {due.week.length}
+            </span>
+          ) : null}
           {p.arrives ? <span className="cn-parts__soon">{p.arrives}</span> : null}
         </button>
       ))}
+      {section === "departments" && (due.overdue.length || due.week.length) ? (
+        <div className="cn-parts__alerts">
+          {due.overdue.length ? <span className="cx-tone--stop">{due.overdue.length === 1 ? t("1 overdue") : t("{n} overdue", { n: due.overdue.length })}</span> : null}
+          {due.week.length ? <span className="cx-tone--warn">{t("{n} due soon", { n: due.week.length })}</span> : null}
+        </div>
+      ) : null}
     </nav>
   );
 }

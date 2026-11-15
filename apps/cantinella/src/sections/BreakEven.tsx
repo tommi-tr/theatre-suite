@@ -3,6 +3,7 @@ import { uid, useT } from "@theatre-suite/core";
 import { Button, Icon, Range, Segmented } from "@theatre-suite/ui";
 import { breakEven, capacityOf, evaluate, scenarioTickets, showsOf, type Scenario } from "../model/budget";
 import { useDoc } from "../store/doc";
+import { tourCosts } from "../model/tour";
 import { useUi } from "../store/ui";
 import { changeB, euro } from "./budgetCommon";
 import { ShowsField } from "./Costs";
@@ -29,7 +30,8 @@ export function BreakEvenActions() {
 export function BreakEvenStatus() {
   const t = useT();
   const b = useDoc((s) => s.data.budget);
-  const be = useMemo(() => breakEven(b, showsOf(b)), [b]);
+  const extra = useDoc((s) => tourCosts(s.data.tour));
+  const be = useMemo(() => breakEven(b, showsOf(b), extra), [b, extra]);
   return (
     <>
       <span>{be.tickets === null ? t("Even a full house does not cover the costs") : t("Break-even at {n} tickets", { n: be.tickets })}</span>
@@ -44,9 +46,10 @@ export function BreakEven() {
   const b = useDoc((s) => s.data.budget);
   const selId = useUi((s) => s.sel.scenario ?? null);
   const shows = showsOf(b);
-  const be = useMemo(() => breakEven(b, shows), [b, shows]);
+  const extra = useDoc((s) => tourCosts(s.data.tour));
+  const be = useMemo(() => breakEven(b, shows, extra), [b, shows, extra]);
   const scenario = b.scenarios.find((s) => s.id === selId) ?? b.scenarios.find((s) => s.id === "realistic") ?? b.scenarios[0];
-  const results = useMemo(() => b.scenarios.map((sc) => ({ sc, r: evaluate(b, shows, scenarioTickets(b, sc, shows)) })), [b, shows]);
+  const results = useMemo(() => b.scenarios.map((sc) => ({ sc, r: evaluate(b, shows, scenarioTickets(b, sc, shows), extra) })), [b, shows, extra]);
 
   if (!b.sectors.length || !b.basePrice) {
     return (

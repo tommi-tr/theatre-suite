@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { contactToPerson, findExisting, parseContacts, parseCsv, parseCsvRows, parseVCard, roleKey } from "./contacts";
+import { contactToPerson, findExisting, parseContacts, parseCsv, parseCsvRows, parseVCard, roleKey, toCsv, toVCard } from "./contacts";
+import { newPerson } from "./defaults";
 import { demoData } from "./demo";
 
 describe("vCard", () => {
@@ -100,5 +101,28 @@ describe("into the address book", () => {
     expect(p.name).toBe("Anna");
     expect(p.aliases).toEqual(["x"]);
     expect(p.roles).toEqual(["director"]);
+  });
+});
+
+describe("export", () => {
+  const p = { ...newPerson("Giovanni De Rota"), phone: "+39 347 1", email: "g@x.it", aliases: ["Gio"], roles: ["actor"], notes: "Marchese; primo atto", prod: { sizes: "M, 44", needs: "", documents: "", tour: "" } };
+  const roles = (r: string) => (r === "actor" ? "Attore" : r);
+
+  it("writes vCards that come back the same when imported", () => {
+    const text = toVCard([p], roles);
+    expect(text).toContain("N:Rota;Giovanni De;;;");
+    expect(text).toContain("NOTE:Marchese\\; primo atto");
+    expect(text).not.toContain("Taglie");
+    const back = parseContacts(text)[0];
+    expect(back).toMatchObject({ name: "Giovanni De Rota", phone: "+39 347 1", email: "g@x.it" });
+    expect(back.aliases).toContain("Gio");
+    expect(toVCard([p], roles, { production: true })).toContain("Taglie: M\\, 44");
+  });
+
+  it("writes CSV for Excel that comes back the same when imported", () => {
+    const text = toCsv([p], roles);
+    expect(text.startsWith("\uFEFFNome;Alias;Telefono;Email;Ruoli;Note\r\n")).toBe(true);
+    expect(text).toContain('"Marchese; primo atto"');
+    expect(parseContacts(text)[0]).toMatchObject({ name: "Giovanni De Rota", email: "g@x.it" });
   });
 });

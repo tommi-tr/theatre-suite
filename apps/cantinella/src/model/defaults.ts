@@ -1,5 +1,7 @@
 import { uid } from "@theatre-suite/core";
 import { newBudget } from "./budget";
+import { newDepartments } from "./departments";
+import { newTour } from "./tour";
 import type { CantinellaData, Person, Rehearsals } from "./types";
 
 /** First line of the message with the dates. Messages for the company are always in Italian. */
@@ -10,11 +12,11 @@ export function newRehearsals(): Rehearsals {
 }
 
 export function newData(title = ""): CantinellaData {
-  return { id: uid(), title, people: [], rehearsals: newRehearsals(), budget: newBudget(), extra: {} };
+  return { id: uid(), title, people: [], rehearsals: newRehearsals(), budget: newBudget(), departments: newDepartments(), tour: newTour(), extra: {} };
 }
 
 export function newPerson(name = ""): Person {
-  return { id: uid(), name, aliases: [], phone: "", email: "", roles: [], notes: "" };
+  return { id: uid(), name, aliases: [], phone: "", email: "", roles: [], notes: "", prod: { sizes: "", needs: "", documents: "", tour: "" } };
 }
 
 /** Is the document still empty (nothing entered in any section)? */
@@ -28,6 +30,9 @@ export function isEmpty(data: CantinellaData): boolean {
     b.costs.length === 0 &&
     b.sectors.length === 0 &&
     b.performances.length === 0 &&
+    data.departments.list.length === 0 &&
+    data.departments.reports.length === 0 &&
+    data.tour.venues.length === 0 &&
     Object.keys(data.extra).length === 0
   );
 }

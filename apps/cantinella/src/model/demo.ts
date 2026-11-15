@@ -5,6 +5,7 @@ import { addDays, todayKey } from "./rehearsals";
 import { proposePlan } from "./plan";
 import type { Answer, AnswerState, CantinellaData, RehearsalDate } from "./types";
 import { newBudget, newCost, type Budget, type Cost, type SeatState } from "./budget";
+import { newTodo, noteToTodo, presetDepartments, type Departments } from "./departments";
 
 /** "La locandiera": the company of the design preview, for `/?demo`. */
 export const DEMO_SHOW: ShowInfo = { id: "demo", title: "La locandiera", color: "#6d5a3a" };
@@ -101,6 +102,7 @@ export function demoData(): CantinellaData {
   d.rehearsals.scenes[6].characterIds = d.rehearsals.characters.map((c) => c.id);
   d.rehearsals.plan = proposePlan(d.rehearsals);
   d.budget = demoBudget();
+  d.departments = demoDepartments(d);
   return d;
 }
 
@@ -137,4 +139,27 @@ export function demoBudget(today = todayKey()): Budget {
   for (let n = 3; n < 13; n++) first[`sec-ga:0:${n}`] = "sold";
   b.seats = { all, "perf-1": first };
   return b;
+}
+
+/** Departments with a few things to do (one overdue, some due this week) and a report. */
+export function demoDepartments(d: CantinellaData, today = todayKey()): Departments {
+  const who = (n: string) => d.people.find((p) => p.name === n)?.id ?? "";
+  const list = presetDepartments();
+  const by = (key: string) => list.find((x) => x.key === key)!;
+  const todo = (text: string, days: number | null, person = "", done = false) => newTodo({ text, due: days === null ? "" : addDays(today, days), personId: who(person), done });
+  Object.assign(by("direction"), { light: "ok", ownerId: who("Anna Morelli"), todos: [todo("Piano prove della settimana", 1, "Anna Morelli"), todo("Filata del primo atto", 9, "Anna Morelli")] });
+  Object.assign(by("set"), { light: "warn", todos: [todo("Bancone della locanda", -2), todo("Porta praticabile", 4), todo("Disegno della scena", -10, "", true)] });
+  Object.assign(by("lights"), { light: "info", ownerId: who("Davide Conti"), todos: [todo("Pianta luci", 6, "Davide Conti")] });
+  Object.assign(by("costumes"), { light: "stop", todos: [todo("Prendere le taglie", 2), todo("Stoffa per Mirandolina", 12)], comments: [{ id: uid(), at: `${addDays(today, -1)}T22:10`, text: "La sarta è ferma fino a lunedì." }] });
+  Object.assign(by("sound"), { light: "ok", ownerId: who("Davide Conti") });
+  Object.assign(by("promo"), { light: "warn", todos: [todo("Locandina", 5), todo("Comunicato stampa", 14)] });
+  Object.assign(by("admin"), { light: "info", todos: [todo("Pagare l'assicurazione", -5, "", true)] });
+  const rep = { id: "demo-rep", day: addDays(today, -1), dateId: "", general: "Primo atto filato due volte. Il ritmo della scena 3 va ancora trovato.", notes: [] as Departments["reports"][number]["notes"] };
+  const deps: Departments = { list, reports: [rep] };
+  rep.notes.push(
+    { id: uid(), deptId: by("lights").id, text: "Serve più luce sul bancone nella scena 3", todoId: "" },
+    { id: uid(), deptId: by("set").id, text: "La porta sbatte: fermarla", todoId: "" },
+    { id: uid(), deptId: by("costumes").id, text: "Ortensia ha bisogno di un cambio veloce", todoId: "" },
+  );
+  return noteToTodo(deps, rep.id, rep.notes[1].id, addDays(today, 3));
 }

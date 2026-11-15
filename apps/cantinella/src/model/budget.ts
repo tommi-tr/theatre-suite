@@ -323,10 +323,11 @@ export function takingsOf(b: Budget, tickets: Tickets): number {
   return b.sectors.reduce((acc, s) => acc + (tickets[s.id] ?? 0) * averageTicket(b, s), 0);
 }
 
-export function evaluate(b: Budget, shows: number, tickets: Tickets): Result {
+/** `extra` = costs that come from elsewhere (travel and lodging of the tour), gross cents. */
+export function evaluate(b: Budget, shows: number, tickets: Tickets, extra = 0): Result {
   const takings = takingsOf(b, tickets);
   const lines = b.costs.map((cost) => ({ cost, total: costTotal(cost, shows, tickets, takings) }));
-  const costs = lines.reduce((a, l) => a + l.total, 0);
+  const costs = lines.reduce((a, l) => a + l.total, 0) + extra;
   return { takings, costs, balance: takings - costs, lines, tickets: Object.values(tickets).reduce((a, n) => a + n, 0) };
 }
 
@@ -362,14 +363,14 @@ export interface BreakEven {
 }
 
 /** The smallest number of tickets (spread over the sectors) for which takings cover the costs. */
-export function breakEven(b: Budget, shows: number): BreakEven {
+export function breakEven(b: Budget, shows: number, extra = 0): BreakEven {
   const capacity = b.sectors.reduce((a, s) => a + capacityOf(s), 0) * shows;
   // Takings minus costs grows with the tickets as long as a ticket brings more than it costs:
   // binary search, then a short check on the neighbours for rounding.
-  const ok = (n: number) => evaluate(b, shows, spread(b, n, shows)).balance >= 0;
+  const ok = (n: number) => evaluate(b, shows, spread(b, n, shows), extra).balance >= 0;
   if (!capacity || !ok(capacity)) {
     const full = spread(b, capacity, shows);
-    return { tickets: null, capacity, perShow: null, bySector: full, result: evaluate(b, shows, full) };
+    return { tickets: null, capacity, perShow: null, bySector: full, result: evaluate(b, shows, full, extra) };
   }
   let lo = 0;
   let hi = capacity;
@@ -379,7 +380,7 @@ export function breakEven(b: Budget, shows: number): BreakEven {
     else lo = mid + 1;
   }
   const bySector = spread(b, lo, shows);
-  return { tickets: lo, capacity, perShow: shows ? Math.ceil(lo / shows) : null, bySector, result: evaluate(b, shows, bySector) };
+  return { tickets: lo, capacity, perShow: shows ? Math.ceil(lo / shows) : null, bySector, result: evaluate(b, shows, bySector, extra) };
 }
 
 /** Tickets of a scenario: every sector filled at its percentage, for every performance. */
@@ -410,8 +411,8 @@ export function costSummary(b: Budget, shows: number) {
 }
 
 /** Totals by state and by category, for `shows` performances and an expected audience. */
-export function costTotals(b: Budget, shows: number, tickets: Tickets) {
-  const r = evaluate(b, shows, tickets);
+export function costTotals(b: Budget, shows: number, tickets: Tickets, extra = 0) {
+  const r = evaluate(b, shows, tickets, extra);
   const byState: Record<CostState, number> = { estimate: 0, quote: 0, confirmed: 0, paid: 0 };
   const byCategory = new Map<string, number>();
   for (const l of r.lines) {

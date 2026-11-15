@@ -7,6 +7,8 @@
  */
 
 import type { Budget } from "./budget";
+import type { Departments } from "./departments";
+import type { Tour } from "./tour";
 
 export const FILE_FORMAT = "cantinella";
 /** Until the suite is published only this format is read (00_indice_e_stato.md). */
@@ -26,6 +28,15 @@ export interface Person {
   /** Preset keys (`actor`, `crew`…) or free text. */
   roles: string[];
   notes: string;
+  /** Production details, optional: costume sizes, allergies and needs, documents for the permits, availability for the tour. */
+  prod: PersonProd;
+}
+
+export interface PersonProd {
+  sizes: string;
+  needs: string;
+  documents: string;
+  tour: string;
 }
 
 /** What a person answered for a date. `none` = the answer was cleared (the history keeps it). */
@@ -135,6 +146,8 @@ export interface CantinellaData {
   people: Person[];
   rehearsals: Rehearsals;
   budget: Budget;
+  departments: Departments;
+  tour: Tour;
   /**
    * Data of the sections that arrive in later versions (rehearsals, budget…) and fields
    * written by newer versions: kept untouched when the file is saved again.

@@ -73,15 +73,9 @@ export const SECTIONS: SectionDef[] = [
     short: "Departments",
     icon: "trafficLight",
     parts: [
-      soon(
-        "departments",
-        "Departments",
-        "0.6",
-        "Every department with its light (all right, in progress, blocked), its person in charge and the things to do.",
-        "What is due this week and what is overdue, inside the app.",
-      ),
+      { id: "departments", label: "Departments", arrives: null, about: [] },
       { id: "people", label: "Contacts", arrives: null, about: [] },
-      soon("reports", "Rehearsal reports", "0.6", "After a rehearsal, notes by department that can become things to do."),
+      { id: "reports", label: "Rehearsal reports", arrives: null, about: [] },
     ],
   },
   {
