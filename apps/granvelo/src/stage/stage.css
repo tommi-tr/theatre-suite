@@ -76,8 +76,9 @@
   fill: none;
   stroke: var(--accent);
 }
-.gv-stage2d__handle circle:first-child {
+.gv-stage2d__handle .gv-stage2d__hitarea {
   fill: transparent;
+  stroke: none;
 }
 .gv-stage2d__label {
   fill: var(--gv-stage-text);
@@ -129,7 +130,7 @@
 .gv-stagebox__note {
   position: absolute;
   left: 12px;
-  bottom: 10px;
+  top: 10px;
   margin: 0;
   max-width: 60%;
   font-size: 12px;

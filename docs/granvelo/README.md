@@ -8,7 +8,7 @@ dev port **1423**, file `.granvelo`). Specification: `10_granvelo.md`; visual id
 
 ```
 pnpm install                         # at the repo root
-pnpm --filter granvelo dev           # browser preview on http://localhost:1423 (/?demo = La locandiera)
+pnpm --filter granvelo dev           # browser preview on http://localhost:1423 (/?demo = La locandiera; &no3d = 2D views)
 pnpm granvelo:dev                    # the real window (Tauri)
 pnpm granvelo:test                   # vitest: model, file format, crossfade, dictionary
 pnpm --filter granvelo typecheck
@@ -42,7 +42,12 @@ src/store/       zustand: doc (undo/redo via packages/core History), settings (t
 src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting;
                  dmx.ts (typed DMX engine API) + dmxSim.ts (the same engine in the browser)
 src/shell/       title bar + top bar + status bar, start screen
-src/modes/       Allestimento (list of lights + properties), Banco, Show (phase 0 screens);
+src/stage/       the stage, reusable (Allestimento now, Banco and Show next): no stores, only props
+  geometry.ts      pure + tested: light position, beam pool, default aim, drop rules (trusses), projections
+  scene.ts         what the views draw (lights with look/colour/pool, scenery of a memory)
+  StageView2D.tsx  SVG plan / front (also thumbnails, `compact`; the fallback without WebGL)
+  StageView3D.tsx  three.js, lazy chunk; StageView.tsx = host (3D if possible, else 2D + note)
+src/modes/       Allestimento (list of lights, stage or address map, properties / scenery), Banco, Show (phase 0);
                  check/ = Controllo luci dialog (opened with ui.openDialog("check"), also for Show)
 src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
 src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
@@ -78,6 +83,43 @@ src-tauri/       storage commands as Cantinella + versions folder as Diaframma; 
 - **File**: flat JSON `{ app: "granvelo", format: 1, savedWith, savedAt, …document }`, number arrays on one
   line. Reading refuses other apps/formats and wrong types/ranges/duplicates with the place of the error;
   fills optional fields; drops dangling references. Before the first publication: no migrations.
+
+## The stage (Granvelo 0.3)
+
+**API** (`src/stage/index.ts`). `StageView` (host) and `StageView2D` take `StageViewProps` (`types.ts`): `doc` (stage,
+trusses, fixtures, scenery), `values?` (512 DMX values to show; omitted = no light), `selected?`, `scenery?` ("all" or the
+placements of a memory), `selectedScenery?`, `detail?` ("essential" | "medium"), `showAims?`, `pick?` (which kinds answer
+the mouse), `onPress?`, `compact?`; `StageView` adds `camera` ("perspective" | "plan" | "front"), `force2D?`, `onNo3D?`;
+`StageView2D` adds `view` ("plan" | "front"). **Mouse contract**: `onPress(hit, {ctrl, shift, alt})` → a `StageDrag`
+`{from, move(to, axes), end(to | null, axes)}` or null; the view moves `from` with the mouse on the plane of the view
+(plan/perspective: horizontal, `xy`; front: vertical, `xz`; perspective + Shift on a light: height, `z`) and calls `end`
+with null for a simple click or Esc. Allestimento shows a preview document while dragging and commits once (one undo step).
+
+**3D**: three.js 0.187, loaded with `React.lazy` (own chunk ≈ 145 kB gzip). Rendered **only on demand** (controls
+`change`, new props, resize); everything disposed on unmount (`forceContextLoss`). Floor solid, volume and trusses in
+lines, scenery Lambert solids with edges, lights as sprites drawn from the symbol paths on a canvas (cached per
+symbol/look/lens colour), turned on screen towards their aim at every render; labels of selected lights as sprites.
+Essenziale = flat additive ellipses; Media = soft (radial texture) pools + additive open cones; "Alta"/"Automatica" draw
+as Media until phase 5. No WebGL (checked once with a throw-away canvas; `/?no3d` forces it), a failed renderer or a lost
+context → 2D views (perspective → plan) with a discreet note. The stage is always a dark room, also in the light theme.
+
+**Pools** (`beamPool`): aim on the floor and the whole cone reaches it → exact conic; aim in the air → disc of the beam's
+width at the aim, stretched along the direction by 1/sin(elevation), at most 1,6; under 8° (side lights) → a band from
+under the light to the aim; pointing up more than 30° → no floor pool (outline only at the aim). **Default aim** lives in
+`geometry.ts` (ops re-exports it): house → proscenium, 60 % of the sideways offset (spread); floor or floating in the
+wings below the high zone → across, horizontal; last 30 % of the depth → backlight; else straight down.
+
+**Sposta thresholds** (`resolveDrop`): below 0,5 m → on the floor (z 0); a floor light stays on the floor below the high
+zone; high zone = from max(2 m, 60 % of the stage height): a truss within 0,6 m in depth and 1 m in height catches it
+(magnet), otherwise over the stage (0 ≤ Y ≤ depth, ≤ 1 m beyond the sides) a **new truss** is born there (the following
+lights of the same drop hang on it); everything else floats. Empty trusses are not removed automatically.
+
+**Tools**: Sposta (plan: X/Y, front: X/Z, perspective: X/Y on the light's plane or the floor when seen edge-on, Shift =
+height), Orienta (handles on the aim of the selected lights; all move by the same amount; numbers and "Puntamento
+predefinito" in Properties), Numera a clic (clicks on the stage count as in the list), Scenografia (add / select / drag
+pieces, the right panel edits name, shape, colour, position, rotation, size, delete — also removed from the memories).
+A click on a truss opens its editor in the list. Ops: `dropLights`, `setAims`, `resetAim`, `addScenery`, `updateScenery`,
+`removeScenery`, `sceneryName` (tests in `ops.stage.test.ts`). File format unchanged.
 
 ## DMX output (Granvelo 0.2)
 
@@ -143,5 +185,7 @@ only) while something is sent (cable or simulated output) or a lost cable is bei
 
 ## What is not there yet
 
-No 3D, no faders, no show playback (they use the output store above when they arrive). The lens
-of the light symbols is dark because there is no live state yet; `visibleLight()` gives the colour when there is.
+No faders, no show playback (they use the output store above when they arrive); the stage shows `under` of the output
+store when the output is connected or simulated (otherwise lenses are dark and there is no light). Not yet: box
+selection on the stage, dragging trusses with the mouse, scenery per memory (the placements are in the file and the
+views accept them; editing them comes with Banco), real shadows / beams in smoke ("Alta", phase 5), PDF prints.

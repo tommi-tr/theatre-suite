@@ -10,7 +10,7 @@ import { lightTag } from "./common";
 
 /**
  * The 512 DMX channels as a grid: who occupies what. Self-contained (give it the document and the selected lights):
- * Allestimento shows it in the centre for now, the 3D phase will also use it as a view/dialog.
+ * Allestimento shows it in the centre with the switch "Palco · Mappa degli indirizzi".
  *
  * Cells: free = neutral; occupied = tinted per light (two tints alternate so neighbours can be told apart, the
  * light's number sits on its first channel); conflict = amber with a "!" (colour and mark); reserved by a light

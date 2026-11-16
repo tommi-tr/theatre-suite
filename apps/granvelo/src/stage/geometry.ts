@@ -53,9 +53,11 @@ export function defaultAim(position: Vec3, mount: Mount, stage: Stage): Vec3 {
  *
  * - `floor`: the aim is on the floor (z ≤ 5 cm) and the whole cone reaches it: the exact ellipse cut by the cone.
  * - `aim`: the aim is in the air (a face, a piece of scenery): the light is drawn where it points, a disc of the beam's
- *   width there, stretched along its direction by 1/sin(how steeply it comes down), at most 2,5 times.
- * - `grazing`: the light is almost horizontal or points upwards (side lights, a cone that would not close on the floor):
- *   a band from under the light to the aim point.
+ *   width there, stretched along its direction by 1/sin(how steeply it comes down), at most 1,6 times.
+ * - `grazing`: the light is almost horizontal or points a little upwards (side lights, a cone that would not close on
+ *   the floor): a band from under the light to the aim point.
+ * - `up`: the light points steeply upwards (more than 30°: a cyclorama light at the foot of the backdrop): no light on
+ *   the floor; the ellipse is the beam's width where it points, drawn as an outline only.
  *
  * `end` is where the axis of the beam ends (for beams drawn as cones) and `endRadius` the radius of the beam there.
  */
@@ -65,7 +67,7 @@ export interface Pool {
   rx: number;
   ry: number;
   angle: number;
-  kind: "floor" | "aim" | "grazing";
+  kind: "floor" | "aim" | "grazing" | "up";
   end: Vec3;
   endRadius: number;
 }
@@ -109,9 +111,10 @@ export function beamPool(pos: Vec3, aim: Vec3, beamDeg: number, maxReach = 40): 
   }
   const r = Math.max(0.15, len * Math.tan(a));
   if (e >= GRAZING_DEG * DEG) {
-    const stretch = Math.min(2.5, 1 / Math.sin(e));
+    const stretch = Math.min(1.6, 1 / Math.sin(e));
     return { cx: aim.x, cy: aim.y, rx: r * stretch, ry: r, angle, kind: "aim", end: { ...aim }, endRadius: r };
   }
+  if (e < -30 * DEG) return { cx: aim.x, cy: aim.y, rx: r, ry: r, angle, kind: "up", end: { ...aim }, endRadius: r };
   // Grazing: a band on the floor from under the light to the aim (where a side light crosses the stage).
   const end = len < 1e-6 ? { ...pos } : { x: pos.x + dx, y: pos.y + dy, z: pos.z + dz };
   return { cx: (pos.x + end.x) / 2, cy: (pos.y + end.y) / 2, rx: Math.max(r, hlen / 2), ry: r, angle, kind: "grazing", end, endRadius: r };

@@ -69,7 +69,7 @@ describe("beamPool", () => {
     expect(p.cx).toBe(-1.8);
     expect(p.cy).toBe(1.5);
     expect(p.rx).toBeGreaterThan(p.ry);
-    expect(p.rx).toBeLessThanOrEqual(p.ry * 2.5 + 1e-9);
+    expect(p.rx).toBeLessThanOrEqual(p.ry * 1.6 + 1e-9);
   });
 
   it("side lights (horizontal or upwards) are a band across the stage", () => {
@@ -176,5 +176,13 @@ describe("projections", () => {
       { x: 1.5, y: -0 },
       { x: 1, y: -2 },
     ]);
+  });
+});
+
+describe("beamPool upwards", () => {
+  it("a light pointing up at the backdrop puts nothing on the floor", () => {
+    const p = beamPool({ x: 0, y: 5.7, z: 0.1 }, { x: 0, y: 5.95, z: 4 }, 40);
+    expect(p.kind).toBe("up");
+    expect(p.end).toEqual({ x: 0, y: 5.95, z: 4 });
   });
 });

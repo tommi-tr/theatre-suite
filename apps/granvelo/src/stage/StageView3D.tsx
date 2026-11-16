@@ -335,15 +335,22 @@ export default function StageView3D(props: StageView3DProps) {
   /** Frames the stage (and every light) in the current camera. `reset` = also put the camera back in its place. */
   function fit(ctx: Ctx, reset: boolean) {
     const { doc } = propsRef.current;
-    const { width, depth, height } = doc.stage;
     const aspect = ctx.size.w / ctx.size.h;
     if (ctx.mode === "perspective") {
       ctx.persp.aspect = aspect;
       ctx.persp.updateProjectionMatrix();
       if (reset) {
-        const span = Math.max(width, depth, height * 1.4);
-        ctx.persp.position.set(width * 0.18, height * 0.75 + span * 0.55, span * 1.25);
-        ctx.controls.target.set(0, height * 0.22, -depth * 0.45);
+        // Everything in view (also the lights in the house), seen from the audience, a little from above and the side.
+        const plan = viewBounds({ ...doc, scenery: [] }, "plan", 0.4);
+        const front = viewBounds({ ...doc, scenery: [] }, "front", 0.4);
+        const centre = W({ x: (plan.minX + plan.maxX) / 2, y: -(plan.minY + plan.maxY) / 2, z: Math.max(0, -(front.minY + front.maxY) / 2) * 0.7 });
+        const radius = 0.5 * Math.hypot(plan.maxX - plan.minX, plan.maxY - plan.minY, front.maxY - front.minY);
+        const vfov = (ctx.persp.fov * Math.PI) / 180;
+        const fov = Math.min(vfov, 2 * Math.atan(Math.tan(vfov / 2) * aspect));
+        const dist = (radius / Math.sin(fov / 2)) * 0.6;
+        const dir = new THREE.Vector3(0.2, 0.45, 1).normalize();
+        ctx.persp.position.copy(centre).addScaledVector(dir, dist);
+        ctx.controls.target.copy(centre);
         ctx.persp.up.set(0, 1, 0);
       }
     } else {
@@ -493,19 +500,21 @@ export default function StageView3D(props: StageView3DProps) {
       if (l.light) {
         const { hue, level } = l.light;
         const pool = l.pool;
-        const mat = track(ctx, new THREE.MeshBasicMaterial({ color: hue, map: soft, transparent: true, opacity: medium ? Math.min(1, 0.25 + 0.75 * level) : 0.2 + 0.5 * level, depthWrite: false, blending: THREE.AdditiveBlending }));
-        const disc = new THREE.Mesh(ctx.shared.circle, mat);
-        disc.rotation.x = -Math.PI / 2;
-        disc.rotation.z = pool.angle;
-        disc.scale.set(pool.rx, pool.ry, 1);
-        disc.position.copy(W({ x: pool.cx, y: pool.cy, z: 0.004 + (order++ % 20) * 0.0005 }));
-        disc.renderOrder = 2;
-        G.add(disc);
+        if (pool.kind !== "up") {
+          const mat = track(ctx, new THREE.MeshBasicMaterial({ color: hue, map: soft, transparent: true, opacity: medium ? 0.08 + 0.27 * level : 0.12 + 0.3 * level, depthWrite: false, blending: THREE.AdditiveBlending }));
+          const disc = new THREE.Mesh(ctx.shared.circle, mat);
+          disc.rotation.x = -Math.PI / 2;
+          disc.rotation.z = pool.angle;
+          disc.scale.set(pool.rx, pool.ry, 1);
+          disc.position.copy(W({ x: pool.cx, y: pool.cy, z: 0.004 + (order++ % 20) * 0.0005 }));
+          disc.renderOrder = 2;
+          G.add(disc);
+        }
         if (medium) {
           const end = W(pool.end);
           const len = pos.distanceTo(end);
           if (len > 0.05) {
-            const cone = new THREE.Mesh(ctx.shared.cone, track(ctx, new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.04 + 0.1 * level, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })));
+            const cone = new THREE.Mesh(ctx.shared.cone, track(ctx, new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.015 + 0.05 * level, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })));
             cone.scale.set(Math.max(0.02, pool.endRadius), len, Math.max(0.02, pool.endRadius));
             cone.position.copy(pos).add(end).multiplyScalar(0.5);
             cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), end.clone().sub(pos).normalize());
@@ -554,7 +563,7 @@ export default function StageView3D(props: StageView3DProps) {
         const labTex = track(ctx, new THREE.CanvasTexture(lab.canvas));
         labTex.colorSpace = THREE.SRGBColorSpace;
         const label = new THREE.Sprite(track(ctx, new THREE.SpriteMaterial({ map: labTex, depthTest: false, transparent: true })));
-        const lh = 0.22;
+        const lh = 0.26;
         label.scale.set(lh * lab.aspect, lh, 1);
         label.center.set(0, 0);
         label.position.copy(pos).add(new THREE.Vector3(0, size * 0.55, 0));
@@ -697,12 +706,13 @@ export default function StageView3D(props: StageView3DProps) {
   function finish(e: { clientX: number; clientY: number } | null) {
     const d = dragRef.current;
     if (!d) return;
+    const to = d.drag && e && d.moved ? dragPoint(e) : null;
     dragRef.current = null;
     if (!d.drag) {
       if (e && !d.moved) propsRef.current.onPress?.({ kind: "empty" }, d.info)?.end(null, "xy");
       return;
     }
-    d.drag.end(e && d.moved ? dragPoint(e) : null, d.axes);
+    d.drag.end(to, d.axes);
   }
 
   useEffect(() => {

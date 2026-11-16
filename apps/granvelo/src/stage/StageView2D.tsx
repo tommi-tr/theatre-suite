@@ -87,9 +87,10 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
   const finish = (e: { clientX: number; clientY: number } | null) => {
     const d = dragging.current;
     if (!d) return;
+    const to = e && d.moved ? pointAt(e) : null;
     dragging.current = null;
     frozen.current = null;
-    d.drag.end(e && d.moved ? pointAt(e) : null, d.axes);
+    d.drag.end(to, d.axes);
   };
 
   // Esc while dragging puts everything back.
@@ -117,7 +118,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
       const sn = Math.sin(p.angle);
       return { cx: p.cx, cy: 0, rx: Math.hypot(p.rx * c, p.ry * sn), ry: Math.min(0.14, p.ry * 0.12), rot: 0 };
     }
-    if (p.kind === "aim") return { cx: p.end.x, cy: -p.end.z, rx: p.endRadius, ry: p.endRadius, rot: 0 };
+    if (p.kind === "aim" || p.kind === "up") return { cx: p.end.x, cy: -p.end.z, rx: p.endRadius, ry: p.endRadius, rot: 0 };
     const a = P(l.pos);
     const e = P(p.end);
     return { cx: (a.x + e.x) / 2, cy: (a.y + e.y) / 2, rx: Math.max(p.endRadius, Math.hypot(e.x - a.x, e.y - a.y) / 2), ry: p.endRadius, rot: deg(Math.atan2(e.y - a.y, e.x - a.x)) };
@@ -127,7 +128,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
   const beamPoints = (l: StageLight) => {
     const a = P(l.pos);
     const ps = poolShape(l);
-    const end = view === "plan" || l.pool.kind === "aim" ? { x: ps.cx, y: ps.cy } : P(l.pool.end);
+    const end = view === "plan" || l.pool.kind === "aim" || l.pool.kind === "up" ? { x: ps.cx, y: ps.cy } : P(l.pool.end);
     const dx = end.x - a.x;
     const dy = end.y - a.y;
     const len = Math.hypot(dx, dy);
@@ -222,6 +223,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
             })
           : null}
         {lit.map((l) => {
+          if (view === "plan" && l.pool.kind === "up") return null;
           const ps = poolShape(l);
           return (
             <ellipse
@@ -293,7 +295,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
             const r = s * 0.32;
             return (
               <g key={`h${l.f.id}`} className="gv-stage2d__handle" data-hit={pickAims ? `aim:${l.f.id}` : undefined}>
-                <circle cx={a.x} cy={a.y} r={r * 1.6} fill="transparent" stroke="none" />
+                <circle cx={a.x} cy={a.y} r={r * 1.6} className="gv-stage2d__hitarea" />
                 <circle cx={a.x} cy={a.y} r={r} strokeWidth={stroke * 2} />
                 <line x1={a.x - r * 1.5} y1={a.y} x2={a.x + r * 1.5} y2={a.y} strokeWidth={stroke * 1.4} />
                 <line x1={a.x} y1={a.y - r * 1.5} x2={a.x} y2={a.y + r * 1.5} strokeWidth={stroke * 1.4} />

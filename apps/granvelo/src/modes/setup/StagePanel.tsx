@@ -159,6 +159,9 @@ export function StagePanel() {
   }
 
   const shown = preview ?? doc;
+  // Without 3D the perspective is not offered: the plan stands in for it.
+  const can3D = !no3D && webglAvailable();
+  const cam: StageCamera = !can3D && camera === "perspective" ? "plan" : camera;
   const pick = useMemo(
     () => (numbering ? { lights: true } : tool === "scenery" ? { scenery: true } : { lights: true, aims: tool === "aim", trusses: true }),
     [numbering, tool],
@@ -167,7 +170,7 @@ export function StagePanel() {
   const hint = numbering
     ? t("Click the lights one after the other: each gets the next address.")
     : tool === "move"
-      ? camera === "perspective"
+      ? cam === "perspective"
         ? t("Drag a light to move it (Shift: up and down). Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.")
         : t("Drag a light to move it. Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.")
       : tool === "aim"
@@ -211,10 +214,10 @@ export function StagePanel() {
         <Segmented<StageCamera>
           ariaLabel={t("View")}
           small
-          value={camera}
+          value={cam}
           onChange={(v) => useSetup.getState().setCamera(v)}
           options={[
-            { value: "perspective", label: t("Perspective") },
+            ...(can3D ? [{ value: "perspective" as const, label: t("Perspective") }] : []),
             { value: "plan", label: t("Plan") },
             { value: "front", label: t("Front") },
           ]}
@@ -223,7 +226,7 @@ export function StagePanel() {
       <div className="gv-su-stageview">
         <StageView
           doc={shown}
-          camera={camera}
+          camera={cam}
           values={values}
           selected={selected}
           selectedScenery={tool === "scenery" ? sceneryId : null}
@@ -237,7 +240,7 @@ export function StagePanel() {
         {readout ? <div className="gv-su-readout">{readout}</div> : null}
         <p className="gv-su-stagehint">
           {hint}
-          {camera === "perspective" && !no3D && webglAvailable() ? <span className="gv-su-stagehint__nav"> {t("Mouse: left turns, right moves, wheel zooms.")}</span> : null}
+          {cam === "perspective" ? <span className="gv-su-stagehint__nav"> {t("Mouse: left turns, right moves, wheel zooms.")}</span> : null}
         </p>
       </div>
     </section>
