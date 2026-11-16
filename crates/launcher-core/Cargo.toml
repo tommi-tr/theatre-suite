@@ -1,0 +1,22 @@
+[package]
+name = "launcher-core"
+version = "0.1.0"
+description = "Theatre Suite launcher — settings, installed apps, launching documents, update checks"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+theatre-project = { path = "../theatre-project" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = "3.5.1"
+base64 = "0.23.1"
+sha2 = "0.11.1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"

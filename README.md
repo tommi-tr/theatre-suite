@@ -5,6 +5,7 @@ and all of them share the same look and the same building blocks.
 
 | App | What it does | Status |
 |---|---|---|
+| **Theatre Suite launcher** (`apps/launcher`) | One place for the shows: each show is a folder; the launcher lists what was made for it with every app, opens it, copies a show for tour versions, and shows which apps and versions are installed | in development |
 | **Diaframma** (`apps/diaframma`) | Sound cues for shows (GO with the space bar) and control of the audio players open on the computer during rehearsals | in development |
 
 ## Repository layout
@@ -13,6 +14,7 @@ and all of them share the same look and the same building blocks.
 apps/            one folder per app
 packages/ui      shared visual identity: colours, fonts, icons, components
 packages/core    shared logic: languages, themes, undo/redo, formatting
+crates/          shared Rust code: the show model (`theatre-project`) and launcher logic (`launcher-core`)
 docs/            app specifications and decisions
 ```
 
@@ -26,10 +28,17 @@ docs/            app specifications and decisions
 pnpm install
 pnpm diaframma:dev      # run Diaframma in development
 pnpm diaframma:build    # build the Windows installer
+pnpm launcher:dev       # run the launcher in development
+pnpm launcher:build     # build the launcher installer
+cargo test -p theatre-project -p launcher-core   # tests of the show model and launcher logic
 ```
+
+`pnpm --filter launcher dev` alone (no Tauri) opens the launcher interface in a normal
+browser with sample data, handy for working on the layout.
 
 ## Installer
 
 Every push builds a Windows installer with GitHub Actions
-(workflow **Diaframma · Windows installer**). Open the run and download the
-artifact **Diaframma-Windows-installer**.
+(workflows **Diaframma · Windows installer** and **Launcher · Windows installer**).
+Open the run and download the artifact **Diaframma-Windows-installer** or
+**Theatre-Suite-Launcher-Windows-installer**.
