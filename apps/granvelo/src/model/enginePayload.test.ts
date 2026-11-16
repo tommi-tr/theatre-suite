@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { engineLayout, fadePayload, intensityMask, memoryFadePayload, memoryTarget } from "./enginePayload";
+import { cleanSeconds, engineLayout, fadePayload, intensityMask, MAX_SECONDS, memoryFadePayload, memoryTarget } from "./enginePayload";
 import { crossfadeAt, layoutOf } from "./crossfade";
 import { docWith, light } from "./testkit";
 import type { Group, Memory } from "./types";
@@ -72,5 +72,14 @@ describe("engine payload", () => {
     const p = fadePayload(doc, [300, -5, 12.6, ...new Array(600).fill(1)], { fadeIn: 1, fadeOut: 1, delay: 0, moveInDark: false });
     expect(p.target).toHaveLength(512);
     expect(p.target.slice(0, 3)).toEqual([255, 0, 13]);
+  });
+
+  it("never sends NaN or Infinity (JSON would make them null and the engine would refuse the GO)", () => {
+    const p = fadePayload(doc, [NaN, Infinity, 5], { fadeIn: NaN, fadeOut: Infinity, delay: -Infinity, moveInDark: false });
+    expect(p.transition).toEqual({ fadeIn: 0, fadeOut: MAX_SECONDS, delay: 0, moveInDark: false });
+    expect(p.target.slice(0, 3)).toEqual([0, 0, 5]);
+    expect(JSON.parse(JSON.stringify(p.transition))).toEqual(p.transition);
+    expect(cleanSeconds(1e308 + 1e308)).toBe(MAX_SECONDS);
+    expect(cleanSeconds(2.5)).toBe(2.5);
   });
 });

@@ -61,6 +61,10 @@ pub enum ErrorCode {
     Busy,
     /// Any other problem opening the port.
     OpenFailed,
+    /// Several possible cables and none answered as a Pro: the user chooses in the Settings.
+    ChooseCable,
+    /// The DMX engine stopped after an internal error (it restarts by itself, without sending).
+    EngineStopped,
 }
 
 impl LinkError {
@@ -119,9 +123,24 @@ pub fn guess(
 pub type UsbIds = (u16, u16, Option<String>, Option<String>, Option<String>);
 
 /// Builds the description of a port.
+/// A serial number that really belongs to the device, or `None`.
+///
+/// On Windows `serialport` invents one for devices without a serial (FTDI clones with a blank
+/// EEPROM, many cheap adapters): the first piece of the instance ID that Windows makes up,
+/// such as "6" from `6&A694CA9&0&0000`, which changes with the USB socket and is the same for
+/// two identical cables. Such values (only digits, at most 2 characters, or containing `&`)
+/// are not serial numbers.
+pub fn real_serial(serial: Option<String>) -> Option<String> {
+    let s = serial?.trim().to_string();
+    let made_up =
+        s.is_empty() || s.contains('&') || (s.len() <= 2 && s.chars().all(|c| c.is_ascii_digit()));
+    if made_up { None } else { Some(s) }
+}
+
 pub fn describe(port: &str, usb: Option<UsbIds>) -> DeviceInfo {
     match usb {
         Some((vid, pid, serial, manufacturer, product)) => {
+            let serial = real_serial(serial);
             let chip = chip_name(vid, pid).map(str::to_string);
             let g = guess(true, Some(vid), manufacturer.as_deref(), product.as_deref());
             let generic = |p: &str| {
@@ -165,25 +184,39 @@ pub fn describe(port: &str, usb: Option<UsbIds>) -> DeviceInfo {
     }
 }
 
-/// The same physical device in a new list (after it was unplugged and plugged back): same
-/// VID/PID and serial number; without a serial number, the same port, or the only device
-/// with that VID/PID. Not USB: the same port name.
+/// The same physical device in a new list (after it was unplugged and plugged back).
+/// - With a serial number: the device with the same VID/PID and serial, on any port.
+/// - Without one: among the devices with the same VID/PID **and no serial number** (a device
+///   with a serial is certainly another one), the one on the same port, otherwise the only one.
+/// - With a serial number not found again: the no-serial rule, in case the cable now reports
+///   none; never a device with a different serial number (that is another cable).
+/// - Not USB: the same port name.
 pub fn find_again<'a>(list: &'a [DeviceInfo], dev: &DeviceInfo) -> Option<&'a DeviceInfo> {
     if !dev.usb {
         return list.iter().find(|d| d.port == dev.port);
     }
     let same_ids = |d: &&DeviceInfo| d.usb && d.vid == dev.vid && d.pid == dev.pid;
-    if dev.serial.is_some() {
-        return list
+    if dev.serial.is_some()
+        && let Some(d) = list
             .iter()
             .filter(same_ids)
-            .find(|d| d.serial == dev.serial);
-    }
-    if let Some(d) = list.iter().filter(same_ids).find(|d| d.port == dev.port) {
+            .find(|d| d.serial == dev.serial)
+    {
         return Some(d);
     }
-    let mut same: Vec<&DeviceInfo> = list.iter().filter(same_ids).collect();
-    if same.len() == 1 { same.pop() } else { None }
+    let no_serial: Vec<&DeviceInfo> = list
+        .iter()
+        .filter(same_ids)
+        .filter(|d| d.serial.is_none())
+        .collect();
+    if let Some(d) = no_serial.iter().find(|d| d.port == dev.port) {
+        return Some(d);
+    }
+    if no_serial.len() == 1 {
+        Some(no_serial[0])
+    } else {
+        None
+    }
 }
 
 /// Where ports come from and how they are opened (the real computer, or fakes in the tests).
@@ -374,5 +407,63 @@ mod tests {
             .is_none()
         );
         assert!(find_again(&[usb("COM3", 0x1A86, 0x7523, None, None, None)], &no_serial).is_none());
+    }
+
+    #[test]
+    fn serial_numbers_made_up_by_windows_are_not_serial_numbers() {
+        assert_eq!(real_serial(Some("6".into())), None);
+        assert_eq!(real_serial(Some("5".into())), None);
+        assert_eq!(real_serial(Some("12".into())), None);
+        assert_eq!(real_serial(Some("5&2B4C1A&0&2".into())), None);
+        assert_eq!(real_serial(Some("  ".into())), None);
+        assert_eq!(
+            real_serial(Some("A702TB52".into())).as_deref(),
+            Some("A702TB52")
+        );
+        assert_eq!(real_serial(Some("123".into())).as_deref(), Some("123"));
+        assert_eq!(
+            usb("COM3", 0x0403, 0x6001, Some("6"), None, None).serial,
+            None
+        );
+    }
+
+    #[test]
+    fn a_cable_without_serial_is_found_again_on_another_hub() {
+        // Windows gave "6" before and "7" after the replug: both mean "no serial".
+        let before = usb("COM3", 0x0403, 0x6001, Some("6"), None, None);
+        let after = vec![usb("COM5", 0x0403, 0x6001, Some("7"), None, None)];
+        assert_eq!(find_again(&after, &before).unwrap().port, "COM5");
+        // Two identical serial-less cables: only the one on the same port, never a guess.
+        let two = vec![
+            usb("COM5", 0x0403, 0x6001, Some("6"), None, None),
+            usb("COM6", 0x0403, 0x6001, Some("6"), None, None),
+        ];
+        assert!(find_again(&two, &before).is_none());
+        let two_same_port = vec![
+            usb("COM3", 0x0403, 0x6001, Some("6"), None, None),
+            usb("COM6", 0x0403, 0x6001, Some("6"), None, None),
+        ];
+        assert_eq!(find_again(&two_same_port, &before).unwrap().port, "COM3");
+    }
+
+    #[test]
+    fn a_cable_without_serial_is_never_confused_with_one_that_has_a_serial() {
+        let lost = usb("COM3", 0x0403, 0x6001, None, None, None);
+        assert!(
+            find_again(
+                &[usb("COM3", 0x0403, 0x6001, Some("A702TB52"), None, None)],
+                &lost
+            )
+            .is_none()
+        );
+        // And a cable with a serial is never replaced by another serial.
+        let lost = usb("COM3", 0x0403, 0x6001, Some("A1B2C3D4"), None, None);
+        assert!(
+            find_again(
+                &[usb("COM3", 0x0403, 0x6001, Some("Z9Y8X7W6"), None, None)],
+                &lost
+            )
+            .is_none()
+        );
     }
 }

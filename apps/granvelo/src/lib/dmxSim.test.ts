@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSimDmx, SimCore, TEST_RISE } from "./dmxSim";
-import type { EngineLayout } from "./dmx";
+import type { EngineLayout, EngineTransition } from "./dmx";
+import vectors from "../model/engineVectors.json";
 
 const ALL: EngineLayout = { intensity: new Array(512).fill(1), mover: new Array(512).fill(-1), moverIntensity: [] };
 const uni = (pairs: [number, number][]) => {
@@ -137,5 +138,111 @@ describe("simulated engine", () => {
     now = 3;
     sim.tick();
     expect((await sim.getStatus()).status.link.state).toBe("connected");
+  });
+});
+
+type Pair = [number, number];
+interface Step {
+  t: number;
+  do?: string;
+  values?: Pair[];
+  target?: Pair[];
+  transition?: EngineTransition;
+  layout?: "all" | EngineLayout;
+  on?: boolean;
+  seconds?: number;
+  level?: number;
+  mask?: number[];
+  channels?: number;
+  expect?: Pair[];
+  under?: Pair[];
+  fade?: boolean;
+}
+
+/** Sparse [[channel, value]] → values (at least 512, longer if a channel is beyond). */
+const sparse = (pairs: Pair[] = []) => {
+  const out = new Array<number>(Math.max(512, ...pairs.map(([c]) => c + 1))).fill(0);
+  for (const [c, v] of pairs) out[c] = v;
+  return out;
+};
+
+/** The same file is run by cargo test against the Rust core (src-tauri/src/dmx/core.rs). */
+describe("shared engine vectors (browser simulator = native engine)", () => {
+  it("has the vectors", () => expect(vectors.cases.length).toBeGreaterThanOrEqual(10));
+  for (const c of vectors.cases as { name: string; steps: Step[] }[]) {
+    it(c.name, () => {
+      const core = new SimCore();
+      for (const s of c.steps) {
+        core.advance(s.t);
+        switch (s.do) {
+          case undefined:
+            break;
+          case "setUniverse":
+            core.setUniverse(sparse(s.values));
+            break;
+          case "fadeTo":
+            core.fadeTo(sparse(s.target), s.transition!, s.layout === "all" ? ALL : s.layout!);
+            break;
+          case "pause":
+            core.pause();
+            break;
+          case "resume":
+            core.resume();
+            break;
+          case "stopFade":
+            core.stopFade();
+            break;
+          case "blackout":
+            core.blackout(!!s.on);
+            break;
+          case "fadeToBlack":
+            core.fadeToBlack(s.seconds!);
+            break;
+          case "releaseBlack":
+            core.releaseBlack(s.seconds!);
+            break;
+          case "grandMaster": {
+            const mask = s.mask ? sparse(s.mask.map((ch) => [ch, 1] as Pair)) : undefined;
+            core.grandMaster(s.level!, mask);
+            break;
+          }
+          case "test":
+            core.startTest(s.channels!, s.level!);
+            break;
+          case "stopTest":
+            core.stopTest();
+            break;
+          default:
+            throw new Error(`unknown command ${s.do}`);
+        }
+        const frame = core.frame();
+        const under = core.playbackNow();
+        for (const [ch, v] of s.expect ?? []) expect(frame[ch], `t = ${s.t}, channel ${ch}`).toBe(v);
+        for (const [ch, v] of s.under ?? []) expect(under[ch], `t = ${s.t}, under channel ${ch}`).toBe(v);
+        if (s.fade !== undefined) expect(core.fadeState().active, `t = ${s.t}, fade running`).toBe(s.fade);
+      }
+    });
+  }
+});
+
+describe("simulated engine: bad values and universes", () => {
+  it("treats NaN and Infinity times as the engine does", () => {
+    const c = new SimCore();
+    c.advance(0);
+    c.fadeTo(uni([[0, 200]]), { fadeIn: NaN, fadeOut: Infinity, delay: -2, moveInDark: false }, ALL);
+    expect(c.frame()[0]).toBe(200);
+    c.fadeTo(uni([]), { fadeIn: 0, fadeOut: Infinity, delay: 0, moveInDark: false }, ALL);
+    expect(c.fadeState().total).toBe(86_400);
+    c.setUniverse(uni([[0, 200]]));
+    c.fadeToBlack(NaN);
+    expect(c.frame()[0]).toBe(0);
+  });
+
+  it("knows only universe 1", async () => {
+    const sim = createSimDmx({ now: () => 0, timer: false });
+    await expect(sim.setUniverse(uni([[0, 1]]), 2)).rejects.toThrow(/universe 2/);
+    await expect(sim.setUniverse(uni([[0, 1]]), 1)).resolves.toBeUndefined();
+    await expect(sim.fadeTo({ target: uni([]), transition: tr(0, 0), layout: ALL, universe: 3 })).rejects.toThrow();
+    expect(await sim.fadeTo({ target: uni([]), transition: tr(0, 0), layout: ALL })).toBeGreaterThan(0);
   });
 });

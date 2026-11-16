@@ -95,35 +95,51 @@ playback (`set_universe` immediate — it **ends a running fade**; `fade_to` com
 `stop_fade`) → output master (Grand Master and Fade to black scale the intensity mask; Blackout puts it at 0,
 reversible; positions, gobos, smoke are never touched) → test pattern (channels 1…N one at a time, replaces
 everything while on). The masters are not applied by the TS side: `memoryTarget` applies the groups only.
-"Dark at the start / at the end" of moving heads is decided by the engine from the values it really has.
+"Dark at the start / at the end" of moving heads is decided by the engine from the values it really has (a
+head whose intensity channel is outside the universe is never dark, in Rust as in JS). Fade to black and its
+release take the time asked from the current level. Times are cleaned on both sides: NaN → 0, Infinity → 24 h,
+negative → 0 (`cleanSeconds`); `null` from JSON is 0 in Rust. **Shared vectors**:
+`src/model/engineVectors.json` is run by vitest against `dmxSim.ts` and by `cargo test` against `core.rs`
+(`include_str!`): add a case there whenever a rule of the engine changes.
 
 | Command (Tauri) | Store action | Notes |
 |---|---|---|
 | `dmx_list_devices` | `refreshDevices` | ports with VID/PID, manufacturer, product, serial, chip, guess |
 | `dmx_connect {request}` | `connect(req?)`, `useSimulated` | `{mode:"auto",prefer?,kind?}` · `{mode:"port",port,kind}` · `{mode:"simulated"}` |
 | `dmx_disconnect` | `disconnect` | stops sending; **no blackout** (also on app exit) |
-| `dmx_set_universe {values}` | `setUniverse` | immediate; ends a running fade |
-| `dmx_fade_to {target,transition,layout}` → id | `fadeTo` | progress in `live.fade` (`id`, `progress`, `paused`, `doneId`) |
+| `dmx_set_universe {values,universe?}` | `setUniverse` | immediate; ends a running fade (also a paused one) |
+| `dmx_fade_to {target,transition,layout,universe?}` → id | `fadeTo` | progress in `live.fade` (`id`, `progress`, `paused`, `doneId`); a new fade while paused starts from the paused values and runs |
 | `dmx_pause` / `dmx_resume` / `dmx_stop_fade` | same names | stop = stay where you are |
 | `dmx_blackout {on}` | `blackout` | reversible; what is underneath keeps fading |
 | `dmx_fade_to_black {seconds}` / `dmx_release_black {seconds}` | `fadeToBlack` / `releaseBlack` | |
-| `dmx_grand_master {level,mask?}` | `setGrandMaster` | mask = `intensityMask(doc)` |
-| `dmx_test_output {on,channels?,level?}` | `startTest` / `stopTest` | level 128 |
+| `dmx_grand_master {level,mask?,universe?}` | `setGrandMaster` | mask = `intensityMask(doc)` |
+| `dmx_test_output {on,channels?,level?}` | `startTest` / `stopTest` | level 128; ignores Blackout, FTB and GM |
 | `dmx_get_status` | (init) | snapshot |
 | events `dmx-status` (at once), `dmx-progress` (≤ 10/s), `dmx-output` (≤ 20/s) | subscribed by `init` | only when they change |
 
+`universe` is optional (default 1, the only one; another number is refused).
+
 States: `idle`, `connecting`, `connected {device, kind}`, `simulated`, `lost {sinceMs, attempts}`,
-`error {code: noCable | notFound | busy | openFailed}`. Lost = write error: one reconnection attempt per second,
-same device by VID/PID/serial (not by COM name); when back, the whole current frame goes out at once.
+`error {code: noCable | notFound | busy | openFailed | chooseCable | engineStopped}`. Lost = a write error or a
+frame not handed to the driver within two periods (max 100 ms): one reconnection attempt per second, same device
+by VID/PID/serial (not by COM name; serial numbers made up by Windows — only digits ≤ 2 characters, or with `&` —
+count as none, and a cable without serial is matched only with devices without serial); when back, the whole
+current frame goes out at once. Only **one connection job** runs at a time (Windows opens COM ports
+exclusively): a Connect during a job is queued, the latest wins; a port "in use" is retried for 1 s.
+An internal error (panic) in the engine thread is caught: `error {engineStopped}` is shown, the engine is rebuilt
+from the last values and masters the interface saw and runs on without sending until Connect (after 3 errors it
+stops for good and says so).
 
 **Cables.** Auto: only Pro-looking devices and FTDI chips are tried (other serial devices are never written to);
 each is asked "Get Widget Parameters" (label 3) and serial (label 10), 300 ms; the first that answers is a Pro;
-otherwise a device named Pro is still driven as Pro, else the first FTDI chip as Open DMX. By hand (Settings):
+otherwise a device named Pro is still driven as Pro, else the preferred or the only FTDI chip as Open DMX; with
+several silent FTDI chips Granvelo does not guess (`chooseCable`: choose it in the Settings). By hand (Settings):
 any port as Pro or Open DMX. Both opened at 250000 baud 8N2, RTS cleared (as QLC+). Pro: label 6, start code 0 +
 512 values. Open DMX: break ≥ 200 µs, mark after break ≥ 20 µs (precise wait; on the wire ≈ 1 ms because break
-on/off are USB requests — fine for DMX), then 513 bytes; 30 frames/s because a frame takes 22.6 ms on the line
-and a new break never starts before the previous frame has left the chip. On Windows the timer resolution is
-raised to 1 ms (`timeBeginPeriod`, this process only) while a cable is connected.
+on/off are USB requests — fine for DMX), then 513 bytes; 30 frames/s because a frame takes 22.6 ms on the line;
+a new break never starts before the previous frame has left the line, measured in real time from the moment the
+data write started (+ 3 ms). On Windows the timer resolution is raised to 1 ms (`timeBeginPeriod`, this process
+only) while something is sent (cable or simulated output) or a lost cable is being reconnected.
 
 ## What is not there yet
 

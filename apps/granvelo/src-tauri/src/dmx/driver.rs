@@ -51,6 +51,63 @@ pub const OPEN_MAB: Duration = Duration::from_micros(20);
 /// Time on the line of start code + 512 slots at 250000 baud, 11 bits each.
 pub const OPEN_FRAME_TIME: f64 = (UNIVERSE as f64 + 1.0) * 11.0 / 250_000.0;
 pub const BAUD: u32 = 250_000;
+/// Open DMX: margin after the previous frame has left the line before a new break (USB latency).
+pub const OPEN_GUARD: f64 = 0.003;
+/// Longest time one call to the serial driver may block.
+pub const PORT_TIMEOUT: Duration = Duration::from_millis(50);
+
+/// The most time a whole frame may take to be handed to the driver: two frame periods, at most
+/// 100 ms. Past it the frame write fails and the cable counts as lost (the engine reconnects),
+/// so a device that accepts a few bytes at a time can never freeze the engine.
+pub fn write_limit(period: f64) -> Duration {
+    Duration::from_secs_f64((2.0 * period).min(0.1))
+}
+
+/// Seconds on a monotonic clock shared by the whole process.
+pub fn mono_now() -> f64 {
+    static ORIGIN: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    ORIGIN.get_or_init(Instant::now).elapsed().as_secs_f64()
+}
+
+/// Writes `data` with an overall deadline (partial writes and per-call timeouts go on until it).
+pub fn write_bounded<W: io::Write + ?Sized>(
+    w: &mut W,
+    data: &[u8],
+    limit: Duration,
+) -> io::Result<()> {
+    let end = Instant::now() + limit;
+    let mut rest = data;
+    while !rest.is_empty() {
+        match w.write(rest) {
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "the device accepts no data",
+                ));
+            }
+            Ok(n) => rest = &rest[n..],
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::Interrupted
+                        | io::ErrorKind::TimedOut
+                        | io::ErrorKind::WouldBlock
+                ) => {}
+            Err(e) => return Err(e),
+        }
+        if !rest.is_empty() && Instant::now() >= end {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                format!(
+                    "frame not written within {} ms ({} bytes left)",
+                    limit.as_millis(),
+                    rest.len()
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// The serial port as the drivers see it (a real port, or a fake one in the tests).
 pub trait DmxPort: Send {
@@ -61,6 +118,15 @@ pub trait DmxPort: Send {
     /// Waits precisely (break and mark after break).
     fn hold(&mut self, d: Duration);
     fn discard_input(&mut self) {}
+    /// Writes one frame within `limit` (see `write_limit`).
+    fn write_frame(&mut self, data: &[u8], limit: Duration) -> io::Result<()> {
+        let _ = limit;
+        self.write_all(data)
+    }
+    /// The port's clock in seconds (real time; the fake port of the tests has its own).
+    fn now(&self) -> f64 {
+        mono_now()
+    }
 }
 
 /// Waits `d` precisely: sleeps for most of it, then spins (≤ 2 ms of spinning).
@@ -86,7 +152,7 @@ impl SerialDmxPort {
             .stop_bits(serialport::StopBits::Two)
             .parity(serialport::Parity::None)
             .flow_control(serialport::FlowControl::None)
-            .timeout(Duration::from_millis(100))
+            .timeout(PORT_TIMEOUT)
             .open()?;
         // Like QLC+ and OLA: RTS cleared (some Open DMX interfaces use it for the line driver).
         let _ = inner.write_request_to_send(false);
@@ -127,6 +193,10 @@ impl DmxPort for SerialDmxPort {
 
     fn discard_input(&mut self) {
         let _ = self.inner.clear(serialport::ClearBuffer::Input);
+    }
+
+    fn write_frame(&mut self, data: &[u8], limit: Duration) -> io::Result<()> {
+        write_bounded(&mut self.inner, data, limit)
     }
 }
 
@@ -304,7 +374,9 @@ impl Driver for ProDriver {
         self.msg.extend_from_slice(frame);
         self.msg.push(PRO_EOM);
         // Label 6 has no answer: nothing to read back (reading would only add latency).
-        self.port.write_all(&self.msg).map_err(|e| e.to_string())
+        self.port
+            .write_frame(&self.msg, write_limit(PERIOD))
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -335,14 +407,14 @@ impl Driver for OpenDmxDriver {
         OPEN_PERIOD
     }
 
-    fn send(&mut self, frame: &Universe, now: f64) -> Result<(), String> {
-        let mut start = now;
+    fn send(&mut self, frame: &Universe, _now: f64) -> Result<(), String> {
         if let Some(prev) = self.last_start {
-            // Never break into the previous frame (1 ms margin for the USB chip).
-            let ready = prev + OPEN_FRAME_TIME + 0.001;
-            if now < ready {
-                self.port.hold(Duration::from_secs_f64(ready - now));
-                start = ready;
+            // Never break into the previous frame: wait (in real time, measured on the port)
+            // until it has left the line, plus a margin for the USB chip.
+            let ready = prev + OPEN_FRAME_TIME + OPEN_GUARD;
+            let t = self.port.now();
+            if t < ready {
+                self.port.hold(Duration::from_secs_f64(ready - t));
             }
         }
         self.slots[0] = 0;
@@ -352,7 +424,11 @@ impl Driver for OpenDmxDriver {
         self.port.hold(OPEN_BREAK);
         self.port.set_break(false).map_err(e)?;
         self.port.hold(OPEN_MAB);
-        self.port.write_all(&self.slots).map_err(e)?;
+        // The data starts now (each break request is a USB transfer: later than the tick).
+        let start = self.port.now();
+        self.port
+            .write_frame(&self.slots, write_limit(OPEN_PERIOD))
+            .map_err(e)?;
         self.last_start = Some(start);
         Ok(())
     }
@@ -433,6 +509,8 @@ pub mod testport {
         pub ops: Mutex<Vec<Op>>,
         /// When set, every operation fails (the cable was pulled out).
         pub broken: AtomicBool,
+        /// When set, frame writes time out (a device that accepts data too slowly).
+        pub stalled: AtomicBool,
     }
 
     impl PortLog {
@@ -457,6 +535,10 @@ pub mod testport {
         /// Answers like a Pro widget (firmware 1.44, serial 12345678).
         pub pro: bool,
         pending: VecDeque<u8>,
+        /// The port's clock: moves only with `hold` (and `break_lag`), or by hand in the tests.
+        pub time: Arc<Mutex<f64>>,
+        /// Seconds that clearing the break takes (a USB request).
+        pub break_lag: f64,
     }
 
     impl FakePort {
@@ -465,6 +547,8 @@ pub mod testport {
                 log,
                 pro,
                 pending: VecDeque::new(),
+                time: Arc::new(Mutex::new(0.0)),
+                break_lag: 0.0,
             }
         }
 
@@ -507,11 +591,29 @@ pub mod testport {
         fn set_break(&mut self, on: bool) -> io::Result<()> {
             self.check()?;
             self.log.ops.lock().unwrap().push(Op::Break(on));
+            if !on {
+                *self.time.lock().unwrap() += self.break_lag;
+            }
             Ok(())
+        }
+
+        fn write_frame(&mut self, data: &[u8], limit: Duration) -> io::Result<()> {
+            if self.log.stalled.load(Ordering::SeqCst) {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("frame not written within {} ms", limit.as_millis()),
+                ));
+            }
+            self.write_all(data)
+        }
+
+        fn now(&self) -> f64 {
+            *self.time.lock().unwrap()
         }
 
         fn hold(&mut self, d: Duration) {
             self.log.ops.lock().unwrap().push(Op::Hold(d));
+            *self.time.lock().unwrap() += d.as_secs_f64();
         }
     }
 }
@@ -596,22 +698,57 @@ mod tests {
     }
 
     #[test]
-    fn open_dmx_never_breaks_into_the_previous_frame() {
+    fn open_dmx_never_breaks_into_the_previous_frame_measured_from_the_real_write() {
         let log = Arc::new(PortLog::default());
-        let mut d = OpenDmxDriver::new(Box::new(FakePort::new(log.clone(), false)));
+        let mut port = FakePort::new(log.clone(), false);
+        // Clearing the break takes 3 ms (a USB request): the data starts later than the tick.
+        port.break_lag = 0.003;
+        let time = port.time.clone();
+        let mut d = OpenDmxDriver::new(Box::new(port));
         d.send(&frame(), 0.0).unwrap();
+        let write_start = OPEN_BREAK.as_secs_f64() + 0.003 + OPEN_MAB.as_secs_f64();
         log.ops.lock().unwrap().clear();
-        // Asked again only 10 ms later: it waits until the first frame has left the line.
-        d.send(&frame(), 0.010).unwrap();
+        // The next tick comes only 20 ms later (a late tick before, an early one now).
+        *time.lock().unwrap() = 0.020;
+        d.send(&frame(), 0.020).unwrap();
         let ops = log.ops.lock().unwrap().clone();
         let Op::Hold(w) = ops[0] else {
             panic!("no wait")
         };
-        assert!((w.as_secs_f64() - (OPEN_FRAME_TIME + 0.001 - 0.010)).abs() < 1e-6);
+        let ready = write_start + OPEN_FRAME_TIME + OPEN_GUARD;
+        assert!(
+            (0.020 + w.as_secs_f64() - ready).abs() < 1e-9,
+            "waits until the first frame has left the line"
+        );
         assert_eq!(ops[1], Op::Break(true));
         // At the normal cadence there is no wait.
         log.ops.lock().unwrap().clear();
-        d.send(&frame(), 0.010 + 2.0 * OPEN_PERIOD).unwrap();
+        *time.lock().unwrap() += 2.0 * OPEN_PERIOD;
+        d.send(&frame(), 1.0).unwrap();
         assert_eq!(log.ops.lock().unwrap()[0], Op::Break(true));
+    }
+
+    /// Accepts one byte per call, slowly: a device that would freeze an unbounded write.
+    struct Trickle;
+
+    impl io::Write for Trickle {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            std::thread::sleep(Duration::from_millis(1));
+            Ok(buf.len().min(1))
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_frame_write_has_a_deadline() {
+        let t0 = Instant::now();
+        let err = write_bounded(&mut Trickle, &[0u8; 513], Duration::from_millis(15)).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+        assert!(t0.elapsed() < Duration::from_millis(500));
+        assert!(write_bounded(&mut Trickle, &[1, 2, 3], Duration::from_millis(200)).is_ok());
+        assert_eq!(write_limit(PERIOD), Duration::from_millis(50));
+        assert!(write_limit(OPEN_PERIOD) <= Duration::from_millis(100));
     }
 }

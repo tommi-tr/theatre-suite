@@ -18,23 +18,48 @@ use serde::{Deserialize, Serialize};
 /// Channels of one DMX universe.
 pub const UNIVERSE: usize = 512;
 
-/// Times of a transition, in seconds (negative values count as 0).
+/// The longest time the engine accepts for a fade, a delay or a Fade to black (24 hours):
+/// longer values, NaN and infinities are absurd and are cut or count as 0.
+pub const MAX_SECONDS: f64 = 86_400.0;
+
+/// A time in seconds as the engine uses it: finite, 0…`MAX_SECONDS` (NaN and −∞ → 0, +∞ → max).
+pub fn clean_seconds(v: f64) -> f64 {
+    if v.is_nan() {
+        0.0
+    } else {
+        v.clamp(0.0, MAX_SECONDS)
+    }
+}
+
+/// Deserialises a number that may arrive as `null` (JavaScript's `JSON.stringify` writes NaN,
+/// Infinity and undefined as `null`): `null` = 0.
+pub fn null_as_zero<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    Ok(Option::<f64>::deserialize(d)?
+        .map(clean_seconds)
+        .unwrap_or(0.0))
+}
+
+fn null_as_false<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    Ok(Option::<bool>::deserialize(d)?.unwrap_or(false))
+}
+
+/// Times of a transition, in seconds (negative or missing values count as 0, see `clean_seconds`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Transition {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_zero")]
     pub fade_in: f64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_zero")]
     pub fade_out: f64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_zero")]
     pub delay: f64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_false")]
     pub move_in_dark: bool,
 }
 
 impl Transition {
     fn clean(v: f64) -> f64 {
-        if v.is_finite() { v.max(0.0) } else { 0.0 }
+        clean_seconds(v)
     }
 
     /// Seconds from the start to the end of the transition.
@@ -82,16 +107,12 @@ impl Layout {
     }
 
     /// For each moving head: are all its intensity channels at 0 in `state`?
-    /// (A head without intensity channels is never dark.)
+    /// A head without intensity channels is never dark; a channel outside the universe is not
+    /// "at 0" (as in JavaScript, where it reads `undefined`), so such a head is not dark either.
     pub fn dark_heads(&self, state: &[u8]) -> Vec<bool> {
         self.mover_intensity
             .iter()
-            .map(|chs| {
-                !chs.is_empty()
-                    && chs
-                        .iter()
-                        .all(|&c| state.get(c as usize).copied().unwrap_or(0) == 0)
-            })
+            .map(|chs| !chs.is_empty() && chs.iter().all(|&c| state.get(c as usize) == Some(&0)))
             .collect()
     }
 }
@@ -366,6 +387,39 @@ mod tests {
         assert_eq!(t.duration(), 6.0);
         assert_eq!(crossfade_at(&from, &to, t.duration(), &t, &l), to);
         assert_eq!(crossfade_at(&from, &to, 0.99, &t, &l), from);
+    }
+
+    #[test]
+    fn times_from_javascript_may_be_null_or_absurd() {
+        let t: Transition =
+            serde_json::from_str(r#"{"fadeIn":null,"fadeOut":1e308,"delay":-3,"moveInDark":null}"#)
+                .unwrap();
+        assert_eq!(t, tr(0.0, MAX_SECONDS, 0.0, false));
+        let t: Transition = serde_json::from_str("{}").unwrap();
+        assert_eq!(t.duration(), 0.0);
+        assert_eq!(
+            tr(f64::NAN, f64::INFINITY, f64::NEG_INFINITY, false).duration(),
+            MAX_SECONDS
+        );
+        assert_eq!(
+            tr(MAX_SECONDS, 0.0, MAX_SECONDS, false).duration(),
+            2.0 * MAX_SECONDS
+        );
+    }
+
+    #[test]
+    fn a_head_whose_intensity_channel_is_outside_the_universe_is_not_dark() {
+        let l = Layout {
+            intensity: vec![0, 1],
+            mover: vec![0, -1],
+            mover_intensity: vec![vec![600]],
+        };
+        assert_eq!(l.dark_heads(&[0, 0]), vec![false]);
+        // So with move in dark its position fades like any other channel.
+        assert_eq!(
+            crossfade_at(&[0, 0], &[200, 0], 1.0, &tr(2.0, 0.0, 0.0, true), &l),
+            vec![100, 0]
+        );
     }
 
     #[test]
