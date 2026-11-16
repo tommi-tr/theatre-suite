@@ -23,7 +23,7 @@ impostazioni e salvataggi automatici.
 della modalità Prove. Diaframma non scrive da nessun'altra parte, tranne dove salvi tu le scalette.
 
 ## Estensione per Chrome (facoltativa)
-1. Dalla stessa pagina di GitHub scarica **Diaframma-Chrome-extension** e scompatta lo zip.
+1. Dalla pagina del rilascio di Diaframma (la stessa dell'installer) scarica **Diaframma-Chrome-extension.zip** e scompatta lo zip.
 2. In Chrome apri `chrome://extensions`, attiva **Modalità sviluppatore**, clicca **Carica estensione non pacchettizzata**
    e scegli la cartella scompattata.
 3. In Diaframma: Impostazioni → Connessioni → **Estensione per Chrome**.
