@@ -36,10 +36,14 @@ src/model/       pure TypeScript, no React — the foundations of the next phase
   ops.ts           document operations (add/remove light, channels, trusses, places, memories)
   desk.ts          the desk, pure: fader values → universe, "modified" compare, one intensity per light, colour picker,
                    groups, memory save / save as new / rename / renumber
+  sequence.ts      order of the show (move, leave out / put back) and transitions (times cleaned 0…600 s, 1 decimal)
+  show.ts          the Show engine, pure: GO / Indietro / Pausa / parte da sola / Blackout / FTB / Emergenza (see "The Show")
+  reliability.ts   the reliability test (Settings → Test): the sequence through SimCore, accelerated, + document checks
   file.ts          newDocument, serialize, parse (strict format 1, unknown top-level keys kept)
   demo.ts          La locandiera: 15 lights, 9 memories
 src/store/       zustand: doc (undo/redo via packages/core History), settings (this computer), ui,
-                 output (the DMX output: the single door to the lights), desk (the live desk, see "The desk")
+                 output (the DMX output: the single door to the lights), desk (the live desk, see "The desk"),
+                 show (the Show: clock + effects of model/show.ts, Lock)
   enginePayload.ts document → DMX engine commands (fade layout, intensity mask, memory target)
 src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting;
                  dmx.ts (typed DMX engine API) + dmxSim.ts (the same engine in the browser)
@@ -52,7 +56,9 @@ src/stage/       the stage, reusable (Allestimento now, Banco and Show next): no
 src/modes/       Allestimento (list of lights, stage or address map, properties / scenery), Banco, Show (phase 0);
                  check/ = Controllo luci dialog (opened with ui.openDialog("check"), also for Show);
                  desk/ = Banco: Fader, Faders (LightCards, Masters: props only), DeskFaders (store-connected), DeskStage,
-                 MemoryPanel (on stage box + list), ColorPicker, BlindButton/BlindBand, actions (questions), desk.css
+                 MemoryPanel (on stage box + list), ColorPicker, BlindButton/BlindBand, actions (questions), desk.css;
+                 show/ = Show: Nastro (the strip), ShowBars (GO bar, desk selector, bands, bottom bar, top-bar tools),
+                 SequenceDialog, actions (messages, mode switch, Lock), show.css
 src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
 src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
 ```
@@ -228,9 +234,82 @@ selects). Blind: top-bar button, **Ctrl B**, **Esc** to leave (asks if unsaved);
 Ctrl B on the memory that is on stage says to choose another. Model ops in `model/desk.ts` (tests in `desk.test.ts`; store tests in
 `store/desk.test.ts`). File format unchanged.
 
+## The Show (Granvelo 0.5)
+
+**Engine** `src/model/show.ts` (pure, `show.test.ts`): `showReduce(state, action, {now, sequence, emergencyMemoryId})` →
+`{state, effects, notice?}`. State: `liveId` (on air; during a transition the memory coming in), `readyId` (next GO; null =
+end), `fade` (`fromId`, `toId`, `startedAt`, `pausedAt`, `pausedMs`, `durationMs`, `autoFollow`, `back`), `liveSince`,
+`startedAt` (first GO, "durata della serata"), `blackout`, `ftb`, `emergency` (`since` + the Blackout/FTB state to give back),
+`armedAt` (first E). `showPhase` = emergency > blackout > ftb > paused > fading > idle. Actions: `go`, `back`, `pause`
+(toggle), `blackout` (toggle), `ftb {seconds}` (toggle), `emergency` (E: arms, second within 3 s fires), `leaveEmergency`,
+`tick`, `setReady`, `restart` (first memory ready, evening clock reset, stage untouched), `sync` (document changed),
+`onStage` (the Banco put a memory of the sequence on stage: the Show carries on from it). Rules at the top of the file;
+in short: GO from whatever is on stage (also mid-fade or paused: the engine starts from its current values); Indietro = the
+memory before the one on air with **its own times**, never auto-follow, the one on air becomes ready; parte da sola starts the
+*ready* memory at the exact end of the transition (pauses excluded; chains of 0 s bounded by the sequence length; held in
+emergency); Blackout/FTB/GO/Indietro/Pausa are refused in emergency (notice `inEmergency`); notices `emptySequence`,
+`endOfSequence`, `firstMemory`, `nothingToPause`, `emergencyArmed`, `notInSequence` become toasts (`modes/show/actions.ts`).
+
+**Store** `src/store/show.ts`: runs the reducer with `Date.now()`, a 100 ms timer only while a transition or an armed E is
+pending, and executes the effects through `useOutput` (fade = `memoryFadePayload`, groups applied, GM by the engine). Every
+memory called is handed to the desk (`useDesk.followShow`: faders = that memory, no send, desk history cleared), so Show and
+Banco faders always start from what is on stage. **Emergency**: `setUniverse` of the emergency memory **as saved** (no groups)
+or `emergencyValues` (all white, positions from the desk), Blackout off, FTB released at once, GM 255; leaving it fades back
+to the desk (`deskUniverse`) in the default crossfade, GM of the desk, Blackout/FTB as they were. GO with the output not
+connected works (the engine keeps the values and sends them at Connect; the GO bar says the lights do not change). Fades
+finish in the engine without the interface; only parte da sola needs the store's timer. No engine change was needed (pause,
+resume, blackout, FTB, GM were there since 0.2). The desk no longer resends the universe for document changes that do not
+touch patch or groups (editing a transition must not cut a fade), and `activate` / leaving Blind do not resend while the
+engine has a fade running. Faders moved in Show act live (they end a running fade, as `setUniverse` does).
+
+**Screen** (`modes/ShowMode.tsx`, `modes/show/`): Blind band, red emergency band / amber Blackout-FTB band (also in Banco,
+with "Riaccendi le luci"), the **Nastro** (cards placed in slots and each animated from its old slot to the new one in the
+transition time, paused with Pausa; the running transition box travels with the memory it brings and the next one opens
+between on air and ready, so nothing is ever covered), GO bar (GO, Indietro, Pausa/Riprendi, keys, output state), desk
+selector **No · Mini · Compatto · Esteso** on its own row (computer setting `showDesk`, default Compatto), the desk
+(`<DeskFaders density disabled>`; disabled by Lock and emergency), bottom bar ("Memoria N di M", "Serata h:mm:ss",
+Blackout `B`, Fade to black `F` · time (computer setting `ftbSeconds`, default 5 s, Settings → Memorie), Emergenza `E E`).
+Top bar in Show: Sequenza (dialog: order, Salita/Discesa/Ritardo typed, Parte da sola, Teste mobili al buio, leave out / put
+back, "Dall'inizio"), Controllo luci (icon), Blind (on the ready memory), Lock (last). Show buttons never take the keyboard
+focus. Banco's memory list is now in show order with "earlier / later in the show" tools and "fuori sequenza".
+
+**Lock** (`useShow.locked`, reset when a show is loaded): blocks mode switching, Blind, Controllo luci, the sequence (dialog,
+choosing the ready card, editing), the faders, Settings, Undo/Redo, the File menu, Ctrl O / Ctrl N / Ctrl , / Ctrl 1–3 and
+"Disconnetti"; GO, Indietro, Pausa, Blackout, FTB, Emergenza (and leaving it), Connetti and Ctrl S still work. Unlock:
+hold the button (800 ms) or Ctrl L. **Mode switch** (`switchMode`): refused with Lock or emergency on; Blind is left first
+(asking to save), so the output is never left frozen.
+
+**Reliability test** (`model/reliability.ts`, Settings → Test, loaded on demand): GO after GO through `SimCore` with no
+output (≤ 2400 frames per transition), checks: transition time within one frame, end values = target, values outside
+0–255, memories with no light, conflicts / lights beyond 512 / lights without address, parte da sola on the last memory,
+transitions over 60 s, frame computation over 10 ms. Report in plain words with the suite's status lights.
+
+File format unchanged (format 1 already had `sequence` and the five transition fields).
+
+## Shortcuts
+
+| Key | Where | What | Notes |
+|---|---|---|---|
+| `Space` | Show | GO | never with Ctrl/Alt; keyup is swallowed so a focused button is not "clicked" (no double GO); in the Controllo luci dialog Space is "next light" |
+| `Backspace` | Show | Indietro | |
+| `P` | Show | Pausa / Riprendi | |
+| `B` | Show | Blackout (again = back) | refused in emergency |
+| `F` | Show | Fade to black (again = back), time from the Settings | refused in emergency |
+| `E` `E` | Show | Emergenza: first press arms (3 s), second fires | leave it with "Torna allo spettacolo" |
+| `Ctrl B` | Banco, Show | Blind | blocked by Lock |
+| `Esc` | Banco, Show | leave Blind (asks to save) | dialogs and menus close first |
+| `Ctrl L` | Show | Lock / unlock | exactly Ctrl L: `Ctrl Shift L` is "back to the launcher" (packages/ui) and never toggles Lock |
+| `Ctrl Shift L` | everywhere | back to the Theatre Suite launcher (when the file belongs to a show) | |
+| `Ctrl Z` / `Ctrl Y` (`Ctrl Shift Z`) | everywhere | Undo / Redo (Banco: the desk first) | not while typing; blocked by Lock |
+| `Ctrl S` / `Ctrl Shift S` | everywhere | Save / Save as | also with Lock |
+| `Ctrl O` / `Ctrl N` / `Ctrl ,` | everywhere | Open / New / Settings | blocked by Lock |
+| `Ctrl 1` `2` `3` | everywhere | Allestimento / Banco / Show | blocked by Lock and emergency; leaves Blind first |
+
+Single-letter keys exist only in Show; none fires while typing in a field, with a dialog or a question open, or when held
+down (repeat). Banco and Allestimento use only arrows, Home/End, Delete, F2 and Esc inside their lists.
+
 ## What is not there yet
 
-Show (playback, GO, the three densities on the performance screen: the components above are ready), fades from the desk
-(Banco puts memories on stage without fade), editing scenery placements per memory (Salva keeps them as they are), a "bring the
-desk in line with what Show left on stage" step when entering Banco (the desk starts from its own values), box selection on the
-stage, dragging trusses with the mouse, real shadows / beams in smoke ("Alta", phase 5), PDF prints.
+Fades from the desk (Banco puts memories on stage without fade), editing scenery placements per memory (Salva keeps them as
+they are), box selection on the stage, dragging trusses with the mouse, real shadows / beams in smoke ("Alta", phase 5), PDF
+prints. In Show the faders show the memory the stage is going to, not the in-between values of a running transition.
