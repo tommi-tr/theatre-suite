@@ -647,3 +647,8 @@
 .gv-mrow__tool--blind:hover {
   color: var(--pre);
 }
+.gv-mrow__tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+}

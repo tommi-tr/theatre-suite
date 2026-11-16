@@ -4,7 +4,7 @@ import type { Id } from "../model/types";
 /** The three ways of working (selector at the top centre). */
 export type Mode = "setup" | "desk" | "show";
 
-export type DialogKind = "settings" | "versions" | "newShow" | "check";
+export type DialogKind = "settings" | "versions" | "newShow" | "check" | "sequence";
 
 /** Categories of the Settings window (10_granvelo.md, "Impostazioni"). */
 export type SettingsTab = "general" | "dmx" | "preview" | "memories" | "test" | "about";
@@ -28,9 +28,13 @@ interface UiStore {
   selection: Id[];
   /** Where a Shift range starts. */
   anchorId: Id | null;
+  /** Memory to bring into view when the sequence dialog opens. */
+  sequenceFocusId: Id | null;
   setMode: (m: Mode) => void;
   openDialog: (kind: DialogKind) => void;
   openSettings: (tab?: SettingsTab) => void;
+  /** Sequence and transitions (Show), optionally on one memory. */
+  openSequence: (focusId?: Id | null) => void;
   setSettingsTab: (tab: SettingsTab) => void;
   closeDialog: () => void;
   showToast: (message: string, kind?: "info" | "error") => void;
@@ -50,9 +54,11 @@ export const useUi = create<UiStore>((set) => ({
   fixtureId: null,
   selection: [],
   anchorId: null,
+  sequenceFocusId: null,
   setMode: (mode) => set({ mode }),
   openDialog: (dialog) => set({ dialog }),
   openSettings: (tab) => set((s) => ({ dialog: "settings", settingsTab: tab ?? s.settingsTab })),
+  openSequence: (focusId) => set({ dialog: "sequence", sequenceFocusId: focusId ?? null }),
   setSettingsTab: (settingsTab) => set({ settingsTab }),
   closeDialog: () => set({ dialog: null }),
   showToast: (message, kind = "info") => set({ toast: { message, kind } }),

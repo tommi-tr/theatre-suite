@@ -1,7 +1,8 @@
 import { memo, useMemo, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { Button, Icon } from "@theatre-suite/ui";
-import { litCount, nextMemoryNumber, stateUniverse } from "../../model/memories";
+import { litCount, memoriesInOrder, nextMemoryNumber, stateUniverse } from "../../model/memories";
+import { moveInSequence } from "../../model/sequence";
 import { memoryNumberFree } from "../../model/desk";
 import type { GranveloDoc, Memory } from "../../model/types";
 import { useDesk } from "../../store/desk";
@@ -100,7 +101,7 @@ export function OnStageBox() {
 }
 
 /** One memory of the list: thumbnail of the stage, number, name; on stage = green, in Blind = blue. */
-const MemoryRow = memo(function MemoryRow({ doc, m, live, blind, cursor, dirty }: { doc: GranveloDoc; m: Memory; live: boolean; blind: boolean; cursor: boolean; dirty: boolean }) {
+const MemoryRow = memo(function MemoryRow({ doc, m, live, blind, cursor, dirty, seqIndex, seqLength }: { doc: GranveloDoc; m: Memory; live: boolean; blind: boolean; cursor: boolean; dirty: boolean; seqIndex: number; seqLength: number }) {
   const t = useT();
   const lang = useLang();
   const [editing, setEditing] = useState<"name" | "number" | null>(null);
@@ -176,11 +177,22 @@ const MemoryRow = memo(function MemoryRow({ doc, m, live, blind, cursor, dirty }
             ) : blind ? (
               <span className="gv-mrow__tag gv-mrow__tag--blind">{t("in Blind")}</span>
             ) : null}
+            {seqIndex < 0 ? <span className="gv-mrow__tag">{t("not in the sequence")}</span> : null}
             {meta}
           </span>
         </span>
       </div>
       <div className="gv-mrow__tools">
+        {seqIndex >= 0 ? (
+          <>
+            <button type="button" className="gv-mrow__tool" disabled={seqIndex === 0} title={t("Earlier in the show")} aria-label={t("Earlier in the show")} onClick={() => useDoc.getState().change((d) => moveInSequence(d, m.id, -1))}>
+              <Icon name="arrowUp" size={14} />
+            </button>
+            <button type="button" className="gv-mrow__tool" disabled={seqIndex === seqLength - 1} title={t("Later in the show")} aria-label={t("Later in the show")} onClick={() => useDoc.getState().change((d) => moveInSequence(d, m.id, 1))}>
+              <Icon name="arrowDown" size={14} />
+            </button>
+          </>
+        ) : null}
         <button type="button" className="gv-mrow__tool gv-mrow__tool--blind" title={t("Change it in Blind (the stage does not change)")} aria-label={t("Blind")} onClick={() => void toggleBlind(t, m.id)}>
           <Icon name="eyeOff" size={14} />
         </button>
@@ -198,7 +210,7 @@ const MemoryRow = memo(function MemoryRow({ doc, m, live, blind, cursor, dirty }
   );
 });
 
-/** The memories of the show, in order of number. */
+/** The memories of the show in show order (the sequence first, then the ones left out, by number). */
 export function MemoryList() {
   const t = useT();
   const doc = useDoc((s) => s.doc)!;
@@ -206,7 +218,8 @@ export function MemoryList() {
   const blindId = useDesk((s) => s.blind?.memoryId ?? null);
   const cursorId = useDesk((s) => s.cursorId);
   const modified = useDesk((s) => s.modified);
-  const memories = useMemo(() => [...doc.memories].sort((a, b) => a.number - b.number), [doc.memories]);
+  const memories = useMemo(() => memoriesInOrder(doc), [doc.memories, doc.sequence]);
+  const seqLength = doc.sequence.length;
   return (
     <section className="gv-mlist" aria-label={t("Memories")}>
       <div className="gv-panel__head">
@@ -218,7 +231,7 @@ export function MemoryList() {
       ) : (
         <ul className="gv-memlist gv-mlist__ul">
           {memories.map((m) => (
-            <MemoryRow key={m.id} doc={doc} m={m} live={m.id === liveId} blind={m.id === blindId} cursor={m.id === cursorId} dirty={m.id === liveId && modified} />
+            <MemoryRow key={m.id} doc={doc} m={m} live={m.id === liveId} blind={m.id === blindId} cursor={m.id === cursorId} dirty={m.id === liveId && modified} seqIndex={doc.sequence.indexOf(m.id)} seqLength={seqLength} />
           ))}
         </ul>
       )}

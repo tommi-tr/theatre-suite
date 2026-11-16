@@ -29,8 +29,6 @@ export const it: Dict = {
   "Beam": "Fascio",
   "Before going back to another version": "Prima di tornare a un'altra versione",
   "Before the first save of this session": "Prima del primo salvataggio di questa sessione",
-  "Blackout, Fade to black and Emergency always in the same place at the bottom, and Lock against accidental changes.":
-    "Blackout, Fade to black ed Emergenza sempre nello stesso punto in basso, e Lock contro le modifiche per sbaglio.",
   "Blue": "Blu",
   "Cancel": "Annulla",
   "Change how memories remember the lights?": "Cambiare il modo in cui le memorie ricordano le luci?",
@@ -96,7 +94,6 @@ export const it: Dict = {
   "In this preview files are not saved: install Granvelo to save.": "In questa anteprima i file non si salvano: installa Granvelo per salvare.",
   "In this preview files cannot be opened: try the demo show.": "In questa anteprima non si aprono file: prova lo spettacolo di prova.",
   "Intensity": "Intensità",
-  "It arrives with Granvelo 0.5, together with the Show mode.": "Arriva con Granvelo 0.5, insieme alla modalità Show.",
   "Its last channel would be {n}, beyond 512.": "Il suo ultimo canale sarebbe il {n}, oltre il 512.",
   "LED PAR 6 channels": "PAR LED a 6 canali",
   "LED PAR 7 channels": "PAR LED a 7 canali",
@@ -164,8 +161,6 @@ export const it: Dict = {
   "Saved": "Salvato",
   "Saved, and kept as a version.": "Salvata, e conservata come versione.",
   "Scenery": "Scenografia",
-  "Separate times to go up and down, delay, moving heads that move in the dark, memories that start by themselves.":
-    "Tempi separati di salita e discesa, ritardo, teste mobili che si spostano al buio, memorie che partono da sole.",
   "Sequence": "Sequenza",
   "Settings": "Impostazioni",
   "Setup": "Allestimento",
@@ -190,12 +185,7 @@ export const it: Dict = {
   "The lights of your show": "Le luci del tuo spettacolo",
   "The lights: a memory remembers every light by itself. If you change the address of a light, the memories follow it and are not spoiled.":
     "Le luci: una memoria ricorda ogni luce per sé. Se cambi l'indirizzo di una luce, le memorie la seguono e non si rovinano.",
-  "The memory on stage in a green box, the next one ready in amber: GO with the space bar, Back and Pause of the transition.":
-    "La memoria in scena in un riquadro verde, la successiva pronta in ambra: GO con la barra spaziatrice, Indietro e Pause della transizione.",
-  "The show, memory after memory": "Lo spettacolo, memoria dopo memoria",
   "The stage preview arrives with Granvelo 0.3; the levels High and Automatic with Granvelo 0.6.": "L'anteprima del palco arriva con Granvelo 0.3; i livelli Alta e Automatica con Granvelo 0.6.",
-  "The test plays the whole sequence of memories without sending anything to the lights, and then writes a short report: how long each transition took and whether anything went wrong. Useful before the first performance and on an old computer.":
-    "Il test fa girare tutta la sequenza delle memorie senza mandare nulla alle luci, poi scrive un breve rapporto: quanto è durata ogni transizione e se qualcosa non è andato. Utile prima della prima replica e su un computer vecchio.",
   "The {n} memories are converted with the addresses the lights have now. Lights without an address lose their values. You can undo it with Ctrl Z.":
     "Le {n} memorie vengono convertite con gli indirizzi che le luci hanno adesso. Le luci senza indirizzo perdono i loro valori. Puoi annullare con Ctrl Z.",
   "The {n} memories are converted with the addresses the lights have now. Values on channels that no light uses are dropped. You can undo it with Ctrl Z.":

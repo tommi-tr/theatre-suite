@@ -4,6 +4,7 @@ import { Button, Icon } from "@theatre-suite/ui";
 import type { DmxErrorCode, DmxStatus, LinkState } from "../lib/dmx";
 import { useOutput } from "../store/output";
 import { useUi } from "../store/ui";
+import { useShow } from "../store/show";
 import "./output.css";
 
 type T = ReturnType<typeof useT>;
@@ -125,6 +126,7 @@ export function OutputChip() {
   const t = useT();
   const status = useOutput((s) => s.status);
   const problemOpen = useOutput((s) => s.problemOpen);
+  const locked = useShow((s) => s.locked);
   const [open, setOpen] = useState(false);
   useEffect(() => {
     void useOutput.getState().init();
@@ -215,7 +217,7 @@ export function OutputChip() {
                 {t("Connect the cable")}
               </Button>
             ) : null}
-            <Button icon="x" onClick={run(() => out.disconnect())}>
+            <Button icon="x" disabled={locked} title={locked ? t("Lock is on: hold the Lock button or press Ctrl L to unlock.") : undefined} onClick={run(() => out.disconnect())}>
               {t("Disconnect")}
             </Button>
           </div>

@@ -1,0 +1,591 @@
+/* Show (Granvelo 0.5): the strip "Nastro", GO bar, desk selector, desk, bottom bar. Colours only from the suite:
+   green = on air, amber = ready / attention, red = danger (emergency), blue = Blind. */
+
+.gv-show {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.gv-show[data-blind] .gv-nastro {
+  box-shadow: inset 0 0 0 1px var(--pre-line);
+}
+
+/* ---------- Bands ---------- */
+.gv-showband {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.gv-showband strong {
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gv-showband--stop {
+  background: var(--stop-soft);
+  border-bottom: 1px solid var(--stop);
+}
+.gv-showband--stop strong,
+.gv-showband--stop > .ts-icon,
+.gv-showband--stop > svg {
+  color: var(--stop);
+}
+.gv-showband--warn {
+  background: var(--sb-soft);
+  border-bottom: 1px solid var(--sb-line);
+}
+.gv-showband--warn strong,
+.gv-showband--warn > svg {
+  color: var(--sb);
+}
+
+/* ---------- Nastro ---------- */
+/* Cards are placed by Nastro.tsx (left/width of their slot); during a transition each one moves from its old slot. */
+.gv-nastro {
+  flex: none;
+  height: 178px;
+  position: relative;
+  overflow: hidden;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  /* The following memories fade to the right. */
+  -webkit-mask-image: linear-gradient(to right, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 78%, transparent 100%);
+}
+.gv-nastro__track {
+  position: relative;
+  height: 100%;
+}
+.gv-nastro__card {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes gv-nastro-move {
+  from {
+    transform: translateX(var(--gv-dx));
+    width: var(--gv-w0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gv-nastro__card {
+    animation: none !important;
+  }
+}
+.gv-nastro__box {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 9px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.gv-nastro__box--live {
+  border: 2px solid var(--go-fill);
+  background: var(--go-soft);
+}
+.gv-nastro__box--ready {
+  border: 2px solid var(--sb-fill);
+  background: var(--sb-soft);
+}
+.gv-nastro__tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.gv-nastro__tag--live {
+  color: var(--go);
+}
+.gv-nastro__tag--ready {
+  color: var(--sb);
+}
+.gv-nastro__since {
+  margin-left: auto;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.gv-nastro__thumb {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.gv-nastro__thumb svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.gv-nastro__name {
+  flex: none;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.gv-nastro__name b {
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+.gv-nastro__box--live .gv-nastro__name {
+  font-size: 15px;
+}
+.gv-nastro__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+/* A transition box: it may open or close while the strip moves, so its content keeps its width and is clipped. */
+.gv-nastro__trans {
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  border: 1px dashed var(--border-strong);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.gv-nastro__trin {
+  position: relative;
+  width: 166px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+.gv-nastro__trans[data-running] {
+  border-style: solid;
+  border-color: var(--go-line);
+}
+.gv-nastro__trans[data-paused] {
+  border-color: var(--sb-line);
+}
+.gv-nastro__trmain {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  padding-right: 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gv-nastro__bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.gv-nastro__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--go-fill);
+}
+.gv-nastro__trans[data-paused] .gv-nastro__bar > span {
+  background: var(--sb-fill);
+}
+.gv-nastro__trstate {
+  font-variant-numeric: tabular-nums;
+}
+.gv-nastro__trans[data-paused] .gv-nastro__trstate {
+  color: var(--sb);
+  font-weight: 600;
+}
+.gv-nastro__trextra {
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.35;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.gv-nastro__edit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.gv-nastro__edit:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.gv-nastro__next {
+  top: 15%;
+  bottom: 15%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gv-nastro__next:hover:not(:disabled) {
+  border-color: var(--sb-line);
+}
+.gv-nastro__next:disabled {
+  cursor: default;
+}
+.gv-nastro__next .gv-nastro__name {
+  font-size: 12.5px;
+}
+.gv-nastro__meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ---------- GO bar ---------- */
+.gv-gobar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.gv-go {
+  flex: none;
+  width: 190px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--go-fill);
+  color: var(--go-ink);
+  cursor: pointer;
+}
+.gv-go:active:not(:disabled) {
+  filter: brightness(0.92);
+}
+.gv-go:disabled {
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: default;
+}
+.gv-go__label {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.gv-go__key {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.gv-gobar__side {
+  display: flex;
+  gap: 8px;
+}
+.gv-gobar__side .ts-btn {
+  height: 40px;
+}
+.gv-gobar__keys {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gv-gobar__out {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-2);
+  text-align: right;
+  max-width: 360px;
+}
+.gv-gobar__out svg {
+  flex: none;
+}
+.gv-gobar__out--warn {
+  color: var(--sb);
+}
+@media (max-width: 1240px) {
+  .gv-gobar__keys {
+    display: none;
+  }
+}
+
+/* ---------- Desk selector and desk ---------- */
+.gv-deskbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.gv-deskbar__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.gv-deskbar__hint {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.gv-show__desk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.gv-show__desk > .gv-faders {
+  flex: 1;
+}
+.gv-show__nodesk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Bottom bar ---------- */
+.gv-showfoot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 40px;
+  padding: 4px 10px 4px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12.5px;
+  min-width: 0;
+}
+.gv-showfoot__where {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.gv-showfoot__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The three commands: text only, with their key; never big buttons. */
+.gv-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gv-cmd:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.gv-cmd:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.gv-cmd[data-on] {
+  color: var(--sb);
+  background: var(--sb-soft);
+  font-weight: 600;
+}
+.gv-cmd--stop {
+  color: var(--stop);
+  font-weight: 600;
+}
+.gv-cmd--stop[data-on],
+.gv-cmd--stop[data-armed] {
+  color: var(--stop);
+  background: var(--stop-soft);
+  box-shadow: inset 0 0 0 1px var(--stop);
+}
+.gv-cmd--stop[data-armed] {
+  animation: gv-armed 0.6s ease-in-out infinite alternate;
+}
+@keyframes gv-armed {
+  to {
+    background: transparent;
+  }
+}
+
+/* ---------- Lock ---------- */
+.gv-lockbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.gv-lockbtn__hint {
+  opacity: 0.75;
+  font-weight: 500;
+}
+@media (max-width: 1240px) {
+  .gv-lockbtn__hint {
+    display: none;
+  }
+}
+
+/* ---------- Sequence dialog ---------- */
+.gv-seq {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.gv-seq__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gv-seq__row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 92px 92px 92px 74px 82px 98px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+}
+.gv-seq__row--head {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.25;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.gv-seq__row[data-live] {
+  background: var(--go-soft);
+}
+.gv-seq__row[data-ready] {
+  background: var(--sb-soft);
+}
+.gv-seq__row[data-focus] {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.gv-seq__pos {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.gv-seq__name b {
+  margin-right: 4px;
+}
+.gv-seq__tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.gv-seq__tag--live {
+  color: var(--go);
+}
+.gv-seq__tag--ready {
+  color: var(--sb);
+}
+.gv-seq__sw {
+  display: flex;
+  justify-content: center;
+}
+.gv-seq__tools {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+.gv-seq__outhead {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.gv-seq__out {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gv-seq__out li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gv-seq__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- Reliability test (Settings) ---------- */
+.gv-reltest__report {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.gv-reltest__report p {
+  margin: 8px 0;
+}
+.gv-reltest__list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}

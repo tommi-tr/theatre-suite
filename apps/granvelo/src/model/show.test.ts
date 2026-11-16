@@ -273,4 +273,12 @@ describe("show: the document changes", () => {
     const more = [...SEQ, mem("m5")];
     expect(showReduce(r.state, { type: "sync" }, ctx(40, more)).state.readyId).toBe("m5");
   });
+
+  it("carries on from a memory the desk put on stage", () => {
+    const r = run([[0, { type: "onStage", id: "m3" }], [10, { type: "go" }]]);
+    expect(r.effects.map((e) => (e.kind === "fade" ? e.memoryId : e.kind))).toEqual(["m4"]);
+    const busy = run([[0, { type: "go" }], [10, { type: "onStage", id: "m3" }]]);
+    expect(busy.state.liveId).toBe("m1");
+    expect(run([[0, { type: "onStage", id: "zz" }]]).notices).toEqual(["notInSequence"]);
+  });
 });

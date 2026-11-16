@@ -20,6 +20,10 @@ import { SetupMode } from "../modes/SetupMode";
 import { DeskMode } from "../modes/DeskMode";
 import { ShowMode } from "../modes/ShowMode";
 import { CheckDialog } from "../modes/check/CheckDialog";
+import { SequenceDialog } from "../modes/show/SequenceDialog";
+import { ShowTools } from "../modes/show/ShowBars";
+import { lockedSays, switchMode } from "../modes/show/actions";
+import { useShow } from "../store/show";
 
 const MODES: Mode[] = ["setup", "desk", "show"];
 
@@ -106,6 +110,13 @@ export function Shell() {
       const mod = e.ctrlKey || e.metaKey;
       const typing = !!(e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
       const hasDoc = !!useDoc.getState().doc;
+      // Lock (Show) leaves only the show commands and saving: no undo, no other file, no settings, no other mode.
+      const locked = useShow.getState().locked;
+      if (locked && mod && !typing && (k === "z" || k === "y" || k === "o" || k === "n" || k === "," || /^Digit[1-3]$/.test(e.code))) {
+        e.preventDefault();
+        lockedSays(t);
+        return;
+      }
       if (mod && !e.shiftKey && k === "s") {
         e.preventDefault();
         if (hasDoc) void saveDoc(t);
@@ -129,7 +140,7 @@ export function Shell() {
         redo();
       } else if (mod && !e.shiftKey && /^Digit[1-3]$/.test(e.code) && hasDoc) {
         e.preventDefault();
-        ui.setMode(MODES[Number(e.code.slice(5)) - 1]);
+        void switchMode(t, MODES[Number(e.code.slice(5)) - 1]);
       }
     },
     [t],
@@ -209,6 +220,7 @@ export function Shell() {
       {dialog === "versions" ? <VersionsDialog /> : null}
       {dialog === "newShow" ? <NewShowDialog /> : null}
       {dialog === "check" && doc ? <CheckDialog /> : null}
+      {dialog === "sequence" && doc ? <SequenceDialog /> : null}
       <ConfirmHost />
       <AppToast />
     </div>
@@ -220,8 +232,9 @@ function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
   const t = useT();
   const deskUndo = useDesk((s) => s.canUndo);
   const deskRedo = useDesk((s) => s.canRedo);
-  const canUndo = useDoc((s) => s.canUndo) || (mode === "desk" && deskUndo);
-  const canRedo = useDoc((s) => s.canRedo) || (mode === "desk" && deskRedo);
+  const locked = useShow((s) => s.locked);
+  const canUndo = (useDoc((s) => s.canUndo) || (mode === "desk" && deskUndo)) && !locked;
+  const canRedo = (useDoc((s) => s.canRedo) || (mode === "desk" && deskRedo)) && !locked;
   return (
     <div className="gv-topbar">
       <div className="gv-topbar__side">
@@ -231,7 +244,7 @@ function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
         <Segmented<Mode>
           ariaLabel={t("Mode")}
           value={mode}
-          onChange={(m) => useUi.getState().setMode(m)}
+          onChange={(m) => void switchMode(t, m)}
           options={[
             { value: "setup", label: t("Setup"), icon: "stage" },
             { value: "desk", label: t("Desk"), icon: "bench" },
@@ -243,10 +256,12 @@ function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
       )}
       <div className="gv-topbar__side gv-topbar__side--end">
         {hasDoc && mode === "desk" ? <BlindButton /> : null}
+        {hasDoc && mode === "show" ? <ShowTools /> : null}
         <Button variant="ghost" iconOnly icon="undo" disabled={!canUndo} aria-label={t("Undo")} title={`${t("Undo")} · Ctrl Z`} onClick={undo} />
         <Button variant="ghost" iconOnly icon="redo" disabled={!canRedo} aria-label={t("Redo")} title={`${t("Redo")} · Ctrl Y`} onClick={redo} />
-        <Button variant="ghost" icon="settings" title={`${t("Settings")} · Ctrl ,`} aria-label={t("Settings")} onClick={() => useUi.getState().openSettings()}>
-          <span className="gv-bl">{t("Settings")}</span>
+        {/* In Show the commands of the evening need the room: Settings is an icon there. */}
+        <Button variant="ghost" icon="settings" disabled={locked} title={`${t("Settings")} · Ctrl ,`} aria-label={t("Settings")} onClick={() => useUi.getState().openSettings()}>
+          {mode === "show" && hasDoc ? null : <span className="gv-bl">{t("Settings")}</span>}
         </Button>
       </div>
     </div>

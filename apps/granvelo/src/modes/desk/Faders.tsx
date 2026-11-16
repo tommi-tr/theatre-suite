@@ -30,12 +30,14 @@ export interface LightCardsProps {
   onSelect: (id: Id, mode: SelectMode) => void;
   onChannel: (id: Id, index: number, value: number) => void;
   onIntensity: (id: Id, level: number) => void;
+  /** Every fader still (Show: Lock, emergency). */
+  disabled?: boolean;
 }
 
 /** What the single fader of the compact density moves: the intensity, or the first channel of a light that has none (smoke). */
 export const compactTarget = (f: Pick<Fixture, "channels">): "intensity" | "first" => (intensityIndexes(f).length ? "intensity" : "first");
 
-export function LightCards({ fixtures, values, selection, density, units, onSelect, onChannel, onIntensity }: LightCardsProps) {
+export function LightCards({ fixtures, values, selection, density, units, onSelect, onChannel, onIntensity, disabled = false }: LightCardsProps) {
   const t = useT();
   if (density === "mini") return null;
   const sel = new Set(selection);
@@ -47,6 +49,7 @@ export function LightCards({ fixtures, values, selection, density, units, onSele
         const vis = visibleLight(f, row);
         const lens = vis.hue && vis.level > 0 ? vis.color : null;
         const off = f.unused;
+        const still = off || disabled;
         const name = lightName(t, f);
         return (
           <section
@@ -87,7 +90,7 @@ export function LightCards({ fixtures, values, selection, density, units, onSele
                         swatch={info.kind === "color" || ch.function === "dimmer"}
                         sub={f.address === null ? "–" : String(f.address + i)}
                         units={units}
-                        disabled={off}
+                        disabled={still}
                       />
                     );
                   })
@@ -102,7 +105,7 @@ export function LightCards({ fixtures, values, selection, density, units, onSele
                         shortLabel={String(f.number)}
                         color={vis.hue ?? "var(--text-2)"}
                         units={units}
-                        disabled={off}
+                        disabled={still}
                         narrow
                       />
                     );

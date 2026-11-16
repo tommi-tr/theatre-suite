@@ -12,6 +12,7 @@ import { occupiedChannels } from "../model/addresses";
 import { linkLabel, problemText } from "./OutputChip";
 import { useUi, type SettingsTab } from "../store/ui";
 import { DecimalInput } from "./DecimalInput";
+import { ReliabilityPane } from "./ReliabilityPane";
 
 function Row({ label, hint, children }: { label: string; hint?: ReactNode; children?: ReactNode }) {
   return (
@@ -108,11 +109,7 @@ export function SettingsDialog() {
           ) : tab === "memories" ? (
             <MemoriesPane />
           ) : tab === "test" ? (
-            <div className="gv-set-note">
-              <h3>{t("Reliability test")}</h3>
-              <p>{t("The test plays the whole sequence of memories without sending anything to the lights, and then writes a short report: how long each transition took and whether anything went wrong. Useful before the first performance and on an old computer.")}</p>
-              <p className="ts-muted">{t("It arrives with Granvelo 0.5, together with the Show mode.")}</p>
-            </div>
+            <ReliabilityPane />
           ) : (
             <div className="gv-set-about">
               <AppLogo accentPath={LOGO.accent} inkPath={LOGO.ink} label="Granvelo" size={44} strokeWidth={LOGO.stroke(44)} />
@@ -308,15 +305,29 @@ function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: 
   );
 }
 
+/** Fade to black: a setting of this computer (the operator's habit), shown with the memories. */
+function FtbRow() {
+  const t = useT();
+  const ftbSeconds = useSettings((x) => x.settings.ftbSeconds);
+  return (
+    <Row label={t("Fade to black time")} hint={t("How long “Fade to black” (F in the Show) takes to go dark and to come back. Saved on this computer.")}>
+      <DecimalInput value={ftbSeconds} min={0} max={60} decimals={1} label={t("Fade to black time")} unit="s" onChange={(ftbSeconds) => useSettings.getState().update({ ftbSeconds })} />
+    </Row>
+  );
+}
+
 function MemoriesPane() {
   const t = useT();
   const doc = useDoc((x) => x.doc);
   if (!doc) {
     return (
-      <div className="gv-set-note">
-        <h3>{t("Memories")}</h3>
-        <p>{t("These settings belong to the show and are saved in its file. Create or open a show to change them.")}</p>
-      </div>
+      <>
+        <div className="gv-set-note">
+          <h3>{t("Memories")}</h3>
+          <p>{t("These settings belong to the show and are saved in its file. Create or open a show to change them.")}</p>
+        </div>
+        <FtbRow />
+      </>
     );
   }
   const st = doc.settings;
@@ -382,6 +393,7 @@ function MemoriesPane() {
             ))}
         </select>
       </Row>
+      <FtbRow />
     </>
   );
 }

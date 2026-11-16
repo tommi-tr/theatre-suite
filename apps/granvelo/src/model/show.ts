@@ -96,7 +96,12 @@ export type ShowAction =
   /** From the top: the first memory ready, the clock of the evening at zero (the stage does not change). */
   | { type: "restart" }
   /** The document changed: drop what no longer exists, find the ready memory again. */
-  | { type: "sync" };
+  | { type: "sync" }
+  /**
+   * The desk put a memory on stage by itself (Banco): the Show carries on from there — that memory on air, the one
+   * after it ready. Ignored during a transition or the emergency, and for a memory outside the sequence.
+   */
+  | { type: "onStage"; id: Id };
 
 export interface ShowContext {
   now: number;
@@ -278,6 +283,13 @@ export function showReduce(state: ShowState, action: ShowAction, ctx: ShowContex
     }
     case "sync": {
       s = normalize(s, seq);
+      return done();
+    }
+    case "onStage": {
+      s = settle(normalize(s, seq), ctx, effects);
+      if (s.fade || s.emergency || s.liveId === action.id) return done();
+      if (!seq.some((m) => m.id === action.id)) return done("notInSequence");
+      s = { ...s, liveId: action.id, liveSince: now, readyId: nextAfter(seq, action.id) };
       return done();
     }
   }

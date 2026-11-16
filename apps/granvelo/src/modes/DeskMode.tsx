@@ -8,7 +8,9 @@ import { DeskStage } from "./desk/DeskStage";
 import { MemoryList, OnStageBox } from "./desk/MemoryPanel";
 import { exitBlindAsk, toggleBlind } from "./desk/actions";
 import { isTyping, questionOpen } from "./desk/parts";
+import { ShowBands } from "./show/ShowBars";
 import "./desk/desk.css";
+import "./show/show.css";
 
 /**
  * Banco, the virtual desk: the stage from the front (top), a card per light with a fader per channel, groups and
@@ -43,6 +45,7 @@ export function DeskMode() {
     <div className="gv-desk" data-blind={blind ? "" : undefined}>
       <main className="gv-desk__main">
         <BlindBand />
+        <ShowBands where="desk" />
         <DeskStage />
         <DeskFaders density="extended" editable />
       </main>

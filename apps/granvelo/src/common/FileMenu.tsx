@@ -4,6 +4,7 @@ import { Button, Icon, Kbd, type IconName } from "@theatre-suite/ui";
 import { api, isTauri } from "../lib/api";
 import { closeDoc, confirmDiscard, newDocDialog, openDemo, openDocDialog, openDocPath, saveDoc } from "../lib/files";
 import { useDoc } from "../store/doc";
+import { useShow } from "../store/show";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
 
@@ -15,6 +16,8 @@ export function FileMenu() {
   const recent = useSettings((s) => s.settings.recentFiles);
   const filePath = useDoc((s) => s.filePath);
   const hasDoc = useDoc((s) => s.doc !== null);
+  // Lock (Show): no other show can be opened by mistake.
+  const locked = useShow((s) => s.locked);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -47,7 +50,7 @@ export function FileMenu() {
   );
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <Button variant="ghost" icon="save" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open}>
+      <Button variant="ghost" icon="save" disabled={locked} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open}>
         {t("File")}
         <Icon name="chevDown" size={12} />
       </Button>

@@ -19,9 +19,10 @@ export function selectLight(id: string, mode: SelectMode) {
 /**
  * The faders of the live desk (the cards of the lights and, on the right, groups and Grand Master) connected to
  * `useDesk` / the document. `density`: `extended` (every channel), `compact` (one intensity per light), `mini`
- * (groups + Grand Master only). Banco uses `extended`; Show will use the three. `editable` adds the group tools.
+ * (groups + Grand Master only). Banco uses `extended`; Show the three. `editable` adds the group tools; `disabled`
+ * (Show: Lock, emergency) keeps every fader still.
  */
-export function DeskFaders({ density, editable = false }: { density: Density; editable?: boolean }) {
+export function DeskFaders({ density, editable = false, disabled = false }: { density: Density; editable?: boolean; disabled?: boolean }) {
   const t = useT();
   const doc = useDoc((s) => s.doc)!;
   const units = useSettings((s) => s.settings.units);
@@ -41,6 +42,7 @@ export function DeskFaders({ density, editable = false }: { density: Density; ed
             selection={selection}
             density={density}
             units={units}
+            disabled={disabled}
             onSelect={selectLight}
             onChannel={(id, i, v) => useDesk.getState().setChannel(id, i, v)}
             onIntensity={(id, v) => useDesk.getState().setIntensity(id, v)}
@@ -52,7 +54,7 @@ export function DeskFaders({ density, editable = false }: { density: Density; ed
         grandMaster={gm}
         density={density}
         units={units}
-        disabled={blind}
+        disabled={blind || disabled}
         onGroupLevel={(id, v) => useDoc.getState().change((d) => setGroupLevel(d, id, v), `group:${id}`)}
         onGrandMaster={(v) => useDesk.getState().setGrandMaster(v)}
         onSelectGroup={(id) => {
