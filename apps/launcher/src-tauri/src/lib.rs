@@ -64,17 +64,12 @@ fn app_info(app: AppHandle) -> AppInfo {
     }
 }
 
-/// A `.theatre` file given on the command line (double click on a show index): its folder.
+/// The show asked for on the command line: `--show <folder>` (an app's "Torna al launcher") or
+/// a `.theatre` file given by a double click on a show index.
 #[tauri::command]
 fn startup_show() -> Option<String> {
-    std::env::args()
-        .skip(1)
-        .find(|a| a.to_lowercase().ends_with(".theatre"))
-        .and_then(|a| {
-            Path::new(&a)
-                .parent()
-                .map(|p| p.to_string_lossy().to_string())
-        })
+    let args: Vec<String> = std::env::args().collect();
+    launcher_core::launch::show_requested(&args)
 }
 
 // ---------------------------------------------------------------- settings
@@ -751,13 +746,8 @@ pub fn run() {
                 let _ = w.unminimize();
                 let _ = w.set_focus();
             }
-            if let Some(file) = args
-                .iter()
-                .skip(1)
-                .find(|a| a.to_lowercase().ends_with(".theatre"))
-                && let Some(dir) = Path::new(file).parent()
-            {
-                let _ = app.emit("open-show", dir.to_string_lossy().to_string());
+            if let Some(dir) = launcher_core::launch::show_requested(&args) {
+                let _ = app.emit("open-show", dir);
             }
         }))
         .plugin(tauri_plugin_dialog::init())

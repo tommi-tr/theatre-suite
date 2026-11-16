@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { dueTodos } from "../model/departments";
 import { todayKey } from "../model/rehearsals";
 import { basename, useT } from "@theatre-suite/core";
-import { AppLogo, Button, StatusBar, TitleBar } from "@theatre-suite/ui";
+import { useBackToLauncher, AppLogo, Button, ConfirmHost, StatusBar, TitleBar } from "@theatre-suite/ui";
 import { api, appWindow, isTauri, onEvent } from "../lib/api";
 import { confirmDiscard, flushAutosave, newDoc, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave, startPlace } from "../lib/files";
 import { APP_NAME, LOGO } from "../lib/version";
@@ -156,6 +156,11 @@ export function Shell() {
     return () => window.removeEventListener("paste", onPaste);
   }, [t]);
 
+  const home = useBackToLauncher(
+    show,
+    { available: api.launcherAvailable, open: api.openLauncher, onError: (e) => useUi.getState().showToast(String(e), "error") },
+    (name) => t("Back to Theatre Suite · {show}", { show: name }),
+  );
   const docLabel = title.trim() || t("Production");
   const fileLabel = filePath ? basename(filePath).replace(/\.cantinella$/i, "") : `${docLabel} · ${t("not saved yet")}`;
   return (
@@ -164,7 +169,8 @@ export function Shell() {
         logo={<AppLogo accentPath={LOGO.accent} inkPath={LOGO.ink} label="Cantinella" size={20} strokeWidth={7} />}
         appName="Cantinella"
         show={show}
-        fileName={show ? docLabel : fileLabel}
+        {...home}
+        fileName={fileLabel}
         saveState={{ text: dirty ? t("Unsaved changes · copy kept") : filePath ? t("Saved") : t("Copy kept"), dirty }}
         version={APP_NAME}
         actions={
@@ -225,6 +231,7 @@ export function Shell() {
         <PartStatus />
       </StatusBar>
       <Dialogs />
+      <ConfirmHost />
       <AppToast />
     </div>
   );

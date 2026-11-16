@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
-import { Button, Dialog, Icon, Kbd, Segmented, Switch } from "@theatre-suite/ui";
+import { Button, Dialog, Icon, Kbd, Segmented, Switch, confirmYesNo } from "@theatre-suite/ui";
 import { deleteItem, insertTextAtCursor, renameItem, updateData } from "../../editor/commands";
 import { getIndex } from "../../editor/plugins";
 import { defaultCategories, newId } from "../../model/defaults";
@@ -9,7 +8,6 @@ import { formatMinutes, WORDS_PER_MINUTE } from "../../model/derive";
 import { nextMajor, nextVersion } from "../../model/file";
 import { shortRef } from "../../model/numbering";
 import type { CatIcon, DocLang } from "../../model/types";
-import { isTauri } from "../../lib/api";
 import { restoreVersion, saveAsNewVersion, openSample } from "../../lib/files";
 import { useDoc } from "../../store/doc";
 import { useSettings } from "../../store/settings";
@@ -22,9 +20,8 @@ function close() {
   useDoc.getState().view?.focus();
 }
 
-async function confirmAsk(text: string, ok: string, cancel: string): Promise<boolean> {
-  if (isTauri) return ask(text, { title: "Bardo", kind: "warning", okLabel: ok, cancelLabel: cancel });
-  return window.confirm(text);
+function confirmAsk(text: string, ok: string, cancel: string): Promise<boolean> {
+  return confirmYesNo({ title: ok, message: text, cancel, confirm: ok, danger: true });
 }
 
 /* ------------------------------------------------------------------ */
@@ -337,11 +334,11 @@ export function SettingsDialog() {
   const update = useSettings((x) => x.update);
   const { view, data } = useScript();
   return (
-    <Dialog title={t("Settings")} icon="settings" onClose={close} width={600} footer={<><span className="ts-spacer" /><Button variant="primary" onClick={close}>{t("Done")}</Button></>}>
+    <Dialog title={t("Settings")} icon="settings" onClose={close} width={600} footer={<><span className="ts-spacer" /><Button variant="primary" icon="check" onClick={close}>{t("Done")}</Button></>}>
       <div className="bd-section-title">{t("Bardo")}</div>
       <div className="bd-set-row">
         <span className="bd-set-row__label ts-spacer">{t("Language of the interface")}</span>
-        <Segmented ariaLabel={t("Language")} small value={s.language} onChange={(v: Lang) => update({ language: v })} options={LANGS.slice().reverse().map((l) => ({ value: l.value, label: l.label }))} />
+        <Segmented ariaLabel={t("Language")} small value={s.language} onChange={(v: Lang) => update({ language: v })} options={LANGS} />
       </div>
       <div className="bd-set-row">
         <span className="bd-set-row__label ts-spacer">{t("Appearance")}</span>
@@ -353,7 +350,7 @@ export function SettingsDialog() {
           options={[
             { value: "light", label: t("Light"), icon: "sun" },
             { value: "dark", label: t("Dark"), icon: "moon" },
-            { value: "system", label: t("As the system"), icon: "monitor" },
+            { value: "system", label: t("Like the system"), icon: "monitor" },
           ]}
         />
       </div>

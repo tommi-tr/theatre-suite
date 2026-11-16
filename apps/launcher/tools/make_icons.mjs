@@ -13,7 +13,7 @@ const STROKES = [
   ["M24 36H44", "#6B5BEF"], // Diaframma
   ["M56 36H76", "#C8642C"], // Bardo
   ["M24 64H44", "#55627E"], // Cantinella
-  ["M56 64H76", "#0F9FA8"], // Luci
+  ["M56 64H76", "#c2349f"], // Luci
 ];
 
 function svg(size) {

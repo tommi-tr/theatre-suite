@@ -1,6 +1,6 @@
 [package]
 name = "bardo"
-version = "0.1.1"
+version = "0.2.0"
 description = "Bardo — writing scripts for the theatre (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"
@@ -17,6 +17,7 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 tauri = { version = "2.12.5", features = [] }
 tauri-plugin-dialog = "2.8.4"
+suite-link = { path = "../../../crates/suite-link" }
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-clipboard-manager = "2.5.0"
 serde = { version = "1.0.229", features = ["derive"] }

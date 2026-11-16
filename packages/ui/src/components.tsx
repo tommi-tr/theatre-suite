@@ -440,6 +440,7 @@ export function Dialog({
   footer,
   onClose,
   width = 560,
+  closeLabel = "Close",
 }: {
   title: string;
   icon?: IconName;
@@ -448,6 +449,8 @@ export function Dialog({
   footer?: ReactNode;
   onClose: () => void;
   width?: number;
+  /** Accessible name of the X button (pass the translated word). */
+  closeLabel?: string;
 }) {
   const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -474,7 +477,7 @@ export function Dialog({
             </div>
             {description ? <div className="ts-dialog__desc">{description}</div> : null}
           </div>
-          <Button variant="ghost" iconOnly icon="x" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32 }} />
+          <Button variant="ghost" iconOnly icon="x" aria-label={closeLabel} onClick={onClose} style={{ width: 32, height: 32 }} />
         </div>
         <div className="ts-dialog__body">{children}</div>
         {footer ? <div className="ts-dialog__foot">{footer}</div> : null}
@@ -512,6 +515,8 @@ export interface ShowBand {
   title: string;
   /** Colour of the show, `#rrggbb` (see showColor in @theatre-suite/core). */
   color: string;
+  /** Folder of the show (where `progetto.theatre` is): what "back to the launcher" opens. */
+  dir?: string;
 }
 
 function hexRgb(hex: string): string {
@@ -520,8 +525,13 @@ function hexRgb(hex: string): string {
 }
 
 /**
- * Window title bar. With `show` the bar reads "[logo] Show / document", gets a soft
- * gradient of the show colour and a 3 px band underneath (02_design.md, launcher).
+ * Window title bar. The top left is the logo of the app followed by the document, never the
+ * name of the app (only the launcher, which has no document, passes `appName` alone):
+ * - alone: "[logo] Document";
+ * - inside a show (`show`): "[logo] Show / Document", with a soft gradient of the show colour
+ *   and a 3 px band underneath;
+ * - inside a show with `onHome`: that whole group is one button that goes back to the launcher
+ *   (no other logo or button is added; 02_design.md, "Torna al launcher").
  */
 export function TitleBar({
   logo,
@@ -534,8 +544,11 @@ export function TitleBar({
   labels,
   show,
   version,
+  onHome,
+  homeTitle,
 }: {
   logo: ReactNode;
+  /** Shown only when there is neither a show nor a document (the launcher). */
   appName: string;
   fileName?: string;
   saveState?: { text: string; dirty: boolean };
@@ -546,33 +559,50 @@ export function TitleBar({
   show?: ShowBand | null;
   /** "Cantinella 0.1.0": shown on the right, before the window buttons. */
   version?: string;
+  /** Makes the logo + show + document group a button that returns to the launcher. */
+  onHome?: () => void;
+  /** Tooltip of that button ("Back to Theatre Suite · Amleto · Ctrl Shift L"). */
+  homeTitle?: string;
 }) {
   const style = show ? ({ ["--show-rgb" as string]: hexRgb(show.color) } as CSSProperties) : undefined;
+  const label = (
+    <>
+      {logo}
+      {show ? (
+        <span className="ts-titlebar__show" data-tauri-drag-region>
+          {show.title}
+        </span>
+      ) : fileName ? null : (
+        <span className="ts-titlebar__name" data-tauri-drag-region>
+          {appName}
+        </span>
+      )}
+      {show && fileName ? <span className="ts-titlebar__sep">/</span> : null}
+      {fileName ? (
+        <span className={cx("ts-titlebar__file", !show && "ts-titlebar__file--lead")} data-tauri-drag-region title={fileName}>
+          {fileName}
+        </span>
+      ) : null}
+    </>
+  );
+  const home =
+    show && onHome ? (
+      <button type="button" className="ts-titlebar__home" title={homeTitle} aria-label={homeTitle} onClick={onHome}>
+        {label}
+      </button>
+    ) : (
+      <div className="ts-titlebar__home ts-titlebar__home--static" data-tauri-drag-region>
+        {label}
+      </div>
+    );
   const bar = (
     <header className={cx("ts-titlebar", show && "ts-titlebar--show")} style={style} data-tauri-drag-region>
       <div className="ts-titlebar__side" data-tauri-drag-region>
-        {logo}
-        {show ? (
-          <span className="ts-titlebar__show" data-tauri-drag-region title={show.title}>
-            {show.title}
-          </span>
-        ) : (
-          <span className="ts-titlebar__name" data-tauri-drag-region>
-            {appName}
-          </span>
-        )}
-        {fileName ? (
-          <>
-            <span className="ts-titlebar__sep">/</span>
-            <span className="ts-titlebar__file" data-tauri-drag-region title={fileName}>
-              {fileName}
-            </span>
-          </>
-        ) : null}
+        {home}
         {saveState ? (
           <span className={cx("ts-titlebar__state", saveState.dirty && "ts-titlebar__state--dirty")}>
             {saveState.dirty ? <span className="ts-dot ts-dot--sb" /> : <Icon name="check" size={12} strokeWidth={2.4} />}
-            {saveState.text}
+            <span className="ts-titlebar__state-text">{saveState.text}</span>
           </span>
         ) : null}
       </div>

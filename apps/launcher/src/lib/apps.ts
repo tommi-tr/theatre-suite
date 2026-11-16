@@ -59,7 +59,7 @@ export const APPS: AppDef[] = [
     soon: true,
     canCreate: false,
     accent: { dark: "#3fc1c9", light: "#0f7f87" },
-    logo: { a: "M18 38H38M42 64H62M66 34H86", b: "M28 16V84M52 16V84M76 16V84", accentColor: "#0f9fa8" },
+    logo: { a: "M18 38H38M42 64H62M66 34H86", b: "M28 16V84M52 16V84M76 16V84", accentColor: "#c2349f" },
   },
 ];
 

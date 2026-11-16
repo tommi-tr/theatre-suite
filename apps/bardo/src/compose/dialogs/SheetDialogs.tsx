@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { useT } from "@theatre-suite/core";
-import { Button, Dialog, Icon } from "@theatre-suite/ui";
+import { Button, Dialog, Icon, confirmYesNo } from "@theatre-suite/ui";
 import { deleteCharacter, deleteNodeAt, deleteNote, renameCharacter, renameItem, scrollToPos, setNodeAttrs, updateData, notePos } from "../../editor/commands";
 import { getIndex } from "../../editor/plugins";
 import { pageOfPos } from "../../editor/paginate";
@@ -9,15 +8,13 @@ import { DEFAULT_CAST_CONFIG, DEFAULT_CHARACTERS_CONFIG, DEFAULT_TITLE_CONFIG, d
 import { formatMinutes, WORDS_PER_MINUTE } from "../../model/derive";
 import { shortRef } from "../../model/numbering";
 import type { CastConfig, CharactersConfig, Character, TitleConfig } from "../../model/types";
-import { isTauri } from "../../lib/api";
 import { useDoc } from "../../store/doc";
 import { useUi } from "../../store/ui";
 import { CAT_ICONS } from "../Popups";
 import { Check, CommitArea, CommitInput, Field, Seg, useScript } from "./common";
 
-async function confirmAsk(text: string, ok: string, cancel: string): Promise<boolean> {
-  if (isTauri) return ask(text, { title: "Bardo", kind: "warning", okLabel: ok, cancelLabel: cancel });
-  return window.confirm(text);
+function confirmAsk(text: string, ok: string, cancel: string): Promise<boolean> {
+  return confirmYesNo({ title: ok, message: text, cancel, confirm: ok, danger: true });
 }
 
 function close() {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { I18nProvider, useApplyTheme, useT } from "@theatre-suite/core";
-import { AppLogo, Button, Segmented, TitleBar, Toast } from "@theatre-suite/ui";
+import { I18nProvider, findShow, useApplyTheme, useT, type ShowInfo } from "@theatre-suite/core";
+import { AppLogo, Button, Segmented, TitleBar, Toast, ConfirmHost, useBackToLauncher } from "@theatre-suite/ui";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEngineState, onEvent } from "./lib/api";
@@ -10,6 +10,7 @@ import { startRemoteSync } from "./lib/remote";
 import { launchpadClaims, startLaunchpad } from "./lib/launchpad";
 import { startFileMonitor } from "./lib/fileMonitor";
 import { LOGO } from "./lib/logo";
+import { APP_NAME } from "./lib/version";
 import { useSettings } from "./state/settings";
 import { useDoc } from "./state/doc";
 import { useUi } from "./state/ui";
@@ -51,6 +52,25 @@ function Shell() {
   const phoneOn = useSettings((s) => s.settings.phoneEnabled);
   const launchpadOn = useSettings((s) => s.settings.launchpadOn);
   const [maximized, setMaximized] = useState(false);
+
+  // The show this cue list belongs to (the launcher's index next to the file), for the title bar.
+  const [show, setShow] = useState<ShowInfo | null>(null);
+  useEffect(() => {
+    if (!isTauri) {
+      if (location.search.includes("demo")) setShow({ id: "demo", title: "Il giardino dei ciliegi", color: "#4a5fa8", dir: "C:\\Spettacoli\\Il giardino dei ciliegi" });
+      return;
+    }
+    let alive = true;
+    findShow(filePath, { exists: (p) => api.readText(p).then(() => true, () => false), read: api.readText }).then((v) => alive && setShow(v));
+    return () => {
+      alive = false;
+    };
+  }, [filePath]);
+  const home = useBackToLauncher(
+    show,
+    { available: api.launcherAvailable, open: api.openLauncher, onError: (e) => useUi.getState().showToast(String(e), "error") },
+    (name) => t("Back to Theatre Suite · {show}", { show: name }),
+  );
 
   // Startup: crash recovery, file passed on the command line, autosave, engine.
   useEffect(() => {
@@ -159,7 +179,10 @@ function Shell() {
       <TitleBar
         logo={<AppLogo accentPath={LOGO.a} inkPath={LOGO.b} label="Diaframma" />}
         appName="Diaframma"
-        fileName={mode !== "rehearsal" ? fileName : undefined}
+        show={show}
+        {...home}
+        version={APP_NAME}
+        fileName={fileName}
         saveState={mode !== "rehearsal" ? { text: dirty ? (filePath ? t("Unsaved changes · autosaved") : t("Not saved yet · autosaved")) : t("Saved"), dirty } : undefined}
         center={
           <Segmented
@@ -225,6 +248,7 @@ function Shell() {
       {dialog === "guide" ? <GuideDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "phone" ? <PhoneDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "versions" ? <VersionsDialog onClose={() => ui.closeDialog()} /> : null}
+      <ConfirmHost />
       {toast ? <Toast message={toast.message} kind={toast.kind} onDone={() => useUi.getState().clearToast()} /> : null}
     </div>
   );

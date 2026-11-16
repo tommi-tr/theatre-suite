@@ -17,7 +17,7 @@ export function SettingsDialog() {
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => void save({ [k]: v } as Partial<Settings>);
 
   return (
-    <Dialog title={t("Settings")} icon="settings" width={540} onClose={() => useStore.getState().setDialog(null)} footer={<Button variant="primary" onClick={() => useStore.getState().setDialog(null)}>{t("Done")}</Button>}>
+    <Dialog title={t("Settings")} icon="settings" width={540} onClose={() => useStore.getState().setDialog(null)} footer={<><span className="ts-spacer" /><Button variant="primary" icon="check" onClick={() => useStore.getState().setDialog(null)}>{t("Done")}</Button></>}>
       <div className="ln-form">
         <div className="ln-setting">
           <div><strong>{t("Language")}</strong></div>

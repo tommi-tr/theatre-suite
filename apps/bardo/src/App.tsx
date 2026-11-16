@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { I18nProvider, basename, useApplyTheme, useT } from "@theatre-suite/core";
-import { AppLogo, Button, Segmented, TitleBar } from "@theatre-suite/ui";
+import { I18nProvider, basename, findShow, useApplyTheme, useT, type ShowInfo } from "@theatre-suite/core";
+import { AppLogo, Button, Segmented, TitleBar, ConfirmHost, useBackToLauncher } from "@theatre-suite/ui";
 import { redo, undo } from "prosemirror-history";
 import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEvent } from "./lib/api";
 import { confirmDiscard, flushAutosave, newDoc, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave } from "./lib/files";
-import { LOGO } from "./lib/version";
+import { APP_NAME, LOGO } from "./lib/version";
 import { newScriptDoc } from "./model/defaults";
 import { sampleDoc } from "./model/sample";
 import { insertPart, removeCategory } from "./editor/commands";
@@ -182,6 +182,24 @@ function Shell() {
   }, [onKey]);
 
   const ui = useUi.getState();
+  // The show this script belongs to (the launcher's index next to the file), for the title bar.
+  const [show, setShow] = useState<ShowInfo | null>(null);
+  useEffect(() => {
+    if (!isTauri) {
+      if (location.search.includes("demo")) setShow({ id: "demo", title: "Amleto", color: "#7a2e4a", dir: "C:\\Spettacoli\\Amleto" });
+      return;
+    }
+    let alive = true;
+    findShow(filePath, { exists: api.pathExists, read: api.readText }).then((v) => alive && setShow(v));
+    return () => {
+      alive = false;
+    };
+  }, [filePath]);
+  const home = useBackToLauncher(
+    show,
+    { available: api.launcherAvailable, open: api.openLauncher, onError: (e) => useUi.getState().showToast(String(e), "error") },
+    (name) => t("Back to Theatre Suite · {show}", { show: name }),
+  );
   const title = data?.meta.title.trim();
   const fileLabel = filePath ? basename(filePath).replace(/\.bardo$/i, "") : t("Not saved yet");
   const view = useDoc.getState().view;
@@ -191,7 +209,10 @@ function Shell() {
       <TitleBar
         logo={<AppLogo accentPath={LOGO.accent} inkPath={LOGO.ink} label="Bardo" />}
         appName="Bardo"
-        fileName={title ? `${title.toLocaleUpperCase()} — ${fileLabel}` : fileLabel}
+        show={show}
+        {...home}
+        version={APP_NAME}
+        fileName={title && !show ? `${title.toLocaleUpperCase()} — ${fileLabel}` : fileLabel}
         saveState={{ text: dirty ? (filePath ? t("Unsaved changes · copy kept") : t("Not saved yet · copy kept")) : t("Saved"), dirty }}
         center={
           <Segmented
@@ -258,6 +279,7 @@ function Shell() {
         ) : null}
       </div>
       <Dialogs />
+      <ConfirmHost />
       <BardoToast />
       <PrintRoot />
     </div>

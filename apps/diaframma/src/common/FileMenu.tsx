@@ -45,7 +45,7 @@ export function FileMenu() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <Button variant="ghost" icon="save" onClick={() => setOpen((v) => !v)} disabled={locked} aria-haspopup="menu" aria-expanded={open}>
-        {t("Save")}
+        {t("File")}
         <Icon name="chevDown" size={13} />
       </Button>
       {open ? (

@@ -136,3 +136,35 @@ mod tests {
         assert_eq!(r.opened.len(), 1);
     }
 }
+
+/// The show the launcher is asked to open by its command line: `--show <folder>` (what an app
+/// sends with "Torna al launcher") or a double-clicked `progetto.theatre`. `args` is the whole
+/// command line, program name included.
+pub fn show_requested(args: &[String]) -> Option<String> {
+    suite_link::show_dir_from_args(args.get(1..).unwrap_or(&[]))
+}
+
+#[cfg(test)]
+mod show_arg_tests {
+    use super::show_requested;
+
+    fn a(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn the_program_name_is_never_taken_for_a_show() {
+        assert_eq!(show_requested(&a(&["C:\\x\\progetto.theatre"])), None);
+        assert_eq!(show_requested(&a(&["Theatre Suite.exe"])), None);
+    }
+
+    #[test]
+    fn an_app_asks_for_a_show_with_the_flag() {
+        assert_eq!(show_requested(&a(&["Theatre Suite.exe", "--show", "D:\\Spettacoli\\Amleto"])), Some("D:\\Spettacoli\\Amleto".into()));
+    }
+
+    #[test]
+    fn a_double_clicked_index_still_works() {
+        assert_eq!(show_requested(&a(&["Theatre Suite.exe", "D:\\Amleto\\progetto.theatre"])), Some("D:\\Amleto".into()));
+    }
+}
