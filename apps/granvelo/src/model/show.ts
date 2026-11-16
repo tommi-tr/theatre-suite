@@ -45,7 +45,7 @@ export interface ShowFade {
   /** Milliseconds spent paused so far. */
   pausedMs: number;
   durationMs: number;
-  /** Start the ready memory by itself at the end. */
+  /** "Parte da sola" of the memory at GO (at the end, `settle` reads the memory as it is then). */
   autoFollow: boolean;
   /** Started by Indietro. */
   back: boolean;
@@ -174,7 +174,9 @@ function settle(s: ShowState, ctx: ShowContext, effects: ShowEffect[]): ShowStat
     if (f.pausedAt !== null || fadeElapsed(f, ctx.now) < f.durationMs) break;
     const endAt = f.startedAt + f.pausedMs + f.durationMs;
     s = { ...s, fade: null };
-    if (!f.autoFollow || s.emergency) break;
+    // The memory as it is now: "parte da sola" unticked during its transition stops the chain (and ticked, starts it).
+    const follows = !f.back && !!ctx.sequence.find((m) => m.id === f.toId)?.transition.autoFollow;
+    if (!follows || s.emergency) break;
     const next = ctx.sequence.find((m) => m.id === s.readyId);
     if (!next) break;
     s = start(s, ctx.sequence, next, endAt, false, effects);

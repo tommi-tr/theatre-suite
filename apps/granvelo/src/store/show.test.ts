@@ -36,12 +36,16 @@ const rec = (name: string): any => async (...args: unknown[]) => {
 };
 const names = () => calls.map((c) => c[0]);
 const show = () => useShow.getState();
+const LIVE = useOutput.getState().live;
+/** What the engine would report about its running transition. */
+const engineFade = (fade: Partial<typeof LIVE.fade>) => useOutput.setState({ live: { ...LIVE, fade: { ...LIVE.fade, ...fade } } });
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(10_000);
   calls.length = 0;
   useOutput.setState({
+    live: LIVE,
     setUniverse: rec("setUniverse"),
     fadeTo: rec("fadeTo"),
     pause: rec("pause"),
@@ -126,6 +130,65 @@ describe("show store", () => {
     show().dispatch({ type: "go" });
     expect(show().show.liveId).toBe("m1");
     expect(names()).toEqual(["fadeTo"]);
+  });
+
+  it("a fader moved during a transition is carried into it, ending when it would have ended (no jump)", () => {
+    useDesk.getState().activate();
+    show().dispatch({ type: "go" });
+    engineFade({ active: true, paused: false, elapsed: 0.4, total: 1 });
+    calls.length = 0;
+    useDesk.getState().setChannel("a1", 0, 200);
+    expect(names()).toEqual(["fadeTo"]);
+    const p = calls[0][1][0] as FadePayload;
+    expect(p.target[0]).toBe(100); // 200, group at 128/255
+    expect(p.transition.fadeIn).toBeCloseTo(0.6);
+    expect(p.transition.fadeOut).toBeCloseTo(0.6);
+    expect(p.transition.delay).toBe(0);
+    // A group fader of the Show (Mini) changes the document: same rule.
+    calls.length = 0;
+    useDoc.getState().change((d) => ({ ...d, groups: d.groups.map((g) => ({ ...g, level: 255 })) }));
+    expect(names()).toEqual(["fadeTo"]);
+  });
+
+  it("right after GO, before the engine reports the transition, a fader move does not cut it", () => {
+    useDesk.getState().activate();
+    show().dispatch({ type: "go" });
+    calls.length = 0;
+    useDesk.getState().setChannel("a1", 0, 200);
+    expect(names()).toEqual(["fadeTo"]);
+  });
+
+  it("during the emergency nothing of the desk reaches the output; leaving gives it back", () => {
+    useDesk.getState().activate();
+    show().dispatch({ type: "go" });
+    show().dispatch({ type: "emergency" });
+    show().dispatch({ type: "emergency" });
+    engineFade({ active: false });
+    calls.length = 0;
+    // e.g. Ctrl Z in the Show takes back a group level, or a light is re-patched
+    useDoc.getState().change((d) => ({ ...d, groups: d.groups.map((g) => ({ ...g, level: 255 })), fixtures: [...d.fixtures] }));
+    useDesk.getState().setGrandMaster(10);
+    expect(calls).toEqual([]);
+    show().dispatch({ type: "leaveEmergency" });
+    expect(names()).toEqual(["fadeTo", "setGrandMaster"]);
+    expect((calls[0][1][0] as FadePayload).target[0]).toBe(100);
+    expect(calls[1][1][0]).toBe(10);
+    calls.length = 0;
+    engineFade({ active: false });
+    useDesk.getState().setChannel("a1", 0, 50);
+    expect(names()).toEqual(["setUniverse"]);
+  });
+
+  it("loading a show during the emergency gives the output back to the desk", () => {
+    useDesk.getState().activate();
+    show().dispatch({ type: "emergency" });
+    show().dispatch({ type: "emergency" });
+    useDoc.getState().load(makeDoc(), { filePath: null, dirty: false });
+    expect(show().show.emergency).toBeNull();
+    expect(useDesk.getState().active).toBe(true);
+    calls.length = 0;
+    useDesk.getState().setChannel("a1", 0, 50);
+    expect(names()).toEqual(["setUniverse"]);
   });
 
   it("a new show starts from the top, unlocked", () => {

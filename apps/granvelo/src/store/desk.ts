@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { History } from "@theatre-suite/core";
 import { applyColor, deskUniverse, emptyValues, memoryValues, reconcileValues, saveMemoryValues, saveNewMemory, valuesDiffer, withChannel, withIntensity } from "../model/desk";
-import { intensityMask } from "../model/enginePayload";
+import { fadePayload, intensityMask } from "../model/enginePayload";
 import { valuesOf } from "../model/universe";
 import { DMX_MAX, type FixtureValues, type GranveloDoc, type Id } from "../model/types";
 import { useDoc } from "./doc";
@@ -13,7 +13,8 @@ import { useOutput } from "./output";
  *
  * - **Values** are per light id and channel position (`FixtureValues`), not saved in the document: only "Salva" writes
  *   them into a memory (through `useDoc.change`). When the patch changes they are kept by light id (`reconcile`).
- * - **Output**: every change goes through `useOutput.setUniverse` (`deskUniverse`: patch → **groups applied here**).
+ * - **Output**: every change goes through `useOutput.setUniverse` (`deskUniverse`: patch → **groups applied here**),
+ *   or, during a running transition, through a `fadeTo` that ends with it (see `push`).
  *   The **Grand Master** is applied by the engine (`setGrandMaster` + intensity mask), never here — not twice.
  *   Nothing is sent before `activate()` (Banco calls it when it opens), nor while Blind is on.
  * - **Modified**: the faders differ from the memory on stage (`valuesDiffer`). A plain desk (no memory) is never "modified".
@@ -102,12 +103,24 @@ function clearHistory() {
   lastKey = null;
 }
 
-/** Sends the live values to the lights (groups applied; the engine applies the Grand Master). */
+/**
+ * Sends the live values to the lights (groups applied; the engine applies the Grand Master). During a running
+ * transition the change is carried into it — a crossfade ending when the transition would have ended — so a fader
+ * moved during a fade never makes the stage jump to the end of it. (A paused transition is still cut: holding it
+ * would leave the faders without effect, e.g. in Banco, where the pause is not shown.)
+ */
 function push() {
   const s = useDesk.getState();
   const doc = useDoc.getState().doc;
   if (!s.active || s.blind || !doc) return;
-  useOutput.getState().setUniverse(deskUniverse(doc, s.values))?.catch?.(report);
+  const out = useOutput.getState();
+  const f = out.live.fade;
+  if (f.active && !f.paused) {
+    const rest = Math.max(0, f.total - f.elapsed);
+    out.fadeTo(fadePayload(doc, deskUniverse(doc, s.values), { fadeIn: rest, fadeOut: rest, delay: 0, moveInDark: false }))?.catch?.(report);
+    return;
+  }
+  out.setUniverse(deskUniverse(doc, s.values))?.catch?.(report);
 }
 
 /** A transition is running in the engine (also paused): sending the faders now would cut it. */
