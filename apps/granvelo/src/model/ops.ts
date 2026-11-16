@@ -2,7 +2,8 @@ import { uid } from "@theatre-suite/core";
 import { defaultChannels, fixtureType } from "./fixtureTypes";
 import { nextFreeAddress, occupiedChannels } from "./addresses";
 import { valuesOf } from "./universe";
-import { CHANNEL_FUNCTIONS, type Channel, type ChannelFunction, type Fixture, type FixtureTypeId, type GranveloDoc, type Id, type Memory, type Mount, type Stage, type Truss, type Vec3 } from "./types";
+import { defaultAim, defaultScenerySize, resolveDrop } from "../stage/geometry";
+import { CHANNEL_FUNCTIONS, type Channel, type ChannelFunction, type Fixture, type FixtureTypeId, type GranveloDoc, type Id, type Memory, type Mount, type Scenery, type SceneryShape, type Stage, type Truss, type Vec3 } from "./types";
 
 /**
  * Operations on the document. Every function returns a new document (the old one is untouched: undo keeps
@@ -43,18 +44,8 @@ export function nextFixtureNumber(doc: Pick<GranveloDoc, "fixtures">): number {
   return doc.fixtures.reduce((n, f) => Math.max(n, f.number), 0) + 1;
 }
 
-/**
- * Default aim (10_granvelo.md): in the house they point at the proscenium, spread (not all at the centre);
- * on the floor they cut across horizontally; at the back they are backlights; elsewhere above the stage they
- * point straight down.
- */
-export function defaultAim(position: Vec3, mount: Mount, stage: Stage): Vec3 {
-  const half = stage.width / 2;
-  if (position.y < 0) return { x: round2(Math.max(-half * 0.7, Math.min(half * 0.7, position.x * 0.6))), y: round2(Math.min(1.5, stage.depth / 3)), z: 1.6 };
-  if (mount.kind === "floor") return { x: position.x <= 0 ? round2(half) : round2(-half), y: position.y, z: round2(position.z + 1.2) };
-  if (position.y > stage.depth * 0.7) return { x: position.x, y: round2(Math.max(0, position.y - 2.5)), z: 1.5 };
-  return { x: position.x, y: position.y, z: 0 };
-}
+/** Default aim by place: see `stage/geometry.ts` (pure, shared with the stage views). */
+export { defaultAim };
 
 export interface NewFixture {
   typeId: FixtureTypeId;
@@ -637,4 +628,120 @@ export function lightsToSync(doc: Pick<GranveloDoc, "fixtures">, id: Id): Id[] {
   const src = doc.fixtures.find((x) => x.id === id);
   if (!src) return [];
   return doc.fixtures.filter((f) => f.typeId === src.typeId && f.id !== id && !sameLayout(f.channels, src.channels)).map((f) => f.id);
+}
+
+/* ------------------------------------------------------------------ */
+/* The stage: dragging lights, aiming, scenery                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * "Sposta" on the stage: each light goes to the point given (metres) and is hung, left floating or put on the floor
+ * by the rules of `resolveDrop` (stage/geometry.ts): a truss nearby catches it, a light left high over the stage where
+ * there is no truss creates one (the next lights of the same drop are caught by it), near the floor it stands on the
+ * floor. The aim does not change. One call = one step of undo.
+ */
+export function dropLights(doc: GranveloDoc, moves: { id: Id; to: Vec3 }[]): { doc: GranveloDoc; newTrusses: Id[] } {
+  let d = doc;
+  const newTrusses: Id[] = [];
+  for (const m of moves) {
+    const f = d.fixtures.find((x) => x.id === m.id);
+    if (!f || ![m.to.x, m.to.y, m.to.z].every(Number.isFinite)) continue;
+    const drop = resolveDrop(d, f.mount, m.to);
+    let mount: Mount;
+    let position = drop.position;
+    if (drop.mount.kind === "newTruss") {
+      const made = addTruss(d, { y: drop.mount.y, z: drop.mount.z });
+      d = made.doc;
+      newTrusses.push(made.id);
+      mount = { kind: "truss", trussId: made.id };
+      position = { ...position, y: round2(drop.mount.y), z: round2(drop.mount.z) };
+    } else mount = drop.mount;
+    d = { ...d, fixtures: d.fixtures.map((x) => (x.id === m.id ? { ...x, mount, position } : x)) };
+  }
+  return { doc: d, newTrusses };
+}
+
+/** "Orienta": the aim point of each light given (metres). */
+export function setAims(doc: GranveloDoc, aims: Record<Id, Vec3>): GranveloDoc {
+  if (!Object.keys(aims).length) return doc;
+  return {
+    ...doc,
+    fixtures: doc.fixtures.map((f) => {
+      const a = aims[f.id];
+      if (!a || ![a.x, a.y, a.z].every(Number.isFinite)) return f;
+      return { ...f, aim: { x: round2(a.x), y: round2(a.y), z: round2(a.z) } };
+    }),
+  };
+}
+
+/** "Puntamento predefinito": the lights point again where a light in their place usually points (`defaultAim`). */
+export function resetAim(doc: GranveloDoc, ids: Id[]): GranveloDoc {
+  return {
+    ...doc,
+    fixtures: doc.fixtures.map((f) => {
+      if (!ids.includes(f.id)) return f;
+      const pos = f.mount.kind === "truss" ? { ...f.position, ...(doc.trusses.find((t) => t.id === (f.mount as { trussId: Id }).trussId) ?? {}) } : f.position;
+      return { ...f, aim: defaultAim({ x: pos.x, y: pos.y, z: pos.z }, f.mount, doc.stage) };
+    }),
+  };
+}
+
+/** Name for a new piece: "Parallelepipedo 2"… continuing after the existing ones (`base` is already translated). */
+export function sceneryName(doc: Pick<GranveloDoc, "scenery">, base: string): string {
+  const re = new RegExp(`^${escapeRe(base)} (\\d+)$`);
+  const n = doc.scenery.reduce((m, s) => {
+    const x = re.exec(s.name);
+    return x ? Math.max(m, Number(x[1])) : s.name === base ? Math.max(m, 1) : m;
+  }, 0);
+  return n === 0 ? base : `${base} ${n + 1}`;
+}
+
+/** Adds a scenery piece of a shape, by default on the floor at the centre of the stage. Returns the document and its id. */
+export function addScenery(doc: GranveloDoc, spec: { shape: SceneryShape; name: string; position?: Partial<Vec3>; color?: string }): { doc: GranveloDoc; id: Id } {
+  const piece: Scenery = {
+    id: uid(),
+    name: spec.name,
+    shape: spec.shape,
+    position: { x: round2(spec.position?.x ?? 0), y: round2(spec.position?.y ?? doc.stage.depth / 2), z: round2(spec.position?.z ?? 0) },
+    rotation: { x: 0, y: 0, z: 0 },
+    size: defaultScenerySize(spec.shape),
+    color: spec.color ?? "#8A8F9C",
+  };
+  return { doc: { ...doc, scenery: [...doc.scenery, piece] }, id: piece.id };
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const finiteVec = (v: Vec3) => [v.x, v.y, v.z].every(Number.isFinite);
+
+/**
+ * Changes a scenery piece: name, shape, position, rotation (degrees, kept in −180…180), size (metres, ≥ 0, at most 100)
+ * or colour (`#rrggbb`). Values that make no sense are ignored.
+ */
+export function updateScenery(doc: GranveloDoc, id: Id, patch: Partial<Omit<Scenery, "id">>): GranveloDoc {
+  const s = doc.scenery.find((x) => x.id === id);
+  if (!s) return doc;
+  const next: Scenery = { ...s };
+  if (patch.name !== undefined) next.name = patch.name.trim();
+  if (patch.shape !== undefined) next.shape = patch.shape;
+  if (patch.position && finiteVec(patch.position)) next.position = { x: round2(patch.position.x), y: round2(patch.position.y), z: round2(Math.max(-50, patch.position.z)) };
+  if (patch.rotation && finiteVec(patch.rotation)) {
+    const wrap = (a: number) => round2(((((a + 180) % 360) + 360) % 360) - 180);
+    next.rotation = { x: wrap(patch.rotation.x), y: wrap(patch.rotation.y), z: wrap(patch.rotation.z) };
+  }
+  if (patch.size && finiteVec(patch.size)) {
+    const c = (v: number) => round2(Math.min(100, Math.max(0, v)));
+    next.size = { x: c(patch.size.x), y: c(patch.size.y), z: c(patch.size.z) };
+  }
+  if (patch.color !== undefined && HEX.test(patch.color)) next.color = patch.color.toUpperCase();
+  return { ...doc, scenery: doc.scenery.map((x) => (x.id === id ? next : x)) };
+}
+
+/** Removes a scenery piece, also from the memories that had it on stage. */
+export function removeScenery(doc: GranveloDoc, id: Id): GranveloDoc {
+  if (!doc.scenery.some((s) => s.id === id)) return doc;
+  return {
+    ...doc,
+    scenery: doc.scenery.filter((s) => s.id !== id),
+    memories: doc.memories.map((m) => (m.scenery.some((p) => p.sceneryId === id) ? { ...m, scenery: m.scenery.filter((p) => p.sceneryId !== id) } : m)),
+  };
 }
