@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "diaframma"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cpal",
  "log",
@@ -2195,7 +2195,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.4.0"
+version = "0.4.2"
 dependencies = [
  "launcher-core",
  "serde",

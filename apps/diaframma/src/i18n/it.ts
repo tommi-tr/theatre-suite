@@ -486,7 +486,7 @@ export const it: Dict = {
   "No exit": "Nessuna uscita",
   "No loop points": "Nessun punto di loop",
   "ON AIR": "IN ONDA",
-  "On the page that opens, download “Diaframma-Chrome-extension”, unzip it and load it in Chrome (chrome://extensions, Developer mode).": "Nella pagina che si apre scarica “Diaframma-Chrome-extension”, scompattala e caricala in Chrome (chrome://extensions, Modalità sviluppatore).",
+  "On the page that opens, download “Diaframma-Chrome-extension.zip”, unzip it and load it in Chrome (chrome://extensions, Developer mode).": "Nella pagina che si apre scarica “Diaframma-Chrome-extension.zip”, scompattalo e caricala in Chrome (chrome://extensions, Modalità sviluppatore).",
   "On: the keys of the launchpad also play in Show and Rehearsal mode.": "Attivo: i tasti del launchpad suonano anche in modalità Spettacolo e Prove.",
   "Only GO, attention, Pause and Stop can be used": "Si possono usare solo GO, attenzione, Pause e Stop",
   "Open a track with the arrow on the left. Under the faders (equalizer, volume, pan) press Edit: in the big window each group (start and end cut, volume curve, loop cut, pan) can be changed on its own, reset, ignored or hidden. Hidden or ignored, it keeps its settings.": "Apri una traccia con la freccia a sinistra. Accanto ai fader (equalizzatore, volume, pan) premi Modifica: nella finestra grande ogni gruppo (attacco e stacco, curva volume, loop cut, pan) si può cambiare da solo, azzerare, ignorare o nascondere. Nascosto o ignorato conserva le sue impostazioni.",

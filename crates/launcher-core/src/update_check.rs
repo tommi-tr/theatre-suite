@@ -13,9 +13,13 @@ use theatre_project::updates::{
 pub const WEEK_SECS: u64 = 7 * 24 * 3600;
 
 /// Public repository whose releases carry the installers and are read by the check.
-/// Reading releases needs no account only when the repository is public: the code
-/// repository may stay private while the installers are published here.
-pub const PUBLIC_RELEASES_REPO: &str = "tommi-tr/theatre-suite-releases";
+/// It is the code repository itself (public since 16/11/2026): the CI publishes a release
+/// for every tag `<app>-v<version>`. Reading releases needs no account.
+pub const PUBLIC_RELEASES_REPO: &str = "tommi-tr/theatre-suite";
+
+/// The separate releases repository used until launcher 0.4.0, now retired. A saved setting
+/// that still names it is replaced by the default (see `Settings::load`).
+pub const RETIRED_RELEASES_REPO: &str = "tommi-tr/theatre-suite-releases";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -71,7 +75,7 @@ pub fn url_for(source: &UpdateSource) -> Result<String> {
 }
 
 /// The places to look, in order: the one in the settings, then the public releases
-/// repository (so the check also works when the code repository is private).
+/// repository (so a custom source never leaves the person without the official one).
 pub fn sources_for(source: &UpdateSource) -> Vec<UpdateSource> {
     let mut list = vec![source.clone()];
     let fallback = UpdateSource {
@@ -204,7 +208,7 @@ mod tests {
             kind: "github".into(),
             value: v.into(),
         };
-        let l = sources_for(&gh("tommi-tr/theatre-suite"));
+        let l = sources_for(&gh("someone/else"));
         assert_eq!(l.len(), 2);
         assert_eq!(l[1].value, PUBLIC_RELEASES_REPO);
         assert_eq!(sources_for(&gh(PUBLIC_RELEASES_REPO)).len(), 1);

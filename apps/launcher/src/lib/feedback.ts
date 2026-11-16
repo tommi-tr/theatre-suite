@@ -4,10 +4,11 @@ import type { AppsView } from "./types";
  * Where feedback goes. Nothing is sent by the launcher itself: the person's own mail program
  * (or the GitHub page) opens with the text already written, and the person decides whether to send it.
  *
- * FEEDBACK_EMAIL: leave empty to hide the e-mail button until an address is chosen.
+ * Feedback goes to the public issues of the code repository (decided 16/11/2026): no e-mail address
+ * is published. FEEDBACK_EMAIL: leave empty to keep the e-mail button hidden.
  */
 export const FEEDBACK_EMAIL = "";
-export const FEEDBACK_ISSUES_URL = "https://github.com/tommi-tr/theatre-suite-releases/issues/new";
+export const FEEDBACK_ISSUES_URL = "https://github.com/tommi-tr/theatre-suite/issues/new";
 
 export type FeedbackKind = "idea" | "problem" | "question";
 
