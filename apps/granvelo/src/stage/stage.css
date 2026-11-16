@@ -1,0 +1,139 @@
+/* The stage views (2D and 3D). The stage is always a dark room, also with the light theme: pools of light read only
+   on a dark floor. Colours of the symbols are fixed here for the same reason; the accent comes from the theme. */
+.gv-stagebox {
+  --gv-stage-bg: #0b0c0f;
+  --gv-stage-floor: #1b1d23;
+  --gv-stage-line: #3a3e48;
+  --gv-stage-edge: #6b7180;
+  --gv-stage-words: #6b7180;
+  --gv-symbol-stroke: #a7aab3;
+  --gv-lens-off: #2a2d35;
+  --gv-stage-text: #ecedf0;
+  --sb: #ffb224;
+  /* The selection frame stays a soft tint of the theme's accent on the dark stage. */
+  --accent-soft: color-mix(in srgb, var(--accent) 24%, transparent);
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--gv-stage-bg);
+  overflow: hidden;
+}
+
+.gv-stage2d {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  touch-action: none;
+  background: var(--gv-stage-bg);
+}
+.gv-stage2d__floor {
+  fill: var(--gv-stage-floor);
+  stroke: var(--gv-stage-line);
+}
+.gv-stage2d__volume {
+  fill: none;
+  stroke: var(--gv-stage-line);
+}
+.gv-stage2d__edge {
+  stroke: var(--gv-stage-edge);
+  stroke-linecap: round;
+}
+.gv-stage2d__words {
+  fill: var(--gv-stage-words);
+  font-family: var(--font-ui, inherit);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.gv-stage2d__piece {
+  fill-opacity: 0.8;
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-linejoin: round;
+}
+.gv-stage2d__piece.is-selected {
+  stroke: var(--accent);
+}
+.gv-stage2d__light {
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.gv-stage2d__aimline {
+  fill: none;
+  stroke: var(--accent);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.gv-stage2d__truss line {
+  stroke: var(--gv-stage-edge);
+  stroke-linecap: round;
+}
+.gv-stage2d__truss .gv-stage2d__trusshit {
+  stroke: transparent;
+}
+.gv-stage2d__handle circle,
+.gv-stage2d__handle line {
+  fill: none;
+  stroke: var(--accent);
+}
+.gv-stage2d__handle circle:first-child {
+  fill: transparent;
+}
+.gv-stage2d__label {
+  fill: var(--gv-stage-text);
+  stroke: var(--gv-stage-bg);
+  paint-order: stroke;
+  font-family: var(--font-ui, inherit);
+  font-weight: 600;
+  pointer-events: none;
+}
+.gv-stage2d--compact .gv-stage2d__words {
+  display: none;
+}
+
+/* Mouse: what can be grabbed says so. */
+.gv-stage2d[data-interactive] [data-hit^="light:"],
+.gv-stage2d[data-interactive] [data-hit^="scenery:"] {
+  cursor: grab;
+}
+.gv-stage2d[data-interactive] [data-hit^="aim:"] {
+  cursor: crosshair;
+}
+.gv-stage2d[data-interactive] [data-hit^="truss:"] {
+  cursor: pointer;
+}
+.gv-stage2d[data-interactive] [data-hit^="truss:"]:hover line:not(.gv-stage2d__trusshit) {
+  stroke: var(--accent);
+}
+
+.gv-stage3d {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+.gv-stage3d canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+.gv-stage3d[data-cursor="grab"] canvas {
+  cursor: grab;
+}
+.gv-stage3d[data-cursor="aim"] canvas {
+  cursor: crosshair;
+}
+.gv-stage3d[data-cursor="pointer"] canvas {
+  cursor: pointer;
+}
+.gv-stagebox__note {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  max-width: 60%;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gv-stage-words);
+  pointer-events: none;
+}
