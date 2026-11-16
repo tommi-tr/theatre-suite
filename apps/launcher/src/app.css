@@ -456,6 +456,13 @@ h1, h2, h3, p { margin: 0; }
     radial-gradient(90% 120% at 100% 100%, color-mix(in srgb, #c8642c 14%, transparent), transparent 60%),
     var(--surface);
 }
+.ln-store-hero { --app: #6b5bef; }
+.ln-store-hero__more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; margin-top: -4px; }
+.ln-hero-self { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.ln-hero-self__ver { font-size: 12px; color: var(--text-3); }
+.ln-hero-self__ver strong { margin-left: 4px; font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+.ln-hero-self .ts-btn--primary { height: 34px; padding: 0 16px; }
+.ln-hero-self .ln-progress { align-items: flex-start; }
 .ln-store-hero__titles h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .ln-store-hero__titles p { margin-top: 6px; max-width: 520px; color: var(--text-2); line-height: 1.5; font-size: 13px; }
 .ln-store-hero__check { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 260px; }
@@ -466,7 +473,9 @@ h1, h2, h3, p { margin: 0; }
 .ln-checkstate--err strong { color: var(--sb); }
 .ln-weekly { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); cursor: pointer; }
 
-.ln-store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; align-items: start; }
+/* The four apps: two by two (one column when the window is narrow). Theatre Suite itself is the header above. */
+.ln-store-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; align-items: stretch; }
+@media (min-width: 900px) { .ln-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ln-appcard {
   position: relative;
   display: flex;
@@ -497,6 +506,7 @@ h1, h2, h3, p { margin: 0; }
 [data-theme="dark"] .ln-appcard__titles > span { color: var(--app); }
 .ln-appcard__this { font-size: 12.5px; font-weight: 500; color: var(--text-3); }
 .ln-appcard__about { font-size: 13px; line-height: 1.55; color: var(--text-2); min-height: 40px; }
+.ln-appcard__about { flex: 1; }
 .ln-appcard__foot { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 .ln-appcard__ver { display: flex; flex-direction: column; font-size: 11px; color: var(--text-3); line-height: 1.3; }
 .ln-appcard__ver strong { font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -583,21 +593,12 @@ h1, h2, h3, p { margin: 0; }
 .ln-skiplist li { display: flex; flex-direction: column; gap: 1px; padding: 9px 12px; background: var(--surface-2); border-radius: var(--r-md); font-size: 12.5px; color: var(--text-2); }
 .ln-skiplist strong { color: var(--text); font-size: 13.5px; }
 
-/* feedback and credits */
-.ln-aboutgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 16px; }
-.ln-aboutcard {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-}
-.ln-aboutcard h3 { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
-.ln-aboutcard p { font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
-.ln-aboutcard .ts-btn { margin-top: auto; }
+/* Bottom of the Theatre Suite page: plain text, no boxes (so it is not mistaken for the app cards above) */
+.ln-suitefoot { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; }
+.ln-suitefoot p { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; max-width: 640px; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+.ln-suitefoot .ln-dim { color: var(--text-3); }
+.ln-textlink { padding: 0; font: inherit; color: var(--text); text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; cursor: pointer; }
+.ln-textlink:hover { color: var(--accent, var(--text)); }
 .ln-textarea { height: auto; min-height: 120px; padding: 10px 12px; resize: vertical; line-height: 1.5; font: inherit; }
 .ln-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--text-2); cursor: pointer; }
 .ln-check input { margin-top: 2px; }

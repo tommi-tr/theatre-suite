@@ -31,6 +31,7 @@ export const ICONS = {
   chevDown: "M6 9l6 6 6-6",
   chevUp: "M18 15l-6-6-6 6",
   chevRight: "M9 18l6-6-6-6",
+  chevLeft: "M15 18l-6-6 6-6",
   lock: "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM7 11V7a5 5 0 0 1 10 0v4",
   unlock: "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM7 11V7a5 5 0 0 1 9.9-1",
   reorder: "M21 16l-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16",
@@ -96,6 +97,78 @@ export const ICONS = {
   mask: "M5 5h14v6a7 7 0 0 1-14 0zM9 10h.01M15 10h.01M9.5 14c1.5 1.5 3.5 1.5 5 0",
   image: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM21 15l-5-5L5 21",
   arrowLeft: "M19 12H5M12 19l-7-7 7-7",
+  // Writing (Bardo)
+  speech: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM7 8h10M7 12h6",
+  italic: "M19 4h-9M14 20H5M15 4L9 20",
+  parens: "M8 3c-4 5-4 13 0 18M16 3c4 5 4 13 0 18",
+  door: "M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M3 21h18M14 12h.01",
+  frame: "M3 5h18v14H3zM7 9h10v6H7z",
+  user: "M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0",
+  users: "M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM2 21a7 7 0 0 1 14 0M16 3.13a4 4 0 0 1 0 7.75M22 21a7 7 0 0 0-4-6.3",
+  box: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8",
+  set: "M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6",
+  shirt: "M20.4 3.5L16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.1a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.3-2.2z",
+  bulb: "M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z",
+  tags: "M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41zM7 7h.01",
+  version: "M3 7h3l3-4h6l3 4h3v13H3zM12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  listNum: "M10 6h11M10 12h11M10 18h11M4 4h1v5M4 9h2M6 19H4c0-1.5 2-2 2-3.5a1 1 0 0 0-2 0",
+  table: "M3 3h18v18H3zM3 9h18M3 15h18M9 3v18",
+  omega: "M3 20h5v-1.5a7 7 0 1 1 8 0V20h5",
+  note: "M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5zM15 3v6h6",
+  footnote: "M3 5h12M3 10h12M3 15h8M3 20h18M19 3v6",
+  suggest: "M11 4H4v16h16v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z",
+  spell: "M3 16l4-10 4 10M4.5 12.5h5M14 15l3 3 5-7",
+  chart: "M3 3v18h18M7 16v-4M12 16V8M17 16v-7",
+  focus: "M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4M8 12h8",
+  case: "M3 17l4-10 4 10M4.5 13h5M17 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 11v6",
+  brush: "M18.4 2.6a2.17 2.17 0 0 1 3 3L16 11l-3-3zM13 8l-7.5 7.5a3 3 0 0 0 4 4L17 12",
+  sizeUp: "M3 18l5-12 5 12M5 14h6M18 8v6M15 11h6",
+  sizeDown: "M3 18l5-12 5 12M5 14h6M15 11h6",
+  bold: "M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z",
+  underline: "M6 3v7a6 6 0 0 0 12 0V3M4 21h16",
+  fontColor: "M4 21h16M7 17l5-13 5 13M9 12h6",
+  highlighter: "M9 11l-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4",
+  alignL: "M21 6H3M15 12H3M17 18H3",
+  alignC: "M21 6H3M17 12H7M19 18H5",
+  alignR: "M21 6H3M21 12H9M21 18H7",
+  justify: "M21 6H3M21 12H3M21 18H3",
+  outdent: "M21 6H11M21 12H11M21 18H11M7 8l-4 4 4 4",
+  indent: "M21 6H11M21 12H11M21 18H11M3 8l4 4-4 4",
+  lineH: "M3 7l3-3 3 3M6 4v16M3 17l3 3 3-3M13 6h8M13 12h8M13 18h8",
+  pilcrow: "M13 4v16M17 4v16M19 4H9.5a4.5 4.5 0 0 0 0 9H13",
+  pageBreak: "M4 4v4h16V4M4 20v-4h16v4M3 12h2M8 12h2M14 12h2M19 12h2",
+  tree: "M21 12h-8M21 6H8M21 18h-8M3 6v4c0 1.1.9 2 2 2h3M3 10v6c0 1.1.9 2 2 2h3",
+  pages: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+  scroll: "M4 4h16M4 9h16M4 14h16M4 19h10",
+  marks: "M4 18h16M7 14l5-11 5 11M9.5 9h5M4 22h2M9 22h2M14 22h2M19 22h1",
+  sync: "M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5",
+  crew: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1",
+  title: "M4 4h16M4 9h10M4 15h16M4 20h10",
+  pen: "M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z",
+  type: "M4 7V4h16v3M9 20h6M12 4v16",
+  send: "M22 2L11 13M22 2l-7 20-4-9-9-4z",
+  undo: "M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
+  redo: "M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13",
+  clipboard: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
+  scissors: "M6 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12",
+  printer: "M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z",
+  share: "M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM18 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98",
+  folder: "M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z",
+  stamp: "M5 22h14M19 15H5a2 2 0 0 0-2 2v3h18v-3a2 2 0 0 0-2-2zM9 15v-3a3 3 0 1 1 6 0v3",
+  upload: "M12 21V9M7 14l5-5 5 5M5 3h14",
+  braces: "M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1",
+  margins: "M3 3h18v18H3zM7 7h10v10H7z",
+  header: "M3 3h18v18H3zM3 8h18M3 16h18",
+  sparkle: "M12 3l1.9 5.8L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.2z",
+  video: "M2 6h14v12H2zM16 10l6-4v12l-6-4",
+  layers: "M12 2l10 5-10 5L2 7zM2 12l10 5 10-5M2 17l10 5 10-5",
+  // Production (Cantinella)
+  euro: "M18 7a6 6 0 1 0 0 10M4 10h9M4 14h9",
+  trafficLight: "M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7h.01M12 12h.01M12 17h.01",
+  truck: "M2 6h12v10H2zM14 10h4l3 3v3h-7M6 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M17 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3",
+  calendar: "M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",
+  addressBook: "M6 2h13v20H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 17a4 4 0 0 1 8 0M2 7h3M2 12h3M2 17h3",
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -141,11 +214,13 @@ export interface AppLogoProps {
   inkPath: string;
   size?: number;
   label: string;
+  /** Line width on the 100×100 grid; by default it grows as the tile gets smaller. */
+  strokeWidth?: number;
 }
 
 /** App icon tile: light tile, accent + ink line marks (see 02_design.md). */
-export function AppLogo({ accentPath, inkPath, size = 22, label }: AppLogoProps) {
-  const stroke = size < 24 ? 4.5 : size <= 64 ? 3.4 : 3;
+export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth }: AppLogoProps) {
+  const stroke = strokeWidth ?? (size < 24 ? 4.5 : size <= 64 ? 3.4 : 3);
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={label} style={{ flex: "none" }}>
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />

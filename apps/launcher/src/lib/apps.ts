@@ -41,16 +41,15 @@ export const APPS: AppDef[] = [
     logo: { a: "M18 28H31M18 50H29M18 72H33", b: "M41 28H82M41 36H66M41 50H82M41 58H74M41 72H78", accentColor: "#c8642c" },
   },
   {
-    // Name not chosen yet: "Produzione" is a placeholder.
-    id: "produzione",
-    name: "Produzione",
-    role: "Production and logistics",
-    about: "For the production and logistics of the show. Still being designed.",
-    soon: true,
-    canCreate: false,
-    accent: { dark: "#d2b48c", light: "#8a6a2a" },
-    // A calendar: days in sand, frame in ink.
-    logo: { a: "M33 52H41M50 52H58M67 52H71M33 66H41M50 66H58", b: "M22 26H78V80H22ZM22 40H78M36 18V30M64 18V30", accentColor: "#c48a12" },
+    id: "cantinella",
+    name: "Cantinella",
+    role: "Production",
+    about: "Organises the production: rehearsals and availability, budget, departments and contacts, tour.",
+    soon: false,
+    canCreate: true,
+    // Slate (ardesia), as in the app (02_design.md). Same drawing as the app icon: frame in ink, braces in slate.
+    accent: { dark: "#a9b6cf", light: "#3f4c66" },
+    logo: { a: "M35 45L65 21M35 79L65 55", b: "M30 16H70V84H30ZM30 50H70", accentColor: "#55627e" },
   },
   {
     id: "luci",

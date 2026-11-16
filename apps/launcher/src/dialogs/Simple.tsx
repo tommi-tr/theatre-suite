@@ -244,7 +244,7 @@ export function NewDocDialog({ path, app, phase }: { path: string; app: string; 
     >
       <div className="ln-form">
         <Field label={t("Name")}>
-          <input className="ln-input" value={title} autoFocus placeholder={app === "bardo" ? t("For example: Hamlet — script") : t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
+          <input className="ln-input" value={title} autoFocus placeholder={app === "bardo" ? t("For example: Hamlet — script") : app === "cantinella" ? t("For example: Production") : t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
         </Field>
         {error ? <div className="ln-error">{error}</div> : null}
       </div>

@@ -7,6 +7,8 @@ and all of them share the same look and the same building blocks.
 |---|---|---|
 | **Theatre Suite launcher** (`apps/launcher`) | One place for the shows: each show is a folder; the launcher lists what was made for it with every app, opens it, copies a show for tour versions, and shows which apps and versions are installed | in development |
 | **Diaframma** (`apps/diaframma`) | Sound cues for shows (GO with the space bar) and control of the audio players open on the computer during rehearsals | in development |
+| **Cantinella** (`apps/cantinella`) | Production of a show: rehearsals and availability, budget, departments and contacts, tour, calendar. Local and offline | in development |
+| **Bardo** (`apps/bardo`) | Writing scripts on live pages: speeches, stage directions, acts and scenes, characters and automatic lists; formatting models; PDF, Word, LibreOffice and text export | in development |
 
 ## Repository layout
 
@@ -31,6 +33,11 @@ pnpm diaframma:build    # build the Windows installer
 pnpm launcher:dev       # run the launcher in development
 pnpm launcher:build     # build the launcher installer
 cargo test -p theatre-project -p launcher-core   # tests of the show model and launcher logic
+pnpm bardo:dev          # run Bardo in development
+pnpm bardo:test         # Bardo's tests
+pnpm bardo:build        # build Bardo's Windows installer
+pnpm cantinella:dev     # run Cantinella in development
+pnpm cantinella:test    # Cantinella's tests
 ```
 
 `pnpm --filter launcher dev` alone (no Tauri) opens the launcher interface in a normal
@@ -39,6 +46,6 @@ browser with sample data, handy for working on the layout.
 ## Installer
 
 Every push builds a Windows installer with GitHub Actions
-(workflows **Diaframma · Windows installer** and **Launcher · Windows installer**).
-Open the run and download the artifact **Diaframma-Windows-installer** or
-**Theatre-Suite-Launcher-Windows-installer**.
+(one workflow per app: **Diaframma · Windows installer**, **Bardo · Windows installer**,
+**Launcher · Windows installer**, **Cantinella · Windows installer**). Open the run and
+download the artifact (for example **Diaframma-Windows-installer**).

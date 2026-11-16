@@ -114,13 +114,19 @@ pub fn run_silent(installer: &Path) -> Result<()> {
     }
 }
 
-/// Starts the installer of the launcher itself with its normal windows, without waiting:
-/// the launcher must close so it can be replaced. The installer offers to start it again.
-pub fn run_interactive(installer: &Path) -> Result<()> {
+/// Arguments of the NSIS installer to update the launcher itself: `/P` shows only a small
+/// progress window (no questions), `/UPDATE` keeps shortcuts and settings as they are,
+/// `/R` starts the launcher again when the installation is finished.
+pub const SELF_UPDATE_ARGS: [&str; 3] = ["/P", "/UPDATE", "/R"];
+
+/// Starts the installer of the launcher itself, without waiting: the launcher must close so it
+/// can be replaced, and the installer opens it again by itself when it is done.
+pub fn run_self_update(installer: &Path) -> Result<()> {
     if !cfg!(windows) {
         return Err("Installing from the launcher works on Windows for now".into());
     }
     Command::new(installer)
+        .args(SELF_UPDATE_ARGS)
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("Cannot start the installer: {e}"))
@@ -155,6 +161,15 @@ mod tests {
         std::fs::write(&p, "abd").unwrap();
         let _ = fetch(d.path(), "bardo", "0.1.0", &i, |_, _| {});
         assert!(std::fs::read(&p).map(|b| b == b"abc").unwrap_or(true));
+    }
+
+    #[test]
+    fn the_launcher_updates_itself_with_a_progress_window_and_restarts() {
+        // Without /R the person would have to find and start the launcher again.
+        assert!(SELF_UPDATE_ARGS.contains(&"/R"));
+        assert!(SELF_UPDATE_ARGS.contains(&"/UPDATE"));
+        // Never fully silent: a progress window is shown while the launcher is replaced.
+        assert!(!SELF_UPDATE_ARGS.contains(&"/S"));
     }
 
     #[test]
