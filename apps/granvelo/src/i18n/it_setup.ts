@@ -123,9 +123,6 @@ export const itSetup: Dict = {
   "The DMX address is the number you set on the keypad behind the light.": "L'indirizzo DMX è il numero che imposti sul tastierino dietro la luce.",
   "The lights stay where they are: check their positions after changing the size.": "Le luci restano dove sono: dopo aver cambiato le misure controlla le loro posizioni.",
   "The other lights keep their numbers and addresses.": "Le altre luci tengono numeri e indirizzi.",
-  "The stage in 3D arrives with the next version. Until then, the map shows which channels each light uses.":
-    "Il palco in 3D arriva con la prossima versione. Fino ad allora la mappa mostra quali canali usa ogni luce.",
-  "Then click the lights in the list, one after the other: each gets the next address.": "Poi clicca le luci nell'elenco, una dopo l'altra: ognuna prende l'indirizzo successivo.",
   "There is no free place for this light": "Non c'è posto libero per questa luce",
   "There is no free room left for all of them: some will have no address.": "Non c'è posto libero per tutte: alcune resteranno senza indirizzo.",
   "There is no other light of this type": "Non c'è un'altra luce di questo tipo",

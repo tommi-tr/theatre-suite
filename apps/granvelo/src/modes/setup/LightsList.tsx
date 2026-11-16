@@ -231,7 +231,7 @@ function ListToolbar({ selection }: { selection: Id[] }) {
           <Button variant="sm" type="submit" className="gv-su-ask__go">
             {t("Start")}
           </Button>
-          <p className="gv-su-ask__help">{t("Then click the lights in the list, one after the other: each gets the next address.")}</p>
+          <p className="gv-su-ask__help">{t("Then click the lights, in the list or on the stage, one after the other: each gets the next address.")}</p>
         </form>
       ) : null}
     </div>
@@ -257,8 +257,13 @@ function PlaceSection({
   const key = group.key;
   const trussId = key.kind === "truss" ? key.trussId : null;
   const editing = useSetup((s) => s.editingTrussId) === trussId && trussId !== null;
+  const ref = useRef<HTMLElement>(null);
+  // A truss clicked on the stage opens its editor here: bring it into view.
+  useEffect(() => {
+    if (editing) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [editing]);
   return (
-    <section className="gv-place gv-su-place">
+    <section ref={ref} className="gv-place gv-su-place">
       <h3 className="gv-place__title gv-su-place__title">
         <span className="ts-ellipsis">{placeTitle(t, doc, key)}</span>
         <span className="gv-count">{group.fixtures.length}</span>

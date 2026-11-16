@@ -10,6 +10,7 @@ import {
   channelsCustomised,
   giveFirstFreeAddress,
   nextTrussSpot,
+  resetAim,
   setAim,
   setBeamAngle,
   setFixtureAddress,
@@ -202,6 +203,12 @@ function Body({ fixtures, doc }: { fixtures: Fixture[]; doc: GranveloDoc }) {
               </label>
             ))}
           </div>
+        </div>
+        <div className="gv-su-aimfoot">
+          <span className="ts-field__hint">{t("Or drag the handle on the stage with the Aim tool.")}</span>
+          <Button variant="sm" icon="reset" title={t("Point again where a light in this place usually points")} onClick={() => edit((d) => resetAim(d, ids))}>
+            {t("Default aim")}
+          </Button>
         </div>
       </Section>
 

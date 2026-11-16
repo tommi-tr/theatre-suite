@@ -295,6 +295,16 @@ export default function StageView3D(props: StageView3DProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.camera]);
 
+  // A new size of the stage: frame it again.
+  const { width: sw, depth: sd, height: sh } = props.doc.stage;
+  useEffect(() => {
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    fit(ctx, true);
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sw, sd, sh]);
+
   // Content: rebuilt when what is drawn changes.
   useEffect(() => {
     const ctx = ctxRef.current;
@@ -302,7 +312,7 @@ export default function StageView3D(props: StageView3DProps) {
     rebuild(ctx);
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.doc, props.values, props.selected, props.scenery, props.selectedScenery, props.detail, props.showAims, props.compact, t]);
+  }, [props.doc, props.values, props.selected, props.scenery, props.selectedScenery, props.detail, props.showAims, props.compact, props.pick, t]);
 
   function invalidate() {
     const ctx = ctxRef.current;

@@ -2,6 +2,12 @@ import { create } from "zustand";
 import type { GranveloDoc, Id } from "../../model/types";
 import { useDoc } from "../../store/doc";
 import type { NumberingState } from "./numbering";
+import type { StageCamera } from "../../stage/types";
+
+/** What the centre of Allestimento shows: the stage, or the map of the 512 DMX addresses. */
+export type SetupCentre = "stage" | "map";
+/** The tools above the stage ("Numera a clic" is a run of its own: `numbering`). */
+export type StageTool = "move" | "aim" | "scenery";
 
 /** State of the Allestimento screen that is not part of the document (and not shared with other modes). */
 interface SetupStore {
@@ -15,7 +21,16 @@ interface SetupStore {
   numbering: NumberingState | null;
   /** Where the next "Numera a clic" starts, before it is started: asked in a small popover. */
   numberingAsk: boolean;
+  centre: SetupCentre;
+  tool: StageTool;
+  camera: StageCamera;
+  /** Scenery piece selected with the "Scenografia" tool. */
+  sceneryId: Id | null;
   setAddOpen: (v: boolean) => void;
+  setCentre: (c: SetupCentre) => void;
+  setTool: (t: StageTool) => void;
+  setCamera: (c: StageCamera) => void;
+  setSceneryId: (id: Id | null) => void;
   setRenaming: (id: Id | null) => void;
   setEditingTruss: (id: Id | null) => void;
   setNumbering: (s: NumberingState | null) => void;
@@ -28,7 +43,15 @@ export const useSetup = create<SetupStore>((set) => ({
   editingTrussId: null,
   numbering: null,
   numberingAsk: false,
+  centre: "stage",
+  tool: "move",
+  camera: "perspective",
+  sceneryId: null,
   setAddOpen: (addOpen) => set({ addOpen }),
+  setCentre: (centre) => set({ centre }),
+  setTool: (tool) => set({ tool }),
+  setCamera: (camera) => set({ camera }),
+  setSceneryId: (sceneryId) => set({ sceneryId }),
   setRenaming: (renamingId) => set({ renamingId }),
   setEditingTruss: (editingTrussId) => set({ editingTrussId }),
   setNumbering: (numbering) => set({ numbering }),
