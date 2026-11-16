@@ -1,3 +1,5 @@
+import { GRANVELO_LOGO } from "@theatre-suite/ui";
+
 /** The apps of the suite as the interface shows them. A new app = a new row. */
 export interface AppDef {
   id: string;
@@ -11,7 +13,8 @@ export interface AppDef {
   /** Can the launcher create an empty document for it? */
   canCreate: boolean;
   accent: { dark: string; light: string };
-  logo: { a: string; b: string; accentColor: string };
+  /** `stroke`: line width on the 100×100 grid for a tile of that size (default: AppLogo's own). */
+  logo: { a: string; b: string; accentColor: string; stroke?: (size: number) => number };
 }
 
 export const APPS: AppDef[] = [
@@ -58,8 +61,9 @@ export const APPS: AppDef[] = [
     about: "The lighting desk: scenes and cues for the lights. Still being designed.",
     soon: true,
     canCreate: false,
-    accent: { dark: "#3fc1c9", light: "#0f7f87" },
-    logo: { a: "M18 38H38M42 64H62M66 34H86", b: "M28 16V84M52 16V84M76 16V84", accentColor: "#c2349f" },
+    // Gelatina (magenta), as Granvelo itself (02_design.md). Same drawing as the app icon "Banco", thick stroke.
+    accent: { dark: "#f06fcf", light: "#a3218a" },
+    logo: { a: GRANVELO_LOGO.accent, b: GRANVELO_LOGO.ink, accentColor: "#c2349f", stroke: GRANVELO_LOGO.stroke },
   },
 ];
 

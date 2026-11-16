@@ -7,7 +7,7 @@ export function AppIcon({ id, size = 28 }: { id: string; size?: number }) {
   if (!def) return <span className="ln-appicon" style={{ width: size, height: size }} aria-hidden="true" />;
   return (
     <span style={{ display: "inline-flex", ["--logo-a" as string]: def.logo.accentColor }}>
-      <AppLogo accentPath={def.logo.a} inkPath={def.logo.b} size={size} label={def.name} />
+      <AppLogo accentPath={def.logo.a} inkPath={def.logo.b} size={size} label={def.name} strokeWidth={def.logo.stroke?.(size)} />
     </span>
   );
 }

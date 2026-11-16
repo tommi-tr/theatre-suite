@@ -1,5 +1,5 @@
 // Generates the launcher's icons (PNG + ICO): a light tile with four short strokes, one per app
-// (02_design.md): indigo Diaframma, copper Bardo, slate Cantinella, petrol Luci.
+// (02_design.md): indigo Diaframma, copper Bardo, slate Cantinella, magenta Luci (Granvelo).
 // Run with: pnpm --filter launcher icons
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
