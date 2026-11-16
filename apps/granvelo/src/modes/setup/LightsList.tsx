@@ -201,7 +201,18 @@ function ListToolbar({ selection }: { selection: Id[] }) {
           title={t("Click the lights in order to give them consecutive addresses")}
           onClick={() => (numbering ? useSetup.getState().setNumbering(null) : ask ? useSetup.getState().setNumberingAsk(false) : openAsk())}
         >
-          {t("Number by clicking")}
+          <span className="gv-su-tools__label">{t("Number by clicking")}</span>
+        </Button>
+        <Button
+          variant="sm"
+          icon="bulb"
+          className="gv-su-checkbtn"
+          disabled={!!numbering}
+          aria-label={t("Light check")}
+          title={t("Light check: turn on the lights one at a time and note the ones that do not work")}
+          onClick={() => useUi.getState().openDialog("check")}
+        >
+          <span className="gv-su-tools__label">{t("Light check")}</span>
         </Button>
         <span className="ts-spacer" />
         <Button variant="ghost" iconOnly icon="duplicate" disabled={none} aria-label={t("Duplicate")} title={`${t("Duplicate")} · Ctrl D`} onClick={() => duplicateLights(t, selection)} />
@@ -369,7 +380,7 @@ function LightRow({ f, doc, problems, selected, cursor, onClick }: { f: Fixture;
         onDoubleClick={() => !useSetup.getState().numbering && useSetup.getState().setRenaming(f.id)}
       >
         <span className="gv-light__num">{f.number}</span>
-        <FixtureSymbol kind={type.symbol} state={symbolStateOf(f, problems, selected)} rotate={symbolRotation(f)} size={24} />
+        <FixtureSymbol kind={type.symbol} state={symbolStateOf(f, problems, selected)} rotate={symbolRotation(f)} size={24} fixture={f} />
         <span className="gv-light__text">
           {renaming ? <RenameField f={f} /> : <span className="gv-light__name ts-ellipsis">{lightName(t, f)}</span>}
           <span className="gv-light__type ts-ellipsis">{t(type.name)}</span>
@@ -377,7 +388,13 @@ function LightRow({ f, doc, problems, selected, cursor, onClick }: { f: Fixture;
         <span className={`gv-light__addr${bad ? " gv-light__addr--conflict" : ""}`}>
           {bad ? <Icon name="alert" size={12} /> : null}
           {f.address === null ? "—" : fmtAddress(f.address)}
+          {f.broken ? (
+            <span className="gv-light__broken" role="img" aria-label={t("Marked as not working by the light check.")} title={t("Marked as not working by the light check.")}>
+              <Icon name="x" size={9} strokeWidth={3.2} />
+            </span>
+          ) : null}
         </span>
+
       </div>
     </li>
   );

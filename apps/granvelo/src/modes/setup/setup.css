@@ -35,6 +35,38 @@
   align-items: center;
   gap: 4px;
 }
+/* Labels of the two tools give way to icons (with tooltips) when the list is narrow. */
+@media (max-width: 1240px) {
+  .gv-su-tools__label {
+    display: none;
+  }
+  .gv-su-tools__row .ts-btn--sm {
+    padding: 0 7px;
+  }
+}
+.gv-su-box .gv-note--stop {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.gv-su-note__text {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+.gv-su-box .gv-note .ts-btn--sm {
+  flex: none;
+}
+/* Small red mark of a light that the check found not working (a cross: never colour alone). */
+.gv-light__broken {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--stop-fill);
+  color: #2b0707;
+}
 .gv-su-ask {
   display: flex;
   flex-wrap: wrap;

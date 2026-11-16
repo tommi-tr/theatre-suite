@@ -63,27 +63,6 @@
   background: var(--surface-3);
   color: var(--accent);
 }
-.gv-dmx {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-2);
-  font-size: 12.5px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.gv-dmx .ts-dot {
-  background: var(--text-3);
-}
-.gv-dmx__state {
-  color: var(--text);
-  font-weight: 500;
-}
 
 /* Narrow windows: the modes become icons with a tooltip, labels of the side buttons go; never two rows. */
 @media (max-width: 1240px) {
@@ -454,40 +433,6 @@
   font-weight: 600;
 }
 
-.gv-setup__stage {
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  padding: 24px;
-}
-.gv-stagecard {
-  width: 100%;
-  max-width: 620px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.gv-stagecard__item {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-}
-.gv-stagecard__big {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 /* Properties of the selected light */
 .gv-propsbox {
   display: flex;
@@ -503,9 +448,6 @@
 .gv-propsbox__title {
   font-size: 14px;
   font-weight: 600;
-}
-.gv-propsbox__sub {
-  margin-top: 2px;
 }
 .gv-note {
   display: flex;
@@ -524,46 +466,6 @@
 .gv-note--stop {
   background: var(--stop-bg);
   color: var(--stop);
-}
-.gv-dl {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 12px;
-  margin: 0;
-  font-size: 12.5px;
-}
-.gv-dl dt {
-  color: var(--text-3);
-}
-.gv-dl dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.gv-warn {
-  color: var(--sb);
-  font-weight: 600;
-}
-.gv-chanlist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12.5px;
-}
-.gv-chanlist li {
-  display: grid;
-  grid-template-columns: 34px 12px minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  height: 24px;
-}
-.gv-chanlist__dmx {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--text-3);
 }
 /* Colour of the light: only as a swatch next to the channel name (02_design.md, light colours). */
 .gv-swatch {
@@ -876,21 +778,4 @@
 /* ---------- Light symbols ---------- */
 .gv-symbol {
   display: block;
-}
-.gv-dl__line {
-  display: block;
-}
-.gv-mono {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.gv-coords {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.gv-coords > span {
-  white-space: nowrap;
 }

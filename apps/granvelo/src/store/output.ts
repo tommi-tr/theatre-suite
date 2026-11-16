@@ -103,6 +103,8 @@ export const useOutput = create<OutputStore>((set, get) => ({
         report(e);
       }
       set({ ready: true, browser: a.simulated });
+      // Preview tooling only (`/?demo`): lets a browser test read the store, like `__granveloSim`.
+      if (isDemo()) (window as unknown as Record<string, unknown>).__granveloOut = useOutput;
       if (isDemo() && get().status.link.state === "idle") await a.connect({ mode: "simulated" });
     })();
     return starting;

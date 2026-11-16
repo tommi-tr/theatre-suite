@@ -115,7 +115,7 @@ function Body({ fixtures, doc }: { fixtures: Fixture[]; doc: GranveloDoc }) {
   return (
     <div className="gv-propsbox gv-su-box">
       <div className="gv-propsbox__head">
-        <FixtureSymbol kind={sym.symbol} state={unusedAll ? "unused" : "normal"} rotate={one ? symbolRotation(one) : 180} size={36} />
+        <FixtureSymbol kind={sym.symbol} state={unusedAll ? "unused" : "normal"} rotate={one ? symbolRotation(one) : 180} size={36} fixture={one ?? undefined} />
         <div style={{ minWidth: 0 }}>
           <div className="gv-propsbox__title ts-ellipsis">{one ? `${one.number} · ${lightName(t, one)}` : t("{n} lights selected", { n: fixtures.length })}</div>
           <div className="ts-muted ts-ellipsis">{typeId ? t(fixtureType(typeId).name) : t("Different types")}</div>
@@ -130,7 +130,10 @@ function Body({ fixtures, doc }: { fixtures: Fixture[]; doc: GranveloDoc }) {
       ) : null}
       {fixtures.some((f) => f.broken) ? (
         <div className="gv-note gv-note--stop">
-          <Icon name="alert" size={13} /> {t("Marked as not working by the light check.")}
+          <Icon name="alert" size={13} /> <span className="gv-su-note__text">{t("Marked as not working by the light check.")}</span>
+          <Button variant="sm" icon="check" onClick={() => edit((d) => updateFixtures(d, ids, { broken: false }))}>
+            {fixtures.length === 1 ? t("Remove the mark") : t("Remove the marks")}
+          </Button>
         </div>
       ) : null}
 

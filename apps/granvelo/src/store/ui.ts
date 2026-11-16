@@ -4,7 +4,7 @@ import type { Id } from "../model/types";
 /** The three ways of working (selector at the top centre). */
 export type Mode = "setup" | "desk" | "show";
 
-export type DialogKind = "settings" | "versions" | "newShow";
+export type DialogKind = "settings" | "versions" | "newShow" | "check";
 
 /** Categories of the Settings window (10_granvelo.md, "Impostazioni"). */
 export type SettingsTab = "general" | "dmx" | "preview" | "memories" | "test" | "about";

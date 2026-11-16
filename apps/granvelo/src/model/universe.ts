@@ -229,6 +229,21 @@ export function visibleLight(f: Pick<Fixture, "channels" | "typeId">, values: nu
   return { hue: rgbToHex(hue), level, color: rgbToHex({ r: hue.r * level, g: hue.g * level, b: hue.b * level }) };
 }
 
+/**
+ * The colour for the lens of a light's symbol, from the 512 values on the cable: the colour it is making now, or null
+ * when it makes no light (dark lens), has no address or is not used. A dim light is still shown a little (floor at
+ * 15 % of its colour) so that a light at 5 % is not mistaken for one that is off.
+ */
+export function lensColor(f: Pick<Fixture, "channels" | "typeId" | "address" | "unused">, dmx: ArrayLike<number>): string | null {
+  if (f.unused || f.address === null) return null;
+  const values = f.channels.map((_, i) => (f.address! + i <= UNIVERSE_SIZE ? (dmx[f.address! + i - 1] ?? 0) : 0));
+  const v = visibleLight(f, values);
+  if (!v.hue || v.level <= 0) return null;
+  if (v.level >= 0.15) return v.color;
+  const h = parseHex(v.hue)!;
+  return rgbToHex({ r: h.r * 0.15, g: h.g * 0.15, b: h.b * 0.15 });
+}
+
 /** Is this a channel that the Grand Master and the groups scale for this light? */
 export function isIntensityChannel(f: Pick<Fixture, "channels">, index: number): boolean {
   return intensityIndexes(f).includes(index);

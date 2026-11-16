@@ -31,6 +31,7 @@ src/model/       pure TypeScript, no React — the foundations of the next phase
   addresses.ts     channels occupied, conflicts, 512-cell map, next free address, numbering by clicks
   universe.ts      patch → masters (groups, Grand Master) → Uint8Array(512); colour picker; visible colour; emergency
   memories.ts      memory states in both bindings, conversion between them
+  check.ts         Controllo luci: checkLook (one light on), plan/order/skips, the run, restore point
   crossfade.ts     reference crossfade (fade in/out, delay, move in dark) — the Rust engine mirrors it
   ops.ts           document operations (add/remove light, channels, trusses, places, memories)
   file.ts          newDocument, serialize, parse (strict format 1, unknown top-level keys kept)
@@ -41,7 +42,8 @@ src/store/       zustand: doc (undo/redo via packages/core History), settings (t
 src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting;
                  dmx.ts (typed DMX engine API) + dmxSim.ts (the same engine in the browser)
 src/shell/       title bar + top bar + status bar, start screen
-src/modes/       Allestimento (list of lights + properties), Banco, Show (phase 0 screens)
+src/modes/       Allestimento (list of lights + properties), Banco, Show (phase 0 screens);
+                 check/ = Controllo luci dialog (opened with ui.openDialog("check"), also for Show)
 src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
 src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
 ```

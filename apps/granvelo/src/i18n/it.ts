@@ -114,7 +114,7 @@ export const it: Dict = {
   "Load this version as unsaved changes": "Carica questa versione come modifiche non salvate",
   "Macro": "Macro",
   "Main": "Main",
-  "Marked as not working by the light check.": "Segnata come guasta dal controllo luci.",
+  "Marked as not working by the light check.": "Segnata come non funzionante nel controllo luci.",
   "Maximize": "Ingrandisci",
   "Meanwhile the memories of the show are listed here, as they are saved in the file.": "Intanto qui accanto ci sono le memorie dello spettacolo, come sono salvate nel file.",
   "Medium": "Media",

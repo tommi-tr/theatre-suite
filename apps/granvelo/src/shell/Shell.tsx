@@ -17,6 +17,7 @@ import { StartScreen } from "./StartScreen";
 import { SetupMode } from "../modes/SetupMode";
 import { DeskMode } from "../modes/DeskMode";
 import { ShowMode } from "../modes/ShowMode";
+import { CheckDialog } from "../modes/check/CheckDialog";
 
 const MODES: Mode[] = ["setup", "desk", "show"];
 
@@ -201,6 +202,7 @@ export function Shell() {
       {dialog === "settings" ? <SettingsDialog /> : null}
       {dialog === "versions" ? <VersionsDialog /> : null}
       {dialog === "newShow" ? <NewShowDialog /> : null}
+      {dialog === "check" && doc ? <CheckDialog /> : null}
       <ConfirmHost />
       <AppToast />
     </div>

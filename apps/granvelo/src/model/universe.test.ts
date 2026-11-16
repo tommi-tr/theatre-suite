@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMasters, emergencyValues, fixtureFactors, intensityIndexes, patchValues, readValues, renderUniverse, setColor, visibleLight } from "./universe";
+import { applyMasters, emergencyValues, lensColor, fixtureFactors, intensityIndexes, patchValues, readValues, renderUniverse, setColor, visibleLight } from "./universe";
 import { docWith, light } from "./testkit";
 import type { Group } from "./types";
 
@@ -124,5 +124,37 @@ describe("emergency", () => {
     expect(v.p).toEqual([255, 255, 255, 255, 255, 0, 0]);
     expect(v.s).toEqual([0, 0]);
     expect(v.u).toBeUndefined();
+  });
+});
+
+describe("lens colour (live)", () => {
+  const dmx = (entries: Record<number, number>) => {
+    const u = new Uint8Array(512);
+    for (const [ch, v] of Object.entries(entries)) u[Number(ch) - 1] = v;
+    return u;
+  };
+  it("is the colour the light is making, read at its address", () => {
+    const f = light("f1", "parRgb", 10);
+    expect(lensColor(f, dmx({ 10: 255 }))).toBe("#FF0000");
+    expect(lensColor(f, dmx({ 11: 255, 12: 255 }))).toBe("#00FFFF");
+  });
+  it("is null when the light is off, has no address, is not used", () => {
+    expect(lensColor(light("f1", "parRgb", 10), dmx({}))).toBeNull();
+    expect(lensColor(light("f1", "parRgb", null), dmx({ 1: 255 }))).toBeNull();
+    expect(lensColor(light("f1", "parRgb", 10, { unused: true }), dmx({ 10: 255 }))).toBeNull();
+  });
+  it("follows the Main and a customised channel order", () => {
+    const f = light("f1", "par6", 1, { channels: [{ function: "blue" }, { function: "dimmer" }, { function: "red" }] });
+    expect(lensColor(f, dmx({ 1: 255, 2: 255 }))).toBe("#0000FF");
+    expect(lensColor(f, dmx({ 3: 255, 2: 255 }))).toBe("#FF0000");
+    expect(lensColor(f, dmx({ 1: 255 }))).toBeNull();
+  });
+  it("shows a very dim light a little, not as off", () => {
+    const c = lensColor(light("f1", "parRgb", 1), dmx({ 1: 5 }))!;
+    expect(c).not.toBeNull();
+    expect(parseInt(c.slice(1, 3), 16)).toBeGreaterThan(30);
+  });
+  it("uses the colour of the type for lights without colour channels (a halogen)", () => {
+    expect(lensColor(light("f1", "halogen", 3), dmx({ 3: 255 }))).toBe("#FFD9A0");
   });
 });
