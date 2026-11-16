@@ -1,6 +1,6 @@
 {
   "name": "granvelo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
     "@theatre-suite/ui": "workspace:*",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "three": "0.187.0",
     "zustand": "5.1.0"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@tauri-apps/cli": "2.12.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/three": "0.187.0",
     "@vitejs/plugin-react": "6.3.0",
     "jsdom": "31.0.0",
     "typescript": "7.0.2",
