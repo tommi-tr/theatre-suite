@@ -71,6 +71,12 @@ interface DeskStore {
   startBlind: (id: Id) => "ok" | "same" | "missing";
   /** Leaves Blind (changes not saved are lost: the interface asks first). */
   exitBlind: () => void;
+  /**
+   * Show called a memory (GO, Indietro): the faders take its values and it becomes the memory on stage, **without
+   * sending** (the Show sends the fade). So the desk — in Show and later in Banco — always starts from what is on stage.
+   * The desk history is cleared: undoing to the faders before a GO would jump the stage.
+   */
+  followShow: (memoryId: Id) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -102,6 +108,14 @@ function push() {
   const doc = useDoc.getState().doc;
   if (!s.active || s.blind || !doc) return;
   useOutput.getState().setUniverse(deskUniverse(doc, s.values))?.catch?.(report);
+}
+
+/** A transition is running in the engine (also paused): sending the faders now would cut it. */
+const fading = () => useOutput.getState().live.fade.active;
+
+/** Sends the live values unless a transition is running (that one already brings the stage where the faders are). */
+function pushIfSteady() {
+  if (!fading()) push();
 }
 
 /** Tells the engine the Grand Master and which channels it scales. */
@@ -151,7 +165,8 @@ export const useDesk = create<DeskStore>((set, get) => {
       const doc = useDoc.getState().doc;
       set((s) => ({ active: true, values: doc ? reconcileValues(doc, s.values) : s.values }));
       pushMaster();
-      push();
+      // After a GO of the Show the faders already hold the memory coming on stage: a running fade is left to finish.
+      pushIfSteady();
     },
     setChannel: (fixtureId, index, value) =>
       edit((doc, values) => {
@@ -234,7 +249,14 @@ export const useDesk = create<DeskStore>((set, get) => {
       if (!get().blind) return;
       clearHistory();
       set({ blind: null, ...flags() });
-      push();
+      pushIfSteady();
+    },
+    followShow: (memoryId) => {
+      const doc = useDoc.getState().doc;
+      const m = doc?.memories.find((x) => x.id === memoryId);
+      if (!doc || !m) return;
+      clearHistory();
+      set({ values: memoryValues(doc, m), liveMemoryId: memoryId, modified: false, ...flags() });
     },
     undo: () => {
       const prev = history.undo(snap(get()));
@@ -287,6 +309,7 @@ useDoc.subscribe((s) => {
   if (s.doc === lastDoc && s.loadRev === lastRev) return;
   const loaded = s.loadRev !== lastRev;
   const fixturesChanged = s.doc?.fixtures !== lastDoc?.fixtures;
+  const groupsChanged = s.doc?.groups !== lastDoc?.groups;
   lastDoc = s.doc;
   lastRev = s.loadRev;
   if (loaded) return resetFor(s.doc);
@@ -302,5 +325,6 @@ useDoc.subscribe((s) => {
   useDesk.setState({ values, liveMemoryId, modified: f.modified, blind: f.blind, cursorId });
   if (blindGone) clearHistory();
   if (fixturesChanged) pushMaster();
-  push();
+  // Only what changes the universe is resent: editing a transition or the order in the Show must not cut a fade.
+  if (fixturesChanged || groupsChanged) push();
 });
