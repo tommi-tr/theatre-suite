@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { basename, useT } from "@theatre-suite/core";
 import { AppLogo, Button, ConfirmHost, Segmented, StatusBar, TitleBar, useBackToLauncher } from "@theatre-suite/ui";
 import { api, appWindow, isTauri, onEvent } from "../lib/api";
@@ -24,6 +24,9 @@ import { SequenceDialog } from "../modes/show/SequenceDialog";
 import { ShowTools } from "../modes/show/ShowBars";
 import { lockedSays, switchMode } from "../modes/show/actions";
 import { useShow } from "../store/show";
+
+/** The print dialog (and react-dom/server) only loads when asked for. */
+const PrintDialog = lazy(() => import("../print/PrintDialog").then((m) => ({ default: m.PrintDialog })));
 
 const MODES: Mode[] = ["setup", "desk", "show"];
 
@@ -221,6 +224,11 @@ export function Shell() {
       {dialog === "newShow" ? <NewShowDialog /> : null}
       {dialog === "check" && doc ? <CheckDialog /> : null}
       {dialog === "sequence" && doc ? <SequenceDialog /> : null}
+      {dialog === "print" && doc ? (
+        <Suspense fallback={null}>
+          <PrintDialog />
+        </Suspense>
+      ) : null}
       <ConfirmHost />
       <AppToast />
     </div>

@@ -97,6 +97,9 @@ function StageLine() {
           {n(doc.stage.width)} × {n(doc.stage.depth)} × {n(doc.stage.height)} m
         </span>
         <span className="ts-spacer" />
+        <Button variant="ghost" icon="printer" disabled={doc.fixtures.length === 0} title={t("Print the plan and the list of lights")} onClick={() => useUi.getState().openDialog("print")}>
+          <span className="gv-su-stage__btn">{t("Print")}</span>
+        </Button>
         <Button variant="ghost" icon="pencil" on={open} aria-expanded={open} title={t("Change size")} onClick={() => setOpen(!open)}>
           <span className="gv-su-stage__btn">{t("Change size")}</span>
         </Button>

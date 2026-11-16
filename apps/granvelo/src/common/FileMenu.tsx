@@ -62,6 +62,7 @@ export function FileMenu() {
           <div className="gv-menu__sep" />
           {item("save", t("Save"), "Ctrl S", () => saveDoc(t), { disabled: !hasDoc })}
           {item("save", t("Save as…"), "Ctrl Shift S", () => saveDoc(t, true), { disabled: !hasDoc })}
+          {item("printer", t("Print…"), null, () => useUi.getState().openDialog("print"), { disabled: !hasDoc })}
           {item("history", t("Versions…"), null, () => useUi.getState().openDialog("versions"), { disabled: !hasDoc })}
           {filePath && isTauri ? item("folder", t("Show in folder"), null, () => void api.revealInFolder(filePath).catch(() => {})) : null}
           {item("x", t("Close the show"), null, () => closeDoc(t), { disabled: !hasDoc })}
