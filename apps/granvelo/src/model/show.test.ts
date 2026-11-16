@@ -191,6 +191,18 @@ describe("show: parte da sola", () => {
     expect(fades(r.effects)).toEqual(["m1", "m3"]);
   });
 
+  it("follows the memory as it is now: unticked during its transition, nothing starts by itself", () => {
+    const off = [mem("m1", { autoFollow: false, fadeIn: 1, fadeOut: 1 }), seq[1], seq[2]];
+    let r = run([[0, { type: "go" }]], seq);
+    const s = showReduce(r.state, { type: "tick" }, ctx(1500, off));
+    expect(fades(s.effects)).toEqual([]);
+    expect(s.state.fade).toBeNull();
+    expect(s.state.readyId).toBe("m2");
+    // and ticked during it, it does
+    r = run([[0, { type: "go" }]], off);
+    expect(fades(showReduce(r.state, { type: "tick" }, ctx(1500, seq)).effects)).toEqual(["m2"]);
+  });
+
   it("is held during the emergency", () => {
     const r = run([[0, { type: "go" }], [100, { type: "emergency" }], [200, { type: "emergency" }], [5000, { type: "tick" }]], seq);
     expect(fades(r.effects)).toEqual(["m1"]);

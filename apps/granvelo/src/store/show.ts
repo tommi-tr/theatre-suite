@@ -1,5 +1,7 @@
 import { create } from "zustand";
+import { transitionDuration } from "../model/crossfade";
 import { deskUniverse } from "../model/desk";
+import type { FadePayload } from "../lib/dmx";
 import { fadePayload, intensityMask, memoryFadePayload } from "../model/enginePayload";
 import { stateUniverse } from "../model/memories";
 import { sequenceMemories } from "../model/sequence";
@@ -20,7 +22,8 @@ import { useOutput } from "./output";
  * - **Desk**: every memory called (GO, Indietro, parte da sola) is handed to the desk (`followShow`), so the faders —
  *   in Show and in Banco — start from what is on stage.
  * - **Emergency**: all white at full (or the emergency memory of the Settings, as saved: groups and Grand Master do
- *   not dim it), Blackout and Fade to black released at once, Grand Master at full. Leaving it brings the stage back to
+ *   not dim it), Blackout and Fade to black released at once, Grand Master at full; meanwhile the desk is not active
+ *   (it sends nothing, whatever changes). Leaving it brings the stage back to
  *   the desk (the memory on air, with any change made on the faders) in the default crossfade, the Grand Master of the
  *   desk, and Blackout / Fade to black as they were.
  * - **Lock** (`locked`): checked by the interface; this store never refuses an action because of it.
@@ -56,13 +59,32 @@ export function emergencyUniverse(doc: GranveloDoc, memoryId: string | null, cur
   return patchValues(doc, emergencyValues(doc, current));
 }
 
+/**
+ * Sends a transition and says at once that it is running: the engine reports it only at its next progress (≤ 10 a
+ * second), and until then a fader moved on the desk would otherwise cut it (`store/desk.ts`, `push`).
+ */
+function sendFade(payload: FadePayload) {
+  const out = useOutput.getState();
+  const p = out.fadeTo(payload);
+  const total = transitionDuration(payload.transition);
+  if (total <= 0) return run(p);
+  const fade = { ...out.live.fade, active: true, paused: false, progress: 0, elapsed: 0, total };
+  useOutput.setState({ live: { ...useOutput.getState().live, fade } });
+  void p?.catch?.((err: unknown) => {
+    report(err);
+    // Never sent: do not leave the desk believing a transition is running.
+    const live = useOutput.getState().live;
+    if (live.fade === fade) useOutput.setState({ live: { ...live, fade: { ...fade, active: false } } });
+  });
+}
+
 function execute(doc: GranveloDoc | null, e: ShowEffect) {
   const out = useOutput.getState();
   switch (e.kind) {
     case "fade": {
       const m = doc?.memories.find((x) => x.id === e.memoryId);
       if (!doc || !m) return;
-      run(out.fadeTo(memoryFadePayload(doc, m)));
+      sendFade(memoryFadePayload(doc, m));
       useDesk.getState().followShow(m.id);
       return;
     }
@@ -78,6 +100,8 @@ function execute(doc: GranveloDoc | null, e: ShowEffect) {
       return run(out.releaseBlack(e.seconds));
     case "emergencyOn": {
       if (!doc) return;
+      // The emergency takes the output from the desk: nothing of it (a document change, Ctrl Z) may replace these lights.
+      useDesk.setState({ active: false });
       run(out.setUniverse(emergencyUniverse(doc, e.memoryId, useDesk.getState().values)));
       run(out.blackout(false));
       run(out.releaseBlack(0));
@@ -86,9 +110,10 @@ function execute(doc: GranveloDoc | null, e: ShowEffect) {
     }
     case "emergencyOff": {
       if (!doc) return;
+      useDesk.setState({ active: true });
       const d = useDesk.getState();
       const time = Math.max(0, doc.settings.defaultCrossfade);
-      run(out.fadeTo(fadePayload(doc, deskUniverse(doc, d.values), { fadeIn: time, fadeOut: time, delay: 0, moveInDark: false })));
+      sendFade(fadePayload(doc, deskUniverse(doc, d.values), { fadeIn: time, fadeOut: time, delay: 0, moveInDark: false }));
       run(out.setGrandMaster(d.grandMaster, intensityMask(doc)));
       if (e.blackout) run(out.blackout(true));
       if (e.ftb) run(out.fadeToBlack(0));
@@ -138,8 +163,11 @@ useDoc.subscribe((s) => {
   lastDoc = s.doc;
   lastRev = s.loadRev;
   if (loaded) {
+    const wasEmergency = !!useShow.getState().show.emergency;
     useShow.setState({ show: initialShow(), locked: false });
     updateTimer(useShow.getState().show);
+    // The emergency had taken the output from the desk: give it back, or the faders would do nothing.
+    if (wasEmergency) useDesk.getState().activate();
   }
   useShow.getState().dispatch({ type: "sync" });
 });
