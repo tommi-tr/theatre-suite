@@ -1620,6 +1620,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "granvelo"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "suite-link",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-single-instance",
+]
+
+[[package]]
 name = "gtk"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2195,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "launcher-core",
  "serde",

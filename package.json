@@ -16,6 +16,9 @@
     "bardo:test": "pnpm --filter bardo test",
     "cantinella:dev": "pnpm --filter cantinella tauri dev",
     "cantinella:build": "pnpm --filter cantinella tauri build",
-    "cantinella:test": "pnpm --filter cantinella test"
+    "cantinella:test": "pnpm --filter cantinella test",
+    "granvelo:dev": "pnpm --filter granvelo tauri dev",
+    "granvelo:build": "pnpm --filter granvelo tauri build",
+    "granvelo:test": "pnpm --filter granvelo test"
   }
 }
