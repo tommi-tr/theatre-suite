@@ -1,11 +1,15 @@
-import type { ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
 import { AppLogo, Button, Dialog, Icon, Segmented, confirmYesNo, type IconName } from "@theatre-suite/ui";
 import { APP_NAME, APP_VERSION, LOGO } from "../lib/version";
 import { setMemoryBinding } from "../model/memories";
 import type { MemoryBinding } from "../model/types";
 import { useDoc } from "../store/doc";
-import { useSettings, type PreviewDetail, type Units } from "../store/settings";
+import { useSettings, type DmxType, type PreviewDetail, type Units } from "../store/settings";
+import { isSending, useOutput } from "../store/output";
+import { copyText, devicesReport, type DmxDevice } from "../lib/dmx";
+import { occupiedChannels } from "../model/addresses";
+import { linkLabel, problemText } from "./OutputChip";
 import { useUi, type SettingsTab } from "../store/ui";
 import { DecimalInput } from "./DecimalInput";
 
@@ -126,15 +130,156 @@ export function SettingsDialog() {
   );
 }
 
+/** Settings → Uscita DMX: the cable, its type, the devices found, the test pattern. */
 function DmxPane() {
   const t = useT();
+  const s = useSettings((x) => x.settings);
+  const update = useSettings((x) => x.update);
+  const status = useOutput((x) => x.status);
+  const live = useOutput((x) => x.live);
+  const devices = useOutput((x) => x.devices);
+  const loading = useOutput((x) => x.devicesLoading);
+  const browser = useOutput((x) => x.browser);
+  const doc = useDoc((x) => x.doc);
+  const link = status.link;
+  const sending = isSending(status);
+  const testing = live.test !== null;
+  // The test runs over the channels the show uses (1 … the highest one), or the first 24 without a show.
+  const testChannels = useMemo(() => {
+    let max = 0;
+    for (const f of doc?.fixtures ?? []) if (!f.unused) for (const ch of occupiedChannels(f)) max = Math.max(max, ch);
+    return max || 24;
+  }, [doc]);
+  useEffect(() => {
+    void useOutput.getState().init().then(() => useOutput.getState().refreshDevices());
+  }, []);
+  // Leaving the Settings stops the test: it never keeps running unseen.
+  useEffect(() => () => void useOutput.getState().stopTest().catch(() => {}), []);
+  const out = useOutput.getState();
+  const fail = (e: unknown) => useUi.getState().showToast(String(e), "error");
+  const guessText = (d: DmxDevice) =>
+    d.guess === "pro"
+      ? t("Looks like a Pro cable")
+      : d.guess === "ftdi"
+        ? t("FTDI chip: Open DMX, or a Pro that Granvelo recognises when connecting")
+        : d.guess === "otherUsb"
+          ? t("Generic USB adapter: not a known DMX cable")
+          : t("Port of the computer: not a DMX cable");
+  const hex = (n: number | null) => (n === null ? "" : n.toString(16).toUpperCase().padStart(4, "0"));
+  const meta = (d: DmxDevice) =>
+    [d.port, d.manufacturer, d.usb ? `USB ${hex(d.vid)}:${hex(d.pid)}` : null, d.serial ? t("serial {s}", { s: d.serial }) : null].filter(Boolean).join(" · ");
+  const copy = async () => {
+    try {
+      await copyText(devicesReport(devices, status, `${APP_NAME} · ${typeof navigator !== "undefined" ? navigator.platform : ""}`));
+      useUi.getState().showToast(t("Details copied: paste them in your message to the developers."));
+    } catch (e) {
+      fail(e);
+    }
+  };
+  const choice = (port: string | null, name: string, sub: string | null, guess: string | null, key: string) => (
+    <button key={key} type="button" role="radio" aria-checked={s.dmxDevice === port} className="gv-dmxset__dev" onClick={() => update({ dmxDevice: port })}>
+      <span className="gv-dmxset__radio" />
+      <span className="gv-dmxset__name">{name}</span>
+      {guess ? <span className="gv-dmxset__guess">{guess}</span> : null}
+      {sub ? <span className="gv-dmxset__meta">{sub}</span> : null}
+    </button>
+  );
+  const known = s.dmxDevice === null || devices.some((d) => d.port === s.dmxDevice);
   return (
-    <div className="gv-set-note">
-      <h3>{t("The cable to the lights")}</h3>
-      <p>{t("Granvelo commands the lights through a USB-DMX cable. It will recognise the two common families by itself: “Pro” cables (Enttec DMX USB Pro, DMXking and their copies) and “Open DMX” cables (simple FTDI ones). You will be able to choose the type by hand here, and send a test to check that the lights answer.")}</p>
-      <p>{t("Nothing is installed on Windows for this: the drivers of the cables come from Windows Update.")}</p>
-      <p className="ts-muted">{t("The DMX output arrives with Granvelo 0.2. Until then Granvelo never sends anything to any device.")}</p>
-    </div>
+    <>
+      <Row
+        label={t("Output")}
+        hint={
+          <span className="gv-dmxset__state">
+            <span className={`ts-dot ${link.state === "connected" ? "ts-dot--go" : link.state === "lost" || link.state === "error" ? "ts-dot--stop" : ""}`} />
+            {link.state === "error" ? problemText(t, link.code).title : linkLabel(t, link)}
+            {status.device ? ` · ${status.device.port}` : ""}
+          </span>
+        }
+      >
+        {link.state === "idle" || link.state === "error" ? (
+          <Button variant="primary" icon="plug" onClick={() => out.connect().catch(fail)}>
+            {t("Connect")}
+          </Button>
+        ) : (
+          <Button icon="x" onClick={() => out.disconnect().catch(fail)}>
+            {t("Disconnect")}
+          </Button>
+        )}
+      </Row>
+      <Row label={t("Type of cable")} hint={t("Auto recognises both families by itself. Choose by hand only if the lights do not answer.")}>
+        <Segmented<DmxType>
+          small
+          ariaLabel={t("Type of cable")}
+          value={s.dmxType}
+          onChange={(dmxType) => update({ dmxType })}
+          options={[
+            { value: "auto", label: t("Auto") },
+            { value: "pro", label: "Pro" },
+            { value: "open", label: "Open DMX" },
+          ]}
+        />
+      </Row>
+      <ul className="gv-dmxset__kinds">
+        <li>
+          <strong>Pro</strong> · {t("the cable has its own small processor that makes the DMX signal (Enttec DMX USB Pro, DMXking and their copies): the most reliable.")}
+        </li>
+        <li>
+          <strong>Open DMX</strong> · {t("a simple cable with an FTDI chip: the computer makes the signal itself, so keep it free of heavy work during the show.")}
+        </li>
+      </ul>
+      <div className="gv-dmxset__head">
+        <span className="gv-set-row__label">{t("Devices found")}</span>
+        <span className="ts-spacer" />
+        <Button variant="sm" icon="sync" disabled={loading} onClick={() => void out.refreshDevices()}>
+          {t("Refresh list")}
+        </Button>
+        <Button variant="sm" icon="copy" onClick={() => void copy()}>
+          {t("Copy the cable details")}
+        </Button>
+      </div>
+      <div className="gv-dmxset__list" role="radiogroup" aria-label={t("Devices found")}>
+        {choice(null, t("Automatic choice"), t("The first USB-DMX cable found"), null, "auto")}
+        {devices.map((d) => choice(d.port, d.name, meta(d), guessText(d), d.port))}
+        {!known && s.dmxDevice ? choice(s.dmxDevice, s.dmxDevice, t("Not connected now"), null, "missing") : null}
+        {devices.length === 0 && !loading ? (
+          <div className="gv-dmxset__empty">
+            {browser
+              ? t("In the browser preview there are no cables: use the simulated output.")
+              : t("No serial port found. Plug in the cable: its driver comes from Windows Update, then press “Refresh list”.")}
+          </div>
+        ) : null}
+      </div>
+      <Row
+        label={t("Test the output")}
+        hint={
+          <>
+            {t("Turns on channels 1 to {n} one at a time, at half intensity, to see whether the lights answer.", { n: testChannels })}{" "}
+            <span className="gv-dmxset__warn">{t("The connected lights will turn on.")}</span>
+          </>
+        }
+      >
+        {testing && live.test ? (
+          <span className="gv-dmxset__testing">
+            <span className="ts-dot ts-dot--go" />
+            {t("Channel {n} of {m}", { n: live.test.channel, m: live.test.of })}
+          </span>
+        ) : null}
+        <Button
+          variant={testing ? "danger" : "tool"}
+          icon={testing ? "stopF" : "bulb"}
+          disabled={!sending && !testing}
+          title={sending ? undefined : t("Connect first")}
+          onClick={() => (testing ? out.stopTest() : out.startTest(testChannels)).catch(fail)}
+        >
+          {testing ? t("Stop the test") : t("Start the test")}
+        </Button>
+      </Row>
+      <p className="ts-muted gv-set-foot">
+        {t("Nothing is installed on Windows for this: the drivers of the cables come from Windows Update.")}{" "}
+        {t("Disconnecting or closing Granvelo leaves the lights as they are: no automatic blackout.")}
+      </p>
+    </>
   );
 }
 

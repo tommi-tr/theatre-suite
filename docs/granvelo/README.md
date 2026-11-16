@@ -13,12 +13,14 @@ pnpm granvelo:dev                    # the real window (Tauri)
 pnpm granvelo:test                   # vitest: model, file format, crossfade, dictionary
 pnpm --filter granvelo typecheck
 pnpm --filter granvelo icons         # regenerate src-tauri/icons from the "Banco" geometry
-cargo test -p granvelo --lib         # native side (storage, versions)
+cargo test -p granvelo --lib         # native side (storage, versions, DMX engine)
 pnpm granvelo:build                  # Windows installer (NSIS, per user)
 ```
 
 `/?demo` loads the demo show; `/?demo&start` opens the start screen. In the browser nothing can be saved or
-opened (there is no file system); everything else works.
+opened (there is no file system); everything else works, with the simulated DMX output. `/?demo&dmxdevices`
+also lists two example cables and pretends to connect to them; in the console `__granveloSim.pullCable()` /
+`.plugCable()` show the "cable unplugged" states (preview tooling only).
 
 ## Structure
 
@@ -33,12 +35,15 @@ src/model/       pure TypeScript, no React — the foundations of the next phase
   ops.ts           document operations (add/remove light, channels, trusses, places, memories)
   file.ts          newDocument, serialize, parse (strict format 1, unknown top-level keys kept)
   demo.ts          La locandiera: 15 lights, 9 memories
-src/store/       zustand: doc (undo/redo via packages/core History), settings (this computer), ui
-src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting
+src/store/       zustand: doc (undo/redo via packages/core History), settings (this computer), ui,
+                 output (the DMX output: the single door to the lights)
+  enginePayload.ts document → DMX engine commands (fade layout, intensity mask, memory target)
+src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting;
+                 dmx.ts (typed DMX engine API) + dmxSim.ts (the same engine in the browser)
 src/shell/       title bar + top bar + status bar, start screen
 src/modes/       Allestimento (list of lights + properties), Banco, Show (phase 0 screens)
-src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon
-src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link
+src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
+src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
 ```
 
 ## Model decisions (format 1)
@@ -72,7 +77,53 @@ src-tauri/       storage commands as Cantinella + versions folder as Diaframma; 
   line. Reading refuses other apps/formats and wrong types/ranges/duplicates with the place of the error;
   fills optional fields; drops dangling references. Before the first publication: no migrations.
 
-## What phase 0 does not do yet
+## DMX output (Granvelo 0.2)
 
-No DMX output (the top bar says "Uscita DMX: non collegata"), no 3D, no faders, no show playback. The lens
+**The single door.** Every part of the interface reaches the lights only through `src/store/output.ts`
+(`useOutput`): `connect`, `disconnect`, `setUniverse`, `fadeTo`, `pause`, `resume`, `stopFade`, `blackout`,
+`fadeToBlack`, `releaseBlack`, `setGrandMaster`, `startTest`, `stopTest`; it holds `status` (connection),
+`output` (512 values on the cable, ≤ 20 updates/s, also during fades), `under` (the same before the output
+master), `live` (fade progress, Blackout/FTB/GM, test, frames per second). Nobody calls `lib/dmx.ts` or Tauri
+directly. Payloads for fades come from `model/enginePayload.ts`.
+
+**Engine** (`src-tauri/src/dmx`, own thread): nothing is opened or sent before `connect`. 40 frames/s with
+absolute deadlines (no catch-up bursts after a stall); 30 frames/s with Open DMX (see below). Layers:
+playback (`set_universe` immediate — it **ends a running fade**; `fade_to` computed by the engine exactly as
+`crossfade.ts`, from the *current* values, so a GO during a fade or "Indietro" is smooth; `pause`/`resume`/
+`stop_fade`) → output master (Grand Master and Fade to black scale the intensity mask; Blackout puts it at 0,
+reversible; positions, gobos, smoke are never touched) → test pattern (channels 1…N one at a time, replaces
+everything while on). The masters are not applied by the TS side: `memoryTarget` applies the groups only.
+"Dark at the start / at the end" of moving heads is decided by the engine from the values it really has.
+
+| Command (Tauri) | Store action | Notes |
+|---|---|---|
+| `dmx_list_devices` | `refreshDevices` | ports with VID/PID, manufacturer, product, serial, chip, guess |
+| `dmx_connect {request}` | `connect(req?)`, `useSimulated` | `{mode:"auto",prefer?,kind?}` · `{mode:"port",port,kind}` · `{mode:"simulated"}` |
+| `dmx_disconnect` | `disconnect` | stops sending; **no blackout** (also on app exit) |
+| `dmx_set_universe {values}` | `setUniverse` | immediate; ends a running fade |
+| `dmx_fade_to {target,transition,layout}` → id | `fadeTo` | progress in `live.fade` (`id`, `progress`, `paused`, `doneId`) |
+| `dmx_pause` / `dmx_resume` / `dmx_stop_fade` | same names | stop = stay where you are |
+| `dmx_blackout {on}` | `blackout` | reversible; what is underneath keeps fading |
+| `dmx_fade_to_black {seconds}` / `dmx_release_black {seconds}` | `fadeToBlack` / `releaseBlack` | |
+| `dmx_grand_master {level,mask?}` | `setGrandMaster` | mask = `intensityMask(doc)` |
+| `dmx_test_output {on,channels?,level?}` | `startTest` / `stopTest` | level 128 |
+| `dmx_get_status` | (init) | snapshot |
+| events `dmx-status` (at once), `dmx-progress` (≤ 10/s), `dmx-output` (≤ 20/s) | subscribed by `init` | only when they change |
+
+States: `idle`, `connecting`, `connected {device, kind}`, `simulated`, `lost {sinceMs, attempts}`,
+`error {code: noCable | notFound | busy | openFailed}`. Lost = write error: one reconnection attempt per second,
+same device by VID/PID/serial (not by COM name); when back, the whole current frame goes out at once.
+
+**Cables.** Auto: only Pro-looking devices and FTDI chips are tried (other serial devices are never written to);
+each is asked "Get Widget Parameters" (label 3) and serial (label 10), 300 ms; the first that answers is a Pro;
+otherwise a device named Pro is still driven as Pro, else the first FTDI chip as Open DMX. By hand (Settings):
+any port as Pro or Open DMX. Both opened at 250000 baud 8N2, RTS cleared (as QLC+). Pro: label 6, start code 0 +
+512 values. Open DMX: break ≥ 200 µs, mark after break ≥ 20 µs (precise wait; on the wire ≈ 1 ms because break
+on/off are USB requests — fine for DMX), then 513 bytes; 30 frames/s because a frame takes 22.6 ms on the line
+and a new break never starts before the previous frame has left the chip. On Windows the timer resolution is
+raised to 1 ms (`timeBeginPeriod`, this process only) while a cable is connected.
+
+## What is not there yet
+
+No 3D, no faders, no show playback (they use the output store above when they arrive). The lens
 of the light symbols is dark because there is no live state yet; `visibleLight()` gives the colour when there is.

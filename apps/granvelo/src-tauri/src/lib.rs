@@ -1,10 +1,11 @@
 //! Granvelo — native side.
 //!
-//! Phase 0: the native side keeps files safe (atomic writes, autosave, crash
-//! recovery, versions next to the file) and opens the file manager. The DMX
-//! engine (its own thread, serial port) arrives with Granvelo 0.2: until then
-//! nothing is ever sent to any device, and nothing leaves the computer.
+//! The native side keeps files safe (atomic writes, autosave, crash recovery,
+//! versions next to the file), opens the file manager and runs the DMX engine
+//! (`dmx`: its own thread, serial port). The engine sends nothing to any device
+//! until the user presses "Connetti"; nothing leaves the computer.
 
+mod dmx;
 mod storage;
 
 use tauri::{Emitter, Manager};
@@ -44,6 +45,12 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .setup(|app| {
+            // Started idle: no port is opened until dmx_connect.
+            app.manage(dmx::DmxEngine::start(app.handle().clone()));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app_info,
             launcher_available,
@@ -59,12 +66,29 @@ pub fn run() {
             storage::reveal_in_folder,
             storage::versions_list,
             storage::version_delete,
+            dmx::dmx_list_devices,
+            dmx::dmx_connect,
+            dmx::dmx_disconnect,
+            dmx::dmx_set_universe,
+            dmx::dmx_fade_to,
+            dmx::dmx_pause,
+            dmx::dmx_resume,
+            dmx::dmx_stop_fade,
+            dmx::dmx_blackout,
+            dmx::dmx_fade_to_black,
+            dmx::dmx_release_black,
+            dmx::dmx_grand_master,
+            dmx::dmx_get_status,
+            dmx::dmx_test_output,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Granvelo");
 
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
+            if let Some(engine) = handle.try_state::<dmx::DmxEngine>() {
+                engine.shutdown();
+            }
             storage::session_end(handle);
         }
     });
