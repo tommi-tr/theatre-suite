@@ -13,9 +13,6 @@ export const it: Dict = {
   "1 memory": "1 memoria",
   "1 not used": "1 non usata",
   "A .granvelo file saved before, on this computer or on a USB stick.": "Un file .granvelo salvato prima, su questo computer o su una chiavetta.",
-  "A card for every light with its faders in the colours of the light; the mouse wheel moves a fader, a click lets you type the value.":
-    "Una scheda per ogni luce con i fader nei colori della luce; la rotella del mouse muove un fader, un clic permette di scrivere il valore.",
-  "A colour picker for coloured lights, the group faders and the Grand Master.": "Un selettore colore per le luci a colori, i fader dei gruppi e il Grand Master.",
   "A note for this version": "Una nota per questa versione",
   "A note for this version (for example: after the technical rehearsal)": "Una nota per questa versione (per esempio: dopo la prova tecnica)",
   "About": "Informazioni",
@@ -116,7 +113,6 @@ export const it: Dict = {
   "Main": "Main",
   "Marked as not working by the light check.": "Segnata come non funzionante nel controllo luci.",
   "Maximize": "Ingrandisci",
-  "Meanwhile the memories of the show are listed here, as they are saved in the file.": "Intanto qui accanto ci sono le memorie dello spettacolo, come sono salvate nel file.",
   "Medium": "Media",
   "Memories": "Memorie",
   "Memories remember": "Le memorie ricordano",
@@ -129,7 +125,6 @@ export const it: Dict = {
   "New show…": "Nuovo spettacolo…",
   "No address conflicts": "Nessun conflitto di indirizzi",
   "No memories in the sequence yet.": "Ancora nessuna memoria nella sequenza.",
-  "No memories yet.": "Ancora nessuna memoria.",
   "No note": "Senza nota",
   "No show open": "Nessuno spettacolo aperto",
   "No versions yet. Write a note above and press “Save as a version”.": "Ancora nessuna versione. Scrivi una nota qui sopra e premi “Salva come versione”.",
@@ -166,8 +161,6 @@ export const it: Dict = {
   "Save as…": "Salva con nome…",
   "Save the lights of the show": "Salva le luci dello spettacolo",
   "Save the show first: its versions are kept in a folder next to the file.": "Prima salva lo spettacolo: le sue versioni si conservano in una cartella accanto al file.",
-  "Save the stage as a memory, see when it has been changed and not saved, restore it; Blind to change a memory without touching the stage.":
-    "Salvare il palco come memoria, vedere quando è stata modificata e non salvata, ripristinarla; Blind per modificare una memoria senza toccare il palco.",
   "Saved": "Salvato",
   "Saved, and kept as a version.": "Salvata, e conservata come versione.",
   "Scenery": "Scenografia",
@@ -203,7 +196,6 @@ export const it: Dict = {
   "The stage preview arrives with Granvelo 0.3; the levels High and Automatic with Granvelo 0.6.": "L'anteprima del palco arriva con Granvelo 0.3; i livelli Alta e Automatica con Granvelo 0.6.",
   "The test plays the whole sequence of memories without sending anything to the lights, and then writes a short report: how long each transition took and whether anything went wrong. Useful before the first performance and on an old computer.":
     "Il test fa girare tutta la sequenza delle memorie senza mandare nulla alle luci, poi scrive un breve rapporto: quanto è durata ogni transizione e se qualcosa non è andato. Utile prima della prima replica e su un computer vecchio.",
-  "The virtual desk": "Il banco virtuale",
   "The {n} memories are converted with the addresses the lights have now. Lights without an address lose their values. You can undo it with Ctrl Z.":
     "Le {n} memorie vengono convertite con gli indirizzi che le luci hanno adesso. Le luci senza indirizzo perdono i loro valori. Puoi annullare con Ctrl Z.",
   "The {n} memories are converted with the addresses the lights have now. Values on channels that no light uses are dropped. You can undo it with Ctrl Z.":

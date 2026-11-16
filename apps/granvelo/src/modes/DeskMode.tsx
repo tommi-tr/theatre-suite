@@ -1,53 +1,55 @@
-import { useLang, useT } from "@theatre-suite/core";
-import { ComingSoon } from "../common/ComingSoon";
-import { litCount } from "../model/memories";
-import { useDoc } from "../store/doc";
-import { transitionParts } from "./transitionText";
+import { useEffect } from "react";
+import { useT } from "@theatre-suite/core";
+import { useDesk } from "../store/desk";
+import { BlindBand } from "./desk/BlindButton";
+import { ColorPicker } from "./desk/ColorPicker";
+import { DeskFaders } from "./desk/DeskFaders";
+import { DeskStage } from "./desk/DeskStage";
+import { MemoryList, OnStageBox } from "./desk/MemoryPanel";
+import { exitBlindAsk, toggleBlind } from "./desk/actions";
+import { isTyping, questionOpen } from "./desk/parts";
+import "./desk/desk.css";
 
-/** Banco, phase 0: what the desk will do, and the memories of the show (read only). */
+/**
+ * Banco, the virtual desk: the stage from the front (top), a card per light with a fader per channel, groups and
+ * Grand Master (bottom), and on the right the memory on stage, the colour picker and the memory list.
+ * The state lives in `store/desk.ts`; the output is sent from there. Blind: Ctrl B; Esc leaves it.
+ */
 export function DeskMode() {
   const t = useT();
-  const lang = useLang();
-  const doc = useDoc((s) => s.doc)!;
-  const memories = [...doc.memories].sort((a, b) => a.number - b.number);
+  const blind = useDesk((s) => !!s.blind);
+
+  // The desk owns the output while the show is open: from now on the faders are what the lights do.
+  useEffect(() => {
+    useDesk.getState().activate();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (questionOpen()) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        void toggleBlind(t);
+      } else if (e.key === "Escape" && !isTyping(e.target) && useDesk.getState().blind) {
+        e.preventDefault();
+        void exitBlindAsk(t);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [t]);
+
   return (
-    <div className="gv-split">
-      <main className="gv-split__main">
-        <ComingSoon
-          icon="bench"
-          version="0.4"
-          title={t("The virtual desk")}
-          about={[
-            t("A card for every light with its faders in the colours of the light; the mouse wheel moves a fader, a click lets you type the value."),
-            t("A colour picker for coloured lights, the group faders and the Grand Master."),
-            t("Save the stage as a memory, see when it has been changed and not saved, restore it; Blind to change a memory without touching the stage."),
-          ]}
-        >
-          {t("Meanwhile the memories of the show are listed here, as they are saved in the file.")}
-        </ComingSoon>
+    <div className="gv-desk" data-blind={blind ? "" : undefined}>
+      <main className="gv-desk__main">
+        <BlindBand />
+        <DeskStage />
+        <DeskFaders density="extended" editable />
       </main>
-      <aside className="gv-side" aria-label={t("Memories")}>
-        <div className="gv-panel__head">
-          <span className="gv-panel__title">{t("Memories")}</span>
-          <span className="gv-count">{memories.length}</span>
-        </div>
-        {memories.length === 0 ? (
-          <p className="gv-empty">{t("No memories yet.")}</p>
-        ) : (
-          <ul className="gv-memlist">
-            {memories.map((m) => (
-              <li key={m.id} className="gv-mem">
-                <span className="gv-mem__num">{m.number}</span>
-                <span className="gv-mem__text">
-                  <span className="gv-mem__name ts-ellipsis">{m.label || t("Memory {n}", { n: m.number })}</span>
-                  <span className="gv-mem__meta ts-ellipsis">
-                    {[(litCount(doc, m.state) === 1 ? t("1 light on") : t("{n} lights on", { n: litCount(doc, m.state) })), transitionParts(t, lang, m.transition).main].join(" · ")}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <aside className="gv-desk__side" aria-label={t("Memories")}>
+        <OnStageBox />
+        <ColorPicker />
+        <MemoryList />
       </aside>
     </div>
   );

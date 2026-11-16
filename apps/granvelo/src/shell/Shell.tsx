@@ -7,6 +7,8 @@ import { APP_NAME, LOGO } from "../lib/version";
 import { addressProblems, channelsInUse } from "../model/addresses";
 import { useDoc } from "../store/doc";
 import { useUi, type Mode } from "../store/ui";
+import { useDesk } from "../store/desk";
+import { BlindButton } from "../modes/desk/BlindButton";
 import { FileMenu } from "../common/FileMenu";
 import { SettingsDialog } from "../common/SettingsDialog";
 import { VersionsDialog } from "../common/VersionsDialog";
@@ -20,6 +22,10 @@ import { ShowMode } from "../modes/ShowMode";
 import { CheckDialog } from "../modes/check/CheckDialog";
 
 const MODES: Mode[] = ["setup", "desk", "show"];
+
+/** In Banco, undo/redo act on the desk first (fader moves, memory loads), then on the document (see store/desk.ts). */
+const undo = () => (useUi.getState().mode === "desk" ? useDesk.getState().undo() : useDoc.getState().undo());
+const redo = () => (useUi.getState().mode === "desk" ? useDesk.getState().redo() : useDoc.getState().redo());
 
 export function Shell() {
   const t = useT();
@@ -117,10 +123,10 @@ export function Shell() {
         ui.openSettings();
       } else if (mod && !e.shiftKey && k === "z" && !typing) {
         e.preventDefault();
-        useDoc.getState().undo();
+        undo();
       } else if (mod && ((k === "y" && !typing) || (e.shiftKey && e.code === "KeyZ" && !typing))) {
         e.preventDefault();
-        useDoc.getState().redo();
+        redo();
       } else if (mod && !e.shiftKey && /^Digit[1-3]$/.test(e.code) && hasDoc) {
         e.preventDefault();
         ui.setMode(MODES[Number(e.code.slice(5)) - 1]);
@@ -212,8 +218,10 @@ export function Shell() {
 /** Under the title bar: DMX output on the left, the three modes in the centre, Undo/Redo and Settings on the right. */
 function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
   const t = useT();
-  const canUndo = useDoc((s) => s.canUndo);
-  const canRedo = useDoc((s) => s.canRedo);
+  const deskUndo = useDesk((s) => s.canUndo);
+  const deskRedo = useDesk((s) => s.canRedo);
+  const canUndo = useDoc((s) => s.canUndo) || (mode === "desk" && deskUndo);
+  const canRedo = useDoc((s) => s.canRedo) || (mode === "desk" && deskRedo);
   return (
     <div className="gv-topbar">
       <div className="gv-topbar__side">
@@ -234,8 +242,9 @@ function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
         <span />
       )}
       <div className="gv-topbar__side gv-topbar__side--end">
-        <Button variant="ghost" iconOnly icon="undo" disabled={!canUndo} aria-label={t("Undo")} title={`${t("Undo")} · Ctrl Z`} onClick={() => useDoc.getState().undo()} />
-        <Button variant="ghost" iconOnly icon="redo" disabled={!canRedo} aria-label={t("Redo")} title={`${t("Redo")} · Ctrl Y`} onClick={() => useDoc.getState().redo()} />
+        {hasDoc && mode === "desk" ? <BlindButton /> : null}
+        <Button variant="ghost" iconOnly icon="undo" disabled={!canUndo} aria-label={t("Undo")} title={`${t("Undo")} · Ctrl Z`} onClick={undo} />
+        <Button variant="ghost" iconOnly icon="redo" disabled={!canRedo} aria-label={t("Redo")} title={`${t("Redo")} · Ctrl Y`} onClick={redo} />
         <Button variant="ghost" icon="settings" title={`${t("Settings")} · Ctrl ,`} aria-label={t("Settings")} onClick={() => useUi.getState().openSettings()}>
           <span className="gv-bl">{t("Settings")}</span>
         </Button>
