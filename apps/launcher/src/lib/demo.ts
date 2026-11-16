@@ -11,7 +11,7 @@ let settings: Settings = {
   language: "it",
   theme: "dark",
   weeklyCheck: true,
-  updateSource: { kind: "github", value: "tommi-tr/theatre-suite-releases" },
+  updateSource: { kind: "github", value: "tommi-tr/theatre-suite" },
   appPaths: {},
   lastCheck: now - 3 * day,
   updateNoticeSeen: false,
@@ -64,7 +64,7 @@ const v = (version: string, daysAgo: number, notes = "", kept = false) => ({
   version,
   published: new Date((now - daysAgo * day) * 1000).toISOString(),
   notes,
-  url: "https://github.com/tommi-tr/theatre-suite-releases/releases",
+  url: "https://github.com/tommi-tr/theatre-suite/releases",
   installable: true,
   kept,
 });
@@ -85,14 +85,14 @@ const apps: AppsView = {
       latest: { version: "0.1.0", url: "", notes: "Prima versione: struttura, rubrica, importazione vCard e CSV." }, held: null, versions: [v("0.1.0", 0)],
     },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.4.0" }, status: { state: "available", latest: "0.4.1", url: "" }, latest: { version: "0.4.1", url: "", notes: "" }, held: null, versions: [v("0.4.1", 0, "Torna al launcher: le app aprono lo spettacolo qui."), v("0.4.0", 1, "", true), v("0.3.2", 2)] },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.4.2" }, status: { state: "available", latest: "0.4.3", url: "" }, latest: { version: "0.4.3", url: "", notes: "" }, held: null, versions: [v("0.4.3", 0, "Torna al launcher: le app aprono lo spettacolo qui."), v("0.4.2", 1, "", true), v("0.3.2", 2)] },
   checkedAt: now - 3 * day,
   error: null,
 };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "app_info": return { name: "Theatre Suite", version: "0.4.0", os: "demo" };
+    case "app_info": return { name: "Theatre Suite", version: "0.4.2", os: "demo" };
     case "startup_show": return null;
     case "settings_load": return settings;
     case "settings_save": settings = args!.settings as Settings; return;

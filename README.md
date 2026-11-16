@@ -43,7 +43,24 @@ pnpm cantinella:test    # Cantinella's tests
 `pnpm --filter launcher dev` alone (no Tauri) opens the launcher interface in a normal
 browser with sample data, handy for working on the layout.
 
-## Installer
+## Download
+
+Installers (Windows 10/11) are published as [releases](https://github.com/tommi-tr/theatre-suite/releases)
+of this repository, one per app (`launcher-v…`, `diaframma-v…`, `bardo-v…`, `cantinella-v…`). The
+launcher installs and updates the apps from there. The installers are not signed yet: Windows may
+show "Windows protected your PC" (More info → Run anyway).
+
+## Feedback
+
+Ideas and problems are welcome as [issues](https://github.com/tommi-tr/theatre-suite/issues).
+Issues are public: please don't write passwords or private data. The launcher has a
+"Send feedback" window that opens a new issue with the text ready.
+
+## License
+
+No license has been chosen yet: for now the source is visible but all rights are reserved.
+
+## Installer builds
 
 Every push builds a Windows installer with GitHub Actions
 (one workflow per app: **Diaframma · Windows installer**, **Bardo · Windows installer**,
