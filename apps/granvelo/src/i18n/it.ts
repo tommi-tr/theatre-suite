@@ -84,8 +84,6 @@ export const it: Dict = {
   "Go back to this version? What you have now is kept as an automatic version first, and this one is loaded as unsaved changes.":
     "Tornare a questa versione? Quello che hai ora viene prima conservato come versione automatica, e questa viene caricata come modifiche non salvate.",
   "Gobo": "Gobo",
-  "Granvelo commands the lights through a USB-DMX cable. It will recognise the two common families by itself: “Pro” cables (Enttec DMX USB Pro, DMXking and their copies) and “Open DMX” cables (simple FTDI ones). You will be able to choose the type by hand here, and send a test to check that the lights answer.":
-    "Granvelo comanda le luci con un cavo USB-DMX. Riconoscerà da solo le due famiglie più comuni: i cavi “Pro” (Enttec DMX USB Pro, DMXking e i loro cloni) e i cavi “Open DMX” (quelli semplici con chip FTDI). Qui potrai scegliere il tipo a mano e mandare una prova per vedere se le luci rispondono.",
   "Granvelo measures how smooth the preview is and proposes the level.": "Granvelo misura quanto è fluida l'anteprima e propone il livello.",
   "Granvelo sends nothing to the lights until you press “Connect”.": "Granvelo non manda nulla alle luci finché non premi “Connetti”.",
   "Granvelo was closed unexpectedly. Unsaved work from the last session is available.": "Granvelo si è chiuso in modo inatteso. Il lavoro non salvato dell'ultima sessione è disponibile.",
@@ -202,9 +200,6 @@ export const it: Dict = {
   "Test": "Test",
   "The DMX addresses, like a real desk: a memory is what goes out on the 512 channels. If you change the address of a light, the memories do not follow it.":
     "Gli indirizzi DMX, come un banco vero: una memoria è ciò che esce sui 512 canali. Se cambi l'indirizzo di una luce, le memorie non la seguono.",
-  "The DMX output arrives with Granvelo 0.2. Until then Granvelo never sends anything to any device.": "L'uscita DMX arriva con Granvelo 0.2. Fino ad allora Granvelo non manda mai nulla a nessun dispositivo.",
-  "The DMX output arrives with Granvelo 0.2. Until then nothing is sent to the lights.": "L'uscita DMX arriva con Granvelo 0.2. Fino ad allora alle luci non si manda nulla.",
-  "The cable to the lights": "Il cavo verso le luci",
   "The file is damaged and cannot be opened.": "Il file è danneggiato e non si può aprire.",
   "The lighting desk of a show: stage, lights, desk and memories. Part of the Theatre Suite.": "Il banco luci di uno spettacolo: palco, luci, banco e memorie. Fa parte della Theatre Suite.",
   "The lights": "Le luci",
@@ -256,7 +251,6 @@ export const it: Dict = {
   "delay {s} s": "ritardo {s} s",
   "lights": "luci",
   "moving heads move in the dark": "teste mobili al buio",
-  "not connected": "non collegata",
   "not saved yet": "non ancora salvato",
   "the next one starts by itself": "la successiva parte da sola",
   "width × depth × height": "larghezza × profondità × altezza",

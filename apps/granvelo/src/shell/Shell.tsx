@@ -12,6 +12,7 @@ import { SettingsDialog } from "../common/SettingsDialog";
 import { VersionsDialog } from "../common/VersionsDialog";
 import { NewShowDialog } from "../common/NewShowDialog";
 import { AppToast } from "../common/AppToast";
+import { OutputBanner, OutputChip } from "../common/OutputChip";
 import { StartScreen } from "./StartScreen";
 import { SetupMode } from "../modes/SetupMode";
 import { DeskMode } from "../modes/DeskMode";
@@ -192,6 +193,7 @@ export function Shell() {
         </div>
       ) : null}
       <TopBar hasDoc={!!doc} mode={mode} />
+      <OutputBanner />
       <div className="gv-body">{!doc ? <StartScreen /> : mode === "setup" ? <SetupMode /> : mode === "desk" ? <DeskMode /> : <ShowMode />}</div>
       <StatusBar>
         <StatusLine />
@@ -213,12 +215,7 @@ function TopBar({ hasDoc, mode }: { hasDoc: boolean; mode: Mode }) {
   return (
     <div className="gv-topbar">
       <div className="gv-topbar__side">
-        {/* Phase 1 (Granvelo 0.2) replaces this label with "Connetti" and the state of the cable. */}
-        <span className="gv-dmx" title={t("The DMX output arrives with Granvelo 0.2. Until then nothing is sent to the lights.")}>
-          <span className="ts-dot" />
-          <span className="gv-dmx__label">{t("DMX output")}:</span>
-          <span className="gv-dmx__state">{t("not connected")}</span>
-        </span>
+        <OutputChip />
       </div>
       {hasDoc ? (
         <Segmented<Mode>

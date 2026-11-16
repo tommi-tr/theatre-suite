@@ -4,7 +4,7 @@ import { api, isTauri } from "../lib/api";
 
 /** How intensities are written in the desk: DMX steps 0–255 or percent. */
 export type Units = "dmx" | "percent";
-/** Family of the USB-DMX cable (chosen automatically with the DMX engine, Granvelo 0.2). */
+/** Family of the USB-DMX cable: recognised automatically, or chosen by hand (Settings → Uscita DMX). */
 export type DmxType = "auto" | "pro" | "open";
 /** Detail of the stage preview (10_granvelo.md, "Anteprima e computer vecchi"). */
 export type PreviewDetail = "essential" | "medium" | "high" | "auto";
@@ -19,7 +19,10 @@ export interface Settings {
   language: Lang;
   theme: ThemePref;
   units: Units;
-  /** Name of the chosen USB-DMX device; null = none chosen yet. Used by the DMX engine (0.2). */
+  /**
+   * Port of the chosen USB-DMX cable ("COM3"); null = automatic (the first cable found). With type "auto" the
+   * port is only tried first; with Pro or Open DMX it is used as it is.
+   */
   dmxDevice: string | null;
   dmxType: DmxType;
   previewDetail: PreviewDetail;
