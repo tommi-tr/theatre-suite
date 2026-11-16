@@ -8,6 +8,13 @@ export type Units = "dmx" | "percent";
 export type DmxType = "auto" | "pro" | "open";
 /** Detail of the stage preview (10_granvelo.md, "Anteprima e computer vecchi"). */
 export type PreviewDetail = "essential" | "medium" | "high" | "auto";
+/** What the automatic detail measured on this computer: the level it chose, the typical time of one picture, and when. */
+export interface AutoDetail {
+  level: "essential" | "medium" | "high";
+  /** Typical time to draw one picture of the richest preview, in milliseconds. */
+  ms: number;
+  at: number;
+}
 /** The desk under the Show: none, groups only, one fader per light, every channel. */
 export type ShowDesk = "none" | "mini" | "compact" | "extended";
 
@@ -28,6 +35,8 @@ export interface Settings {
   dmxDevice: string | null;
   dmxType: DmxType;
   previewDetail: PreviewDetail;
+  /** Result of the last measurement of "Automatica" (null = never measured). */
+  autoDetail: AutoDetail | null;
   /** Seconds of "Fade to black" (F in the Show), down and back up. */
   ftbSeconds: number;
   showDesk: ShowDesk;
@@ -47,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dmxDevice: null,
   dmxType: "auto",
   previewDetail: "medium",
+  autoDetail: null,
   ftbSeconds: 5,
   showDesk: "compact",
   recentFiles: [],
@@ -55,6 +65,14 @@ export const DEFAULT_SETTINGS: Settings = {
 const LOCAL_KEY = "granvelo.settings";
 
 const pick = <T extends string>(v: unknown, allowed: readonly T[], def: T): T => (allowed.includes(v as T) ? (v as T) : def);
+
+function readAutoDetail(v: unknown): AutoDetail | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const level = pick<AutoDetail["level"]>(o.level, ["essential", "medium", "high"], "medium");
+  if (typeof o.ms !== "number" || !Number.isFinite(o.ms) || o.ms < 0 || typeof o.at !== "number" || !Number.isFinite(o.at)) return null;
+  return { level, ms: Math.round(o.ms * 10) / 10, at: o.at };
+}
 
 export function normalizeSettings(raw: unknown): Settings {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -66,6 +84,7 @@ export function normalizeSettings(raw: unknown): Settings {
     dmxDevice: typeof r.dmxDevice === "string" && r.dmxDevice ? r.dmxDevice.slice(0, 200) : null,
     dmxType: pick<DmxType>(r.dmxType, ["auto", "pro", "open"], "auto"),
     previewDetail: pick<PreviewDetail>(r.previewDetail, ["essential", "medium", "high", "auto"], "medium"),
+    autoDetail: readAutoDetail(r.autoDetail),
     ftbSeconds: typeof r.ftbSeconds === "number" && Number.isFinite(r.ftbSeconds) ? Math.round(Math.min(60, Math.max(0, r.ftbSeconds)) * 10) / 10 : DEFAULT_SETTINGS.ftbSeconds,
     showDesk: pick<ShowDesk>(r.showDesk, ["none", "mini", "compact", "extended"], "compact"),
     recentFiles: Array.isArray(r.recentFiles) ? r.recentFiles.filter((x): x is string => typeof x === "string").slice(0, 10) : [],

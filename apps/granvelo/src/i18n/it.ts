@@ -77,7 +77,6 @@ export const it: Dict = {
   "Go back to this version? What you have now is kept as an automatic version first, and this one is loaded as unsaved changes.":
     "Tornare a questa versione? Quello che hai ora viene prima conservato come versione automatica, e questa viene caricata come modifiche non salvate.",
   "Gobo": "Gobo",
-  "Granvelo measures how smooth the preview is and proposes the level.": "Granvelo misura quanto è fluida l'anteprima e propone il livello.",
   "Granvelo sends nothing to the lights until you press “Connect”.": "Granvelo non manda nulla alle luci finché non premi “Connetti”.",
   "Granvelo was closed unexpectedly. Unsaved work from the last session is available.": "Granvelo si è chiuso in modo inatteso. Il lavoro non salvato dell'ultima sessione è disponibile.",
   "Granvelo was closed unexpectedly. Your work has been restored.": "Granvelo si è chiuso in modo inatteso. Il lavoro è stato recuperato.",
@@ -185,7 +184,6 @@ export const it: Dict = {
   "The lights of your show": "Le luci del tuo spettacolo",
   "The lights: a memory remembers every light by itself. If you change the address of a light, the memories follow it and are not spoiled.":
     "Le luci: una memoria ricorda ogni luce per sé. Se cambi l'indirizzo di una luce, le memorie la seguono e non si rovinano.",
-  "The stage preview arrives with Granvelo 0.3; the levels High and Automatic with Granvelo 0.6.": "L'anteprima del palco arriva con Granvelo 0.3; i livelli Alta e Automatica con Granvelo 0.6.",
   "The {n} memories are converted with the addresses the lights have now. Lights without an address lose their values. You can undo it with Ctrl Z.":
     "Le {n} memorie vengono convertite con gli indirizzi che le luci hanno adesso. Le luci senza indirizzo perdono i loro valori. Puoi annullare con Ctrl Z.",
   "The {n} memories are converted with the addresses the lights have now. Values on channels that no light uses are dropped. You can undo it with Ctrl Z.":

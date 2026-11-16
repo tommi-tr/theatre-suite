@@ -35,8 +35,8 @@ export interface PressInfo {
 /** A press on the stage: return a drag to follow the mouse, or null. */
 export type OnStagePress = (hit: StageHit, info: PressInfo) => StageDrag | null;
 
-/** Detail of the preview (computer setting): flat ellipses, or soft pools and beams. */
-export type StageDetail = "essential" | "medium";
+/** Detail of the preview: flat ellipses; soft pools and beams; "high" adds shadows of the scenery, beams as in haze and warmer halogens. */
+export type StageDetail = "essential" | "medium" | "high";
 
 export type StageCamera = "perspective" | "plan" | "front";
 

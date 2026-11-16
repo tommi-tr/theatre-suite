@@ -11,6 +11,8 @@ import { copyText, devicesReport, type DmxDevice } from "../lib/dmx";
 import { occupiedChannels } from "../model/addresses";
 import { linkLabel, problemText } from "./OutputChip";
 import { useUi, type SettingsTab } from "../store/ui";
+import { useMeasure } from "../store/previewDetail";
+import { picturesPerSecond } from "../stage/detail";
 import { DecimalInput } from "./DecimalInput";
 import { ReliabilityPane } from "./ReliabilityPane";
 
@@ -282,11 +284,15 @@ function DmxPane() {
 
 function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: PreviewDetail) => void }) {
   const t = useT();
+  const auto = useSettings((x) => x.settings.autoDetail);
+  const measuring = useMeasure((x) => x.measuring);
+  const failed = useMeasure((x) => x.failed);
+  const levelName = (l: "essential" | "medium" | "high") => (l === "high" ? t("High") : l === "medium" ? t("Medium") : t("Essential"));
   const options: { value: PreviewDetail; label: string; text: string }[] = [
     { value: "essential", label: t("Essential"), text: t("Pools of light as plain ellipses, no beams or shadows: for old or slow computers.") },
     { value: "medium", label: t("Medium"), text: t("Soft pools of light and see-through beams.") },
     { value: "high", label: t("High"), text: t("Shadows of the scenery, beams in the smoke, halogens warmer when dimmed.") },
-    { value: "auto", label: t("Automatic"), text: t("Granvelo measures how smooth the preview is and proposes the level.") },
+    { value: "auto", label: t("Automatic"), text: t("Granvelo measures how smooth the preview is on this computer and chooses the level by itself.") },
   ];
   return (
     <>
@@ -300,7 +306,32 @@ function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: 
           </li>
         ))}
       </ul>
-      <p className="ts-muted gv-set-foot">{t("The stage preview arrives with Granvelo 0.3; the levels High and Automatic with Granvelo 0.6.")}</p>
+      {value === "auto" ? (
+        <div className="gv-set-note" aria-live="polite">
+          <h3>{t("Automatic: what was measured")}</h3>
+          {measuring ? (
+            <p>{t("Measuring… Granvelo is drawing a test stage for a couple of seconds. The screen may stutter for a moment.")}</p>
+          ) : failed ? (
+            <p>{t("This computer cannot draw the stage in 3D: the flat views from above and from the front are used, which are light.")}</p>
+          ) : auto ? (
+            auto.ms > 0 ? (
+              <p>
+                {t("On this computer the richest preview is drawn at about {n} pictures a second. Level in use: {level}.", { n: picturesPerSecond(auto.ms), level: levelName(auto.level) })}
+              </p>
+            ) : (
+              <p>{t("This computer cannot draw the stage in 3D: the flat views from above and from the front are used, which are light.")}</p>
+            )
+          ) : (
+            <p>{t("Not measured yet: the Medium level is used until the first measurement.")}</p>
+          )}
+          <p className="ts-muted">{t("The measurement lasts a few seconds, never repeats by itself and sends nothing anywhere. Measure again if you change the computer or its graphics card.")}</p>
+          <div>
+            <Button variant="sm" icon="reset" disabled={measuring} onClick={() => void useMeasure.getState().measure()}>
+              {auto || failed ? t("Measure again") : t("Measure now")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

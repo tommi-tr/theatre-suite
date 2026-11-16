@@ -6,6 +6,7 @@ import { fixtureType } from "../model/fixtureTypes";
 import type { Vec3 } from "../model/types";
 import { BAR_CELLS, LENS_DISC, SPOT_LENS, SYMBOL_PATHS } from "../common/symbolGlyph";
 import { poolOutline, viewBounds } from "./geometry";
+import { MAX_SHADOW_LIGHTS, SpotPool, hazeBeamMaterial, shadowCatcher, type SpotSpec } from "./haze";
 import { lightLabel, sceneryOnStage, stageLights, symbolOffset, type LightLook, type StageLight } from "./scene";
 import type { DragAxes, PressInfo, StageCamera, StageDrag, StageHit, StageViewProps } from "./types";
 import "./stage.css";
@@ -189,6 +190,8 @@ interface Ctx {
   /** Symbols to turn towards their aim at every render. */
   facing: { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; offset: number }[];
   pickables: THREE.Object3D[];
+  /** Spotlights that make the shadows of the scenery ("Alta"); created the first time they are needed. */
+  spots: SpotPool | null;
   pending: number;
   pal: Palette;
   size: { w: number; h: number };
@@ -245,6 +248,7 @@ export default function StageView3D(props: StageView3DProps) {
       shared: { circle: new THREE.CircleGeometry(1, 48), cone: new THREE.ConeGeometry(1, 1, 32, 1, true) },
       facing: [],
       pickables: [],
+      spots: null,
       pending: 0,
       pal,
       size: { w: 1, h: 1 },
@@ -276,6 +280,7 @@ export default function StageView3D(props: StageView3DProps) {
       controls.dispose();
       for (const d of ctx.trash) d.dispose();
       for (const tex of ctx.cache.values()) tex.dispose();
+      ctx.spots?.dispose();
       ctx.shared.circle.dispose();
       ctx.shared.cone.dispose();
       renderer.dispose();
@@ -416,7 +421,10 @@ export default function StageView3D(props: StageView3DProps) {
     ctx.pickables = [];
     const G = ctx.content;
     const { width, depth, height } = doc.stage;
-    const medium = (p.detail ?? "medium") === "medium";
+    const high = (p.detail ?? "medium") === "high" && !p.compact;
+    const medium = (p.detail ?? "medium") !== "essential";
+    ctx.renderer.shadowMap.enabled = high;
+    ctx.renderer.shadowMap.type = THREE.PCFShadowMap;
     const pick = p.onPress ? (p.pick ?? {}) : {};
 
     // Floor (solid) and volume (thin lines).
@@ -429,6 +437,7 @@ export default function StageView3D(props: StageView3DProps) {
     G.add(edges);
     const front = new THREE.Line(track(ctx, new THREE.BufferGeometry().setFromPoints([W({ x: -width / 2, y: 0, z: 0.002 }), W({ x: width / 2, y: 0, z: 0.002 })])), track(ctx, new THREE.LineBasicMaterial({ color: pal.edge })));
     G.add(front);
+    if (high) G.add(shadowCatcher(width, depth, ctx.trash));
 
     // Trusses: two parallel lines across the width (+ an invisible bar to click).
     const trussMat = track(ctx, new THREE.LineBasicMaterial({ color: pal.edge }));
@@ -480,6 +489,8 @@ export default function StageView3D(props: StageView3DProps) {
       holder.quaternion.copy(q);
       const mesh = new THREE.Mesh(geo, track(ctx, new THREE.MeshLambertMaterial({ color: s.color, side: s.shape === "plane" ? THREE.DoubleSide : THREE.FrontSide })));
       mesh.position.y = lift;
+      mesh.castShadow = high;
+      mesh.receiveShadow = high;
       holder.add(mesh);
       const outline = new THREE.LineSegments(track(ctx, new THREE.EdgesGeometry(geo, 30)), track(ctx, new THREE.LineBasicMaterial({ color: on ? pal.accent : "#000000", transparent: !on, opacity: on ? 1 : 0.35 })));
       outline.position.y = lift;
@@ -492,7 +503,8 @@ export default function StageView3D(props: StageView3DProps) {
     }
 
     // Lights, their light, their labels.
-    const lights = stageLights(doc, p.values, p.selected ?? [], !p.compact);
+    const lights = stageLights(doc, p.values, p.selected ?? [], !p.compact, high);
+    const spotSpecs: SpotSpec[] = [];
     const soft = medium ? texture(ctx, "soft", softCanvas) : null;
     let order = 0;
     for (const l of lights) {
@@ -500,6 +512,7 @@ export default function StageView3D(props: StageView3DProps) {
       if (l.light) {
         const { hue, level } = l.light;
         const pool = l.pool;
+        if (high && pool.kind !== "up") spotSpecs.push({ position: pos, target: W(l.f.aim), color: hue, level, beam: l.f.beam.angle });
         if (pool.kind !== "up") {
           const mat = track(ctx, new THREE.MeshBasicMaterial({ color: hue, map: soft, transparent: true, opacity: medium ? 0.08 + 0.27 * level : 0.12 + 0.3 * level, depthWrite: false, blending: THREE.AdditiveBlending }));
           const disc = new THREE.Mesh(ctx.shared.circle, mat);
@@ -514,7 +527,10 @@ export default function StageView3D(props: StageView3DProps) {
           const end = W(pool.end);
           const len = pos.distanceTo(end);
           if (len > 0.05) {
-            const cone = new THREE.Mesh(ctx.shared.cone, track(ctx, new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.015 + 0.05 * level, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })));
+            const beamMat = high
+              ? track(ctx, hazeBeamMaterial(hue, 0.05 + 0.17 * level))
+              : track(ctx, new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.015 + 0.05 * level, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+            const cone = new THREE.Mesh(ctx.shared.cone, beamMat);
             cone.scale.set(Math.max(0.02, pool.endRadius), len, Math.max(0.02, pool.endRadius));
             cone.position.copy(pos).add(end).multiplyScalar(0.5);
             cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), end.clone().sub(pos).normalize());
@@ -582,6 +598,11 @@ export default function StageView3D(props: StageView3DProps) {
         G.add(handle);
       }
     }
+    // Shadows of the scenery ("Alta"): the strongest lights, in a small fixed set of spotlights.
+    if (high) {
+      ctx.spots ??= new SpotPool(ctx.scene);
+      ctx.spots.apply([...spotSpecs].sort((a, b) => b.level - a.level).slice(0, MAX_SHADOW_LIGHTS), true);
+    } else ctx.spots?.apply([], false);
   }
 
   function render(ctx: Ctx) {

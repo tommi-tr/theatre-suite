@@ -24,7 +24,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
   const dragging = useRef<{ drag: StageDrag; start: { x: number; y: number }; startWorld: Vec3; moved: boolean; axes: DragAxes; pointer: number } | null>(null);
   const frozen = useRef<Box2 | null>(null);
 
-  const lights = useMemo(() => stageLights(doc, values, selected, !compact), [doc, values, selected, compact]);
+  const lights = useMemo(() => stageLights(doc, values, selected, !compact, detail === "high"), [doc, values, selected, compact, detail]);
   const pieces = useMemo(() => sceneryOnStage(doc, scenery), [doc, scenery]);
   const live = useMemo(() => viewBounds(doc, view), [doc, view]);
   // While dragging, the drawing does not re-frame itself under the mouse.
@@ -160,7 +160,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
       onPointerCancel={() => finish(null)}
     >
       <defs>
-        {detail === "medium"
+        {detail !== "essential"
           ? hues.map((hue) => (
               <radialGradient key={hue} id={gid(hue)}>
                 <stop offset="0" stopColor={hue} stopOpacity="0.95" />
@@ -216,7 +216,7 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
 
       {/* The light the lights make. */}
       <g className="gv-stage2d__light">
-        {detail === "medium"
+        {detail !== "essential"
           ? lit.map((l) => {
               const pts = beamPoints(l);
               return pts ? <polygon key={`b${l.f.id}`} points={pts} fill={l.light!.hue} opacity={0.05 + 0.13 * l.light!.level} /> : null;
@@ -233,8 +233,8 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
               rx={ps.rx}
               ry={ps.ry}
               transform={ps.rot ? `rotate(${ps.rot} ${ps.cx} ${ps.cy})` : undefined}
-              fill={detail === "medium" ? `url(#${gid(l.light!.hue)})` : l.light!.hue}
-              opacity={detail === "medium" ? Math.min(1, 0.25 + 0.75 * l.light!.level) : 0.2 + 0.5 * l.light!.level}
+              fill={detail !== "essential" ? `url(#${gid(l.light!.hue)})` : l.light!.hue}
+              opacity={detail !== "essential" ? Math.min(1, 0.25 + 0.75 * l.light!.level) : 0.2 + 0.5 * l.light!.level}
             />
           );
         })}

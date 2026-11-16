@@ -6,7 +6,7 @@ import type { GranveloDoc, Id, Vec3 } from "../../model/types";
 import { fmtNum } from "../../lib/format";
 import { useDoc } from "../../store/doc";
 import { useOutput } from "../../store/output";
-import { useSettings } from "../../store/settings";
+import { useStageDetail } from "../../store/previewDetail";
 import { useUi } from "../../store/ui";
 import { StageView, lightPosition, webglAvailable, resolveDrop, type OnStagePress, type StageCamera, type StageDrag } from "../../stage";
 import { trussName, useSelectedIds } from "./common";
@@ -31,13 +31,11 @@ export function StagePanel() {
   const sceneryId = useSetup((s) => s.sceneryId);
   const numbering = useSetup((s) => s.numbering);
   const ask = useSetup((s) => s.numberingAsk);
-  const detailSetting = useSettings((s) => s.settings.previewDetail);
+  const detail = useStageDetail();
   const values = useOutput((s) => (SHOWS_LIGHT.has(s.status.link.state) ? s.under : undefined));
   const [preview, setPreview] = useState<GranveloDoc | null>(null);
   const [readout, setReadout] = useState<string | null>(null);
   const [no3D, setNo3D] = useState(false);
-  // "Alta" and "Automatica" arrive with phase 5: until then they draw as "Media".
-  const detail = detailSetting === "essential" ? "essential" : "medium";
   const n = (v: number) => fmtNum(v, lang);
   const xyz = (p: Vec3) => `X ${n(p.x)} · Y ${n(p.y)} · Z ${n(p.z)} m`;
 

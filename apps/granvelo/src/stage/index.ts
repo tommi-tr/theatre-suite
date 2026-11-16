@@ -7,4 +7,4 @@ export { StageView, webglAvailable, type StageViewHostProps } from "./StageView"
 export { StageView2D } from "./StageView2D";
 export * from "./types";
 export * from "./geometry";
-export { stageLights, sceneryOnStage, lightValues, lightLabel, type StageDoc, type StageLight } from "./scene";
+export { stageLights, sceneryOnStage, lightValues, lightLabel, warmWhenDimmed, hasColourChannels, type StageDoc, type StageLight } from "./scene";

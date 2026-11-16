@@ -3,7 +3,7 @@ import { useT } from "@theatre-suite/core";
 import { shownUniverse } from "../../model/desk";
 import { useDesk } from "../../store/desk";
 import { useDoc } from "../../store/doc";
-import { useSettings } from "../../store/settings";
+import { useStageDetail } from "../../store/previewDetail";
 import { useUi } from "../../store/ui";
 import { StageView, StageView2D, type OnStagePress } from "../../stage";
 import { selectLight } from "./DeskFaders";
@@ -21,14 +21,13 @@ export function DeskStage() {
   const blind = useDesk((s) => s.blind);
   const gm = useDesk((s) => s.grandMaster);
   const selection = useUi((s) => s.selection);
-  const detailSetting = useSettings((s) => s.settings.previewDetail);
+  const detail = useStageDetail();
   const [, setNo3D] = useState(false);
   const shown = useMemo(() => shownUniverse(doc, blind ? blind.values : values, gm), [doc.fixtures, doc.groups, blind ? blind.values : values, gm]);
   const real = useMemo(() => (blind ? shownUniverse(doc, values, gm) : null), [doc.fixtures, doc.groups, values, gm, !!blind]);
   const live = useDesk((s) => s.liveMemoryId);
   const liveMemory = doc.memories.find((m) => m.id === live);
   const blindMemory = blind ? doc.memories.find((m) => m.id === blind.memoryId) : null;
-  const detail = detailSetting === "essential" ? "essential" : "medium";
   const onPress: OnStagePress = (hit, info) => {
     if (hit.kind === "light") {
       selectLight(hit.id, info.shift || info.ctrl ? "add" : "one");
