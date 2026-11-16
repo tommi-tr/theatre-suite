@@ -57,7 +57,13 @@ export const itDmx: Dict = {
   "The cable was unplugged {time} ago. Granvelo tries to reconnect it every second (attempts: {n}). Plug it back into the same or another USB port.":
     "Il cavo si è scollegato {time} fa. Granvelo prova a ricollegarlo ogni secondo (tentativi: {n}). Ricollegalo alla stessa presa USB o a un'altra.",
   "The chosen cable is not there": "Il cavo scelto non c'è",
-  "The connected lights will turn on.": "Le luci collegate si accenderanno.",
+  "The connected lights will turn on, even with Blackout or the Grand Master down.": "Le luci collegate si accenderanno, anche con il Blackout o il Grand Master abbassato.",
+  "The DMX output stopped after an internal error": "L'uscita DMX si è fermata per un errore interno",
+  "The lights keep their last state. Granvelo restarted the output without sending anything: press Connect to go on.":
+    "Le luci restano come erano. Granvelo ha fatto ripartire l'uscita senza mandare nulla: premi Connetti per continuare.",
+  "There are several USB adapters that could be the cable and none answered by itself. Choose it in Settings → DMX output, then press Connect.":
+    "Ci sono più adattatori USB che potrebbero essere il cavo e nessuno ha risposto da solo. Sceglilo in Impostazioni → Uscita DMX, poi premi Connetti.",
+  "Which one is the DMX cable?": "Qual è il cavo DMX?",
   "The first USB-DMX cable found": "Il primo cavo USB-DMX trovato",
   "Try again": "Riprova",
   "Turns on channels 1 to {n} one at a time, at half intensity, to see whether the lights answer.":

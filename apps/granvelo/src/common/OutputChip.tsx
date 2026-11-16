@@ -57,6 +57,16 @@ export function problemText(t: T, code: DmxErrorCode): { title: string; text: st
       return { title: t("The cable is used by another program"), text: t("Close the other lighting programs (or anything else that uses the cable) and try again.") };
     case "openFailed":
       return { title: t("The cable does not answer"), text: t("Unplug the cable, plug it back in and try again. If it keeps happening, look at the list in Settings → DMX output.") };
+    case "chooseCable":
+      return {
+        title: t("Which one is the DMX cable?"),
+        text: t("There are several USB adapters that could be the cable and none answered by itself. Choose it in Settings → DMX output, then press Connect."),
+      };
+    case "engineStopped":
+      return {
+        title: t("The DMX output stopped after an internal error"),
+        text: t("The lights keep their last state. Granvelo restarted the output without sending anything: press Connect to go on."),
+      };
   }
 }
 

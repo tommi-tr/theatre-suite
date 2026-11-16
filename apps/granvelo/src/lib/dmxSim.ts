@@ -1,6 +1,7 @@
 import { crossfadeAt, transitionDuration, type FadeLayout } from "../model/crossfade";
 import { UNIVERSE_SIZE } from "../model/types";
-import type { ConnectRequest, DmxApi, DmxDevice, DmxLive, DmxStatus, EngineLayout, EngineTransition, FadePayload, LinkState, MasterState, TestState } from "./dmx";
+import { cleanSeconds, cleanTransition } from "../model/enginePayload";
+import { UNIVERSE_NUMBER, type ConnectRequest, type DmxApi, type DmxDevice, type DmxLive, type DmxStatus, type EngineLayout, type EngineTransition, type FadePayload, type LinkState, type MasterState, type TestState } from "./dmx";
 
 /**
  * The DMX engine in the browser: the same layers and rules as the Rust engine (src-tauri/src/dmx/core.rs),
@@ -26,7 +27,6 @@ interface RunningFade {
   paused: boolean;
 }
 
-const clean = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0);
 
 function toLayout(l: EngineLayout): FadeLayout {
   const intensity = new Uint8Array(UNIVERSE_SIZE).fill(1);
@@ -111,7 +111,7 @@ export class SimCore {
     const fid = id || this.lastFadeId + 1;
     this.lastFadeId = Math.max(this.lastFadeId, fid);
     this.playback = new Uint8Array(from);
-    const t = { fadeIn: clean(tr.fadeIn), fadeOut: clean(tr.fadeOut), delay: clean(tr.delay), moveInDark: !!tr.moveInDark };
+    const t = cleanTransition(tr);
     this.fade = { id: fid, from, to: bytes(target), tr: t, layout: toLayout(layout), elapsed: 0, total: transitionDuration(t), paused: false };
     this.finishIfDone();
     return fid;
@@ -143,17 +143,19 @@ export class SimCore {
     this.ftbTo(1, seconds);
   }
 
+  /** The time asked is the time taken, from wherever the level is now. */
   private ftbTo(target: number, seconds: number) {
     this.ftbTarget = target;
-    if (!Number.isFinite(seconds) || seconds <= 0) {
+    const s = cleanSeconds(seconds);
+    if (s <= 0) {
       this.ftbLevel = target;
       this.ftbRate = 0;
-    } else this.ftbRate = 1 / seconds;
+    } else this.ftbRate = Math.abs(target - this.ftbLevel) / s;
   }
 
   grandMaster(level: number, mask?: ArrayLike<number>) {
     if (mask) for (let i = 0; i < UNIVERSE_SIZE; i++) this.mask[i] = i < mask.length && mask[i] ? 1 : 0;
-    this.gm = Math.max(0, Math.min(255, Math.round(level)));
+    this.gm = Number.isFinite(level) ? Math.max(0, Math.min(255, Math.round(level))) : 255;
   }
 
   startTest(channels: number, level: number) {
@@ -280,6 +282,9 @@ export function createSimDmx(opts: SimOptions = {}): SimDmx {
     fn();
     return Promise.resolve();
   };
+  /** Only universe 1 exists (as in the engine). */
+  const inUniverse = (universe: number | undefined, fn: () => void) =>
+    (universe ?? UNIVERSE_NUMBER) === UNIVERSE_NUMBER ? act(fn) : Promise.reject(new Error(`DMX universe ${universe} does not exist (only universe ${UNIVERSE_NUMBER})`));
 
   const connectExample = (req: ConnectRequest) => {
     const cables = EXAMPLE_DEVICES.filter((d) => d.guess === "pro" || d.guess === "ftdi");
@@ -310,10 +315,10 @@ export function createSimDmx(opts: SimOptions = {}): SimDmx {
         if (sending()) tick();
       }),
     disconnect: () => act(() => setStatus({ state: "idle" })),
-    setUniverse: (values) => act(() => core.setUniverse(values)),
+    setUniverse: (values, universe) => inUniverse(universe, () => core.setUniverse(values)),
     fadeTo: (p: FadePayload) => {
-      core.advance(clock());
-      return Promise.resolve(core.fadeTo(p.target, p.transition, p.layout));
+      let id = 0;
+      return inUniverse(p.universe, () => (id = core.fadeTo(p.target, p.transition, p.layout))).then(() => id);
     },
     pause: () => act(() => core.pause()),
     resume: () => act(() => core.resume()),
@@ -321,7 +326,7 @@ export function createSimDmx(opts: SimOptions = {}): SimDmx {
     blackout: (on) => act(() => core.blackout(on)),
     fadeToBlack: (s) => act(() => core.fadeToBlack(s)),
     releaseBlack: (s) => act(() => core.releaseBlack(s)),
-    grandMaster: (level, mask) => act(() => core.grandMaster(level, mask)),
+    grandMaster: (level, mask, universe) => inUniverse(universe, () => core.grandMaster(level, mask)),
     getStatus: () => {
       core.advance(clock());
       return Promise.resolve({ status, live: live(), output: Array.from(core.frame()), under: Array.from(core.playbackNow()) });

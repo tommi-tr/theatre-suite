@@ -23,7 +23,7 @@ mod tests;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -87,15 +87,19 @@ impl DmxEngine {
         let spawned = std::thread::Builder::new()
             .name("granvelo-dmx".into())
             .spawn(move || {
-                // A bug in the engine must never take the app down: the thread ends, the app
-                // stays, the interface sees the commands fail.
-                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker.run())).is_err()
-                {
-                    log_line("the DMX engine stopped after an internal error");
-                }
+                // A bug in the engine never takes the app down: the supervisor reports it to
+                // the interface and restarts the engine with the last values (engine.rs).
+                let mut worker = worker;
+                worker.run_supervised();
             });
         if let Err(e) = spawned {
             log_line(&format!("cannot start the DMX engine: {e}"));
+            let mut sh = shared.lock().unwrap_or_else(PoisonError::into_inner);
+            sh.status.link = engine::LinkState::Error {
+                code: discovery::ErrorCode::EngineStopped,
+                message: format!("cannot start the DMX engine: {e}"),
+            };
+            sh.status_seq += 1;
         }
         let sh = shared.clone();
         let publisher = std::thread::Builder::new()
@@ -127,10 +131,7 @@ impl DmxEngine {
     }
 
     fn snapshot(&self) -> Result<Snapshot, String> {
-        let sh = self
-            .shared
-            .lock()
-            .map_err(|_| "DMX engine unavailable".to_string())?;
+        let sh = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
         Ok(Snapshot {
             status: sh.status.clone(),
             live: sh.live.clone(),
@@ -150,7 +151,7 @@ fn publish_loop(app: AppHandle, shared: Arc<Mutex<Shared>>, notes: mpsc::Receive
         notes.recv_timeout(Duration::from_millis(50)),
         Err(RecvTimeoutError::Disconnected)
     ) {
-        let Ok(sh) = shared.lock() else { break };
+        let sh = shared.lock().unwrap_or_else(PoisonError::into_inner);
         // Status: at once.
         let status = (sh.status_seq != last_status_seq).then(|| sh.status.clone());
         last_status_seq = sh.status_seq;
@@ -189,6 +190,25 @@ fn publish_loop(app: AppHandle, shared: Arc<Mutex<Shared>>, notes: mpsc::Receive
 
 type Engine<'a> = tauri::State<'a, DmxEngine>;
 
+/// The only universe for now. Commands that carry values take an optional `universe`
+/// (default 1), so a second one can arrive without changing the interface.
+pub const UNIVERSE_NUMBER: u16 = 1;
+
+fn check_universe(universe: Option<u16>) -> Result<(), String> {
+    match universe.unwrap_or(UNIVERSE_NUMBER) {
+        UNIVERSE_NUMBER => Ok(()),
+        u => Err(format!(
+            "DMX universe {u} does not exist (only universe {UNIVERSE_NUMBER})"
+        )),
+    }
+}
+
+/// Seconds from the interface: `null` (NaN or Infinity in JavaScript) counts as 0, the rest is
+/// cleaned by the engine (negative → 0, capped at 24 h).
+fn seconds(s: Option<f64>) -> f64 {
+    fade::clean_seconds(s.unwrap_or(0.0))
+}
+
 /// The serial ports of this computer, with the engine's guess (Settings → Uscita DMX).
 #[tauri::command(async)]
 pub fn dmx_list_devices(engine: Engine<'_>) -> Vec<DeviceInfo> {
@@ -209,7 +229,12 @@ pub fn dmx_disconnect(engine: Engine<'_>) -> Result<(), String> {
 
 /// Immediate values (up to 512; missing ones are 0). Ends a running fade.
 #[tauri::command]
-pub fn dmx_set_universe(engine: Engine<'_>, values: Vec<u8>) -> Result<(), String> {
+pub fn dmx_set_universe(
+    engine: Engine<'_>,
+    values: Vec<u8>,
+    universe: Option<u16>,
+) -> Result<(), String> {
+    check_universe(universe)?;
     engine.send(Cmd::SetUniverse(
         values.into_iter().take(UNIVERSE).collect(),
     ))
@@ -222,7 +247,9 @@ pub fn dmx_fade_to(
     target: Vec<u8>,
     transition: Transition,
     layout: Layout,
+    universe: Option<u16>,
 ) -> Result<u64, String> {
+    check_universe(universe)?;
     let id = engine.next_fade_id.fetch_add(1, Ordering::Relaxed);
     engine.send(Cmd::FadeTo {
         target: target.into_iter().take(UNIVERSE).collect(),
@@ -254,13 +281,13 @@ pub fn dmx_blackout(engine: Engine<'_>, on: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn dmx_fade_to_black(engine: Engine<'_>, seconds: f64) -> Result<(), String> {
-    engine.send(Cmd::FadeToBlack(seconds))
+pub fn dmx_fade_to_black(engine: Engine<'_>, seconds: Option<f64>) -> Result<(), String> {
+    engine.send(Cmd::FadeToBlack(self::seconds(seconds)))
 }
 
 #[tauri::command]
-pub fn dmx_release_black(engine: Engine<'_>, seconds: f64) -> Result<(), String> {
-    engine.send(Cmd::ReleaseBlack(seconds))
+pub fn dmx_release_black(engine: Engine<'_>, seconds: Option<f64>) -> Result<(), String> {
+    engine.send(Cmd::ReleaseBlack(self::seconds(seconds)))
 }
 
 /// Grand Master 0–255 on the intensity channels; `mask` (512 × 0/1) replaces the intensity mask.
@@ -269,7 +296,9 @@ pub fn dmx_grand_master(
     engine: Engine<'_>,
     level: u8,
     mask: Option<Vec<u8>>,
+    universe: Option<u16>,
 ) -> Result<(), String> {
+    check_universe(universe)?;
     engine.send(Cmd::GrandMaster { level, mask })
 }
 
@@ -278,7 +307,8 @@ pub fn dmx_get_status(engine: Engine<'_>) -> Result<Snapshot, String> {
     engine.snapshot()
 }
 
-/// The test pattern of Settings: channels 1…`channels` one at a time up to `level`.
+/// The test pattern of Settings: channels 1…`channels` one at a time up to `level`. It replaces
+/// the whole output (Blackout, Fade to black and Grand Master do not apply to it).
 #[tauri::command]
 pub fn dmx_test_output(
     engine: Engine<'_>,
@@ -295,4 +325,19 @@ pub fn dmx_test_output(
         Cmd::Test(None)
     };
     engine.send(cmd)
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn only_universe_1_exists_and_null_seconds_are_zero() {
+        assert!(check_universe(None).is_ok());
+        assert!(check_universe(Some(1)).is_ok());
+        assert!(check_universe(Some(2)).is_err());
+        assert_eq!(seconds(None), 0.0);
+        assert_eq!(seconds(Some(-4.0)), 0.0);
+        assert_eq!(seconds(Some(f64::INFINITY)), fade::MAX_SECONDS);
+    }
 }

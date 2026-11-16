@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText as clipboardWrite } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "./api";
+import { cleanSeconds, cleanTransition } from "../model/enginePayload";
 
 /**
  * The DMX output engine, typed. Two implementations of the same interface:
@@ -33,7 +34,9 @@ export interface DmxDevice {
   name: string;
 }
 
-export type DmxErrorCode = "noCable" | "notFound" | "busy" | "openFailed";
+/** `chooseCable`: several possible cables, none answered as a Pro (choose one in the Settings).
+ *  `engineStopped`: the engine had an internal error; it restarted without sending. */
+export type DmxErrorCode = "noCable" | "notFound" | "busy" | "openFailed" | "chooseCable" | "engineStopped";
 
 export type LinkState =
   | { state: "idle" }
@@ -119,8 +122,13 @@ export interface EngineLayout {
   moverIntensity: number[][];
 }
 
+/** The only DMX universe for now (the commands that carry values accept `universe`, default 1). */
+export const UNIVERSE_NUMBER = 1;
+
 /** The `fade_to` command (built by model/enginePayload.ts). */
 export interface FadePayload {
+  /** DMX universe (default 1, the only one for now). */
+  universe?: number;
   /** 512 values (under the output master). */
   target: number[];
   transition: EngineTransition;
@@ -137,7 +145,7 @@ export interface DmxApi {
   /** Stops sending; no blackout is sent. */
   disconnect(): Promise<void>;
   /** Immediate values; ends a running fade. */
-  setUniverse(values: ArrayLike<number>): Promise<void>;
+  setUniverse(values: ArrayLike<number>, universe?: number): Promise<void>;
   /** Starts a transition from the current values; resolves to its id. */
   fadeTo(payload: FadePayload): Promise<number>;
   pause(): Promise<void>;
@@ -147,7 +155,7 @@ export interface DmxApi {
   fadeToBlack(seconds: number): Promise<void>;
   releaseBlack(seconds: number): Promise<void>;
   /** 0–255 on the intensity channels; `mask` (512 × 0/1) replaces the intensity mask. */
-  grandMaster(level: number, mask?: number[]): Promise<void>;
+  grandMaster(level: number, mask?: number[], universe?: number): Promise<void>;
   getStatus(): Promise<DmxSnapshot>;
   testOutput(on: boolean, channels?: number, level?: number): Promise<void>;
   onStatus(fn: (s: DmxStatus) => void): Unlisten;
@@ -176,15 +184,16 @@ export const tauriDmx: DmxApi = {
   listDevices: () => invoke<DmxDevice[]>("dmx_list_devices"),
   connect: (request) => invoke("dmx_connect", { request }),
   disconnect: () => invoke("dmx_disconnect"),
-  setUniverse: (values) => invoke("dmx_set_universe", { values: asBytes(values) }),
-  fadeTo: (p) => invoke<number>("dmx_fade_to", { target: asBytes(p.target), transition: p.transition, layout: p.layout }),
+  setUniverse: (values, universe = UNIVERSE_NUMBER) => invoke("dmx_set_universe", { values: asBytes(values), universe }),
+  fadeTo: (p) => invoke<number>("dmx_fade_to", { target: asBytes(p.target), transition: cleanTransition(p.transition), layout: p.layout, universe: p.universe ?? UNIVERSE_NUMBER }),
   pause: () => invoke("dmx_pause"),
   resume: () => invoke("dmx_resume"),
   stopFade: () => invoke("dmx_stop_fade"),
   blackout: (on) => invoke("dmx_blackout", { on }),
-  fadeToBlack: (seconds) => invoke("dmx_fade_to_black", { seconds }),
-  releaseBlack: (seconds) => invoke("dmx_release_black", { seconds }),
-  grandMaster: (level, mask) => invoke("dmx_grand_master", { level: Math.max(0, Math.min(255, Math.round(level))), mask: mask ? asBytes(mask) : null }),
+  fadeToBlack: (seconds) => invoke("dmx_fade_to_black", { seconds: cleanSeconds(seconds) }),
+  releaseBlack: (seconds) => invoke("dmx_release_black", { seconds: cleanSeconds(seconds) }),
+  grandMaster: (level, mask, universe = UNIVERSE_NUMBER) =>
+    invoke("dmx_grand_master", { level: Number.isFinite(level) ? Math.max(0, Math.min(255, Math.round(level))) : 255, mask: mask ? asBytes(mask) : null, universe }),
   getStatus: () => invoke<DmxSnapshot>("dmx_get_status"),
   testOutput: (on, channels, level) => invoke("dmx_test_output", { on, channels: channels ?? null, level: level ?? null }),
   onStatus: (fn) => subscribe<DmxStatus>("dmx-status", fn),

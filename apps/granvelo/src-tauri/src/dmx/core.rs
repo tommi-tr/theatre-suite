@@ -16,7 +16,7 @@
 //! 3. **Test pattern** (Settings → "Prova l'uscita"): while active it replaces the output:
 //!    channels 1…N one at a time, each rising gently to `level` and holding, everything else at 0.
 
-use super::fade::{Layout, Transition, UNIVERSE, crossfade_into};
+use super::fade::{Layout, Transition, UNIVERSE, clean_seconds, crossfade_into};
 use serde::Serialize;
 
 pub type Universe = [u8; UNIVERSE];
@@ -282,13 +282,16 @@ impl Core {
         self.ftb_to(1.0, seconds);
     }
 
+    /// The time asked is the time taken, from wherever the level is now (a release from half
+    /// way takes the whole `seconds`, not half of them).
     fn ftb_to(&mut self, target: f64, seconds: f64) {
         self.ftb_target = target;
-        if !seconds.is_finite() || seconds <= 0.0 {
+        let seconds = clean_seconds(seconds);
+        if seconds <= 0.0 {
             self.ftb_level = target;
             self.ftb_rate = 0.0;
         } else {
-            self.ftb_rate = 1.0 / seconds;
+            self.ftb_rate = (target - self.ftb_level).abs() / seconds;
         }
     }
 
@@ -315,6 +318,26 @@ impl Core {
 
     pub fn stop_test(&mut self) {
         self.test = None;
+    }
+
+    // ---------------- Restart after an internal error ----------------
+
+    /// Which channels the output master scales now.
+    pub fn intensity_mask(&self) -> [bool; UNIVERSE] {
+        *self.mask
+    }
+
+    /// A fresh core that carries on from a known state: the playback values (no fade), the
+    /// output master and the intensity mask. Used when the engine thread is restarted.
+    pub fn restored(playback: &Universe, master: &MasterState, mask: [bool; UNIVERSE]) -> Self {
+        let mut c = Core::new();
+        *c.playback = *playback;
+        *c.mask = mask;
+        c.grand_master = master.grand_master;
+        c.blackout = master.blackout;
+        c.ftb_level = master.ftb_level.clamp(0.0, 1.0);
+        c.ftb_target = c.ftb_level;
+        c
     }
 
     // ---------------- State for the UI ----------------
@@ -569,6 +592,124 @@ mod tests {
         assert_eq!(&c.frame()[..3], &[0, 200, 0]);
         c.set_grand_master(255);
         assert_eq!(&c.frame()[..3], &[200, 200, 255]);
+    }
+
+    /// Sparse `[[channel, value], …]` → values (at least 512, longer if a channel is beyond).
+    fn sparse(v: &serde_json::Value) -> Vec<u8> {
+        let pairs = v.as_array().expect("pairs");
+        let len = pairs
+            .iter()
+            .map(|p| p[0].as_u64().unwrap() as usize + 1)
+            .max()
+            .unwrap_or(0)
+            .max(UNIVERSE);
+        let mut out = vec![0u8; len];
+        for p in pairs {
+            out[p[0].as_u64().unwrap() as usize] = p[1].as_u64().unwrap() as u8;
+        }
+        out
+    }
+
+    /// The vectors shared with the browser simulator (src/lib/dmxSim.test.ts runs the same file).
+    #[test]
+    fn shared_vectors_agree_with_the_browser_simulator() {
+        let v: serde_json::Value =
+            serde_json::from_str(include_str!("../../../src/model/engineVectors.json")).unwrap();
+        let cases = v["cases"].as_array().unwrap();
+        assert!(cases.len() >= 10);
+        for case in cases {
+            let name = case["name"].as_str().unwrap();
+            let mut c = Core::new();
+            for step in case["steps"].as_array().unwrap() {
+                let t = step["t"].as_f64().unwrap();
+                c.advance(t);
+                if let Some(d) = step["do"].as_str() {
+                    match d {
+                        "setUniverse" => c.set_universe(&sparse(&step["values"])),
+                        "fadeTo" => {
+                            let tr: Transition =
+                                serde_json::from_value(step["transition"].clone()).unwrap();
+                            let layout = if step["layout"] == "all" {
+                                Layout::all_intensity(UNIVERSE)
+                            } else {
+                                serde_json::from_value(step["layout"].clone()).unwrap()
+                            };
+                            c.fade_to(&sparse(&step["target"]), tr, layout, 0);
+                        }
+                        "pause" => c.pause(),
+                        "resume" => c.resume(),
+                        "stopFade" => c.stop_fade(),
+                        "blackout" => c.set_blackout(step["on"].as_bool().unwrap()),
+                        "fadeToBlack" => c.fade_to_black(step["seconds"].as_f64().unwrap()),
+                        "releaseBlack" => c.release_black(step["seconds"].as_f64().unwrap()),
+                        "grandMaster" => {
+                            if let Some(mask) = step["mask"].as_array() {
+                                let mut m = vec![0u8; UNIVERSE];
+                                for ch in mask {
+                                    m[ch.as_u64().unwrap() as usize] = 1;
+                                }
+                                c.set_intensity_mask(&m);
+                            }
+                            c.set_grand_master(step["level"].as_u64().unwrap() as u8);
+                        }
+                        "test" => c.start_test(
+                            step["channels"].as_u64().unwrap() as usize,
+                            step["level"].as_u64().unwrap() as u8,
+                        ),
+                        "stopTest" => c.stop_test(),
+                        other => panic!("{name}: unknown command {other}"),
+                    }
+                }
+                let frame = c.frame();
+                for (key, values) in [("expect", frame), ("under", c.playback_now())] {
+                    if let Some(pairs) = step[key].as_array() {
+                        for p in pairs {
+                            let ch = p[0].as_u64().unwrap() as usize;
+                            assert_eq!(
+                                values[ch] as u64,
+                                p[1].as_u64().unwrap(),
+                                "{name}: t = {t}, {key} channel {ch}"
+                            );
+                        }
+                    }
+                }
+                if let Some(active) = step["fade"].as_bool() {
+                    assert_eq!(
+                        c.fade_state().active,
+                        active,
+                        "{name}: t = {t}, fade running"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_reversed_fade_to_black_takes_the_time_asked_from_where_it_is() {
+        let mut c = Core::new();
+        c.advance(0.0);
+        c.set_universe(&uni(&[(0, 200)]));
+        c.fade_to_black(2.0);
+        c.advance(1.0);
+        assert_eq!(c.frame()[0], 100);
+        c.release_black(2.0);
+        c.advance(2.0);
+        assert_eq!(c.frame()[0], 150);
+        c.advance(3.0);
+        assert_eq!(c.frame()[0], 200);
+        assert_eq!(c.master_state().ftb_level, 1.0);
+        c.fade_to_black(f64::NAN);
+        assert_eq!(c.frame()[0], 0, "NaN counts as 0 s: at once");
+    }
+
+    #[test]
+    fn a_restored_core_carries_on_with_the_values_and_the_masters() {
+        let mut c = Core::new();
+        c.set_universe(&uni(&[(0, 200), (1, 50)]));
+        c.set_intensity_mask(&uni(&[(0, 1)]));
+        c.set_grand_master(128);
+        let r = Core::restored(&c.playback_now(), &c.master_state(), c.intensity_mask());
+        assert_eq!(r.frame(), c.frame());
     }
 
     #[test]

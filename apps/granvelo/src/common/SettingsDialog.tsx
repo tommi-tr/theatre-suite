@@ -255,7 +255,7 @@ function DmxPane() {
         hint={
           <>
             {t("Turns on channels 1 to {n} one at a time, at half intensity, to see whether the lights answer.", { n: testChannels })}{" "}
-            <span className="gv-dmxset__warn">{t("The connected lights will turn on.")}</span>
+            <span className="gv-dmxset__warn">{t("The connected lights will turn on, even with Blackout or the Grand Master down.")}</span>
           </>
         }
       >

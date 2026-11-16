@@ -21,12 +21,28 @@ import type { EngineLayout, EngineTransition, FadePayload } from "../lib/dmx";
  *   scaled; positions, gobos, smoke… never.
  */
 
-const plainTransition = (tr: Pick<Transition, "fadeIn" | "fadeOut" | "delay" | "moveInDark">): EngineTransition => ({
-  fadeIn: Math.max(0, tr.fadeIn),
-  fadeOut: Math.max(0, tr.fadeOut),
-  delay: Math.max(0, tr.delay),
-  moveInDark: tr.moveInDark,
+/** The longest time the engine accepts (24 h), as `MAX_SECONDS` in src-tauri/src/dmx/fade.rs. */
+export const MAX_SECONDS = 86_400;
+
+/**
+ * A time in seconds as the engine uses it: NaN and −∞ → 0, +∞ → `MAX_SECONDS`, clamped to 0…`MAX_SECONDS`.
+ * (JSON turns NaN and Infinity into `null`: they must never reach the engine as such.)
+ */
+export function cleanSeconds(v: number): number {
+  if (Number.isNaN(v) || typeof v !== "number") return 0;
+  return Math.min(MAX_SECONDS, Math.max(0, v));
+}
+
+/** Transition times made safe for the engine (see `cleanSeconds`). */
+export const cleanTransition = (tr: Pick<EngineTransition, "fadeIn" | "fadeOut" | "delay" | "moveInDark">): EngineTransition => ({
+  fadeIn: cleanSeconds(tr.fadeIn),
+  fadeOut: cleanSeconds(tr.fadeOut),
+  delay: cleanSeconds(tr.delay),
+  moveInDark: !!tr.moveInDark,
 });
+
+/** Finite times for the engine: NaN → 0, Infinity → 24 h (JSON would turn them into null and the command would fail). */
+const plainTransition = (tr: Pick<Transition, "fadeIn" | "fadeOut" | "delay" | "moveInDark">): EngineTransition => cleanTransition(tr);
 
 /** What each of the 512 channels is, for the engine. */
 export function engineLayout(doc: Pick<GranveloDoc, "fixtures">): EngineLayout {
@@ -53,7 +69,7 @@ export function memoryTarget(doc: Pick<GranveloDoc, "fixtures" | "groups">, memo
 /** The `fadeTo` payload: from whatever is on stage now to `target` with `transition`. */
 export function fadePayload(doc: Pick<GranveloDoc, "fixtures">, target: ArrayLike<number>, transition: Pick<Transition, "fadeIn" | "fadeOut" | "delay" | "moveInDark">): FadePayload {
   const t = new Array<number>(UNIVERSE_SIZE).fill(0);
-  for (let i = 0; i < Math.min(UNIVERSE_SIZE, target.length); i++) t[i] = Math.max(0, Math.min(255, Math.round(target[i])));
+  for (let i = 0; i < Math.min(UNIVERSE_SIZE, target.length); i++) t[i] = Number.isFinite(target[i]) ? Math.max(0, Math.min(255, Math.round(target[i]))) : 0;
   return { target: t, transition: plainTransition(transition), layout: engineLayout(doc) };
 }
 

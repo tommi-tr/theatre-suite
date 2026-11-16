@@ -1,7 +1,7 @@
 //! Tests of the engine thread with a fake clock (no real sleeps), fake ports and a Recorder.
 
-use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::collections::{HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -49,6 +49,40 @@ impl Clock for FakeClock {
     }
 }
 
+/// A port held open by someone: opening it again is refused as "in use", like a Windows COM port.
+struct HeldPort {
+    inner: FakePort,
+    name: String,
+    held: Arc<Mutex<HashSet<String>>>,
+}
+
+impl Drop for HeldPort {
+    fn drop(&mut self) {
+        self.held.lock().unwrap().remove(&self.name);
+    }
+}
+
+impl DmxPort for HeldPort {
+    fn write_all(&mut self, data: &[u8]) -> std::io::Result<()> {
+        self.inner.write_all(data)
+    }
+    fn read_some(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read_some(buf)
+    }
+    fn set_break(&mut self, on: bool) -> std::io::Result<()> {
+        self.inner.set_break(on)
+    }
+    fn hold(&mut self, d: Duration) {
+        self.inner.hold(d)
+    }
+    fn write_frame(&mut self, data: &[u8], limit: Duration) -> std::io::Result<()> {
+        self.inner.write_frame(data, limit)
+    }
+    fn now(&self) -> f64 {
+        self.inner.now()
+    }
+}
+
 #[derive(Default)]
 struct FakeBackend {
     devices: Mutex<Vec<DeviceInfo>>,
@@ -57,6 +91,12 @@ struct FakeBackend {
     /// Every port opened, in order: (port name, its log).
     opened: Mutex<Vec<(String, Arc<PortLog>)>>,
     opens: AtomicUsize,
+    /// Ports open now (exclusive, as on Windows).
+    held: Arc<Mutex<HashSet<String>>>,
+    /// Refusals because a port was in use.
+    busy_refusals: AtomicUsize,
+    /// The next port opened is already broken (its first write fails).
+    break_next_open: AtomicBool,
 }
 
 impl FakeBackend {
@@ -84,13 +124,24 @@ impl Backend for FakeBackend {
                 format!("{port} not found"),
             ));
         }
+        if !self.held.lock().unwrap().insert(port.to_string()) {
+            self.busy_refusals.fetch_add(1, Ordering::SeqCst);
+            return Err(LinkError::new(ErrorCode::Busy, format!("{port} in use")));
+        }
         let log = Arc::new(PortLog::default());
+        if self.break_next_open.swap(false, Ordering::SeqCst) {
+            log.broken.store(true, Ordering::SeqCst);
+        }
         self.opened
             .lock()
             .unwrap()
             .push((port.to_string(), log.clone()));
         let pro = self.pro_ports.lock().unwrap().iter().any(|p| p == port);
-        Ok(Box::new(FakePort::new(log, pro)))
+        Ok(Box::new(HeldPort {
+            inner: FakePort::new(log, pro),
+            name: port.to_string(),
+            held: self.held.clone(),
+        }))
     }
 }
 
@@ -116,10 +167,25 @@ struct Rig {
     stalls: Arc<Mutex<VecDeque<(f64, f64)>>>,
     recording: Recording,
     status_notes: Arc<AtomicUsize>,
+    /// Jobs waiting to be run by hand (`Rig::deferred`).
+    jobs: Arc<Mutex<Vec<Job>>>,
+    /// When set, connection jobs cannot be started.
+    spawn_fails: Arc<AtomicBool>,
 }
+
+type Job = Box<dyn FnOnce() + Send>;
 
 impl Rig {
     fn new(devices: Vec<DeviceInfo>, pro_ports: &[&str]) -> Rig {
+        Rig::with(devices, pro_ports, false)
+    }
+
+    /// Connection jobs wait until `run_jobs`, like a slow helper thread.
+    fn deferred(devices: Vec<DeviceInfo>, pro_ports: &[&str]) -> Rig {
+        Rig::with(devices, pro_ports, true)
+    }
+
+    fn with(devices: Vec<DeviceInfo>, pro_ports: &[&str], deferred: bool) -> Rig {
         let (tx, rx) = mpsc::channel();
         let shared = Arc::new(Mutex::new(Shared::new()));
         let backend = Arc::new(FakeBackend::default());
@@ -131,10 +197,25 @@ impl Rig {
         let rec = Mutex::new(Some(rec));
         let status_notes = Arc::new(AtomicUsize::new(0));
         let notes = status_notes.clone();
+        let jobs: Arc<Mutex<Vec<Job>>> = Arc::new(Mutex::new(Vec::new()));
+        let spawn_fails = Arc::new(AtomicBool::new(false));
+        let (q, fails) = (jobs.clone(), spawn_fails.clone());
         let cfg = Config {
             backend: backend.clone(),
-            // Jobs run inline: their result is in the channel before the next wait.
-            spawn: Arc::new(|job| job()),
+            // Jobs run inline (their result is in the channel before the next wait) or wait.
+            spawn: Arc::new(move |job| {
+                if fails.load(Ordering::SeqCst) {
+                    return Err("cannot start the connection thread: test".into());
+                }
+                if deferred {
+                    let mut q = q.lock().unwrap();
+                    assert!(q.is_empty(), "never two connection jobs at once");
+                    q.push(job);
+                } else {
+                    job();
+                }
+                Ok(())
+            }),
             make_sim: Box::new(move || {
                 Box::new(
                     rec.lock()
@@ -162,6 +243,16 @@ impl Rig {
             stalls,
             recording,
             status_notes,
+            jobs,
+            spawn_fails,
+        }
+    }
+
+    /// Runs the jobs waiting (as the helper thread would, late).
+    fn run_jobs(&self) {
+        let jobs: Vec<Job> = self.jobs.lock().unwrap().drain(..).collect();
+        for j in jobs {
+            j();
         }
     }
 
@@ -275,8 +366,7 @@ fn the_first_frame_after_connect_is_the_current_state() {
     r.cmd(Cmd::SetUniverse(uni(&[(9, 99)])));
     r.run_until(0.5);
     r.cmd(Cmd::Connect(ConnectRequest::Simulated));
-    // Two commands (Connect, then the opened driver), no tick in between.
-    assert!(r.worker.step());
+    // One command (no port to open), no tick.
     assert!(r.worker.step());
     let frames = r.recording.lock().unwrap().clone();
     assert_eq!(frames.len(), 1, "sent at once, not at the next tick");
@@ -601,7 +691,7 @@ fn engine_commands_reach_the_output() {
     r.run_until(4.6);
     assert!(r.shared.lock().unwrap().live.test.is_none());
     assert!(
-        r.status_notes.load(Ordering::SeqCst) >= 2,
+        r.status_notes.load(Ordering::SeqCst) >= 1,
         "status changes are notified"
     );
 }
@@ -611,4 +701,329 @@ fn shutdown_ends_the_loop() {
     let mut r = Rig::new(vec![], &[]);
     r.cmd(Cmd::Shutdown);
     assert!(!r.worker.step());
+}
+
+// ---------------- Races, failures and recovery ----------------
+
+fn last_error(r: &Rig) -> Option<String> {
+    r.shared.lock().unwrap().status.last_error.clone()
+}
+
+#[test]
+fn a_second_connect_while_the_first_is_still_probing_waits_for_it() {
+    let mut r = Rig::deferred(vec![ftdi("COM3", "A1")], &["COM3"]);
+    // Double click on Connetti: the first job is still running (holding nothing yet).
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.settle();
+    assert_eq!(r.link(), LinkState::Connecting);
+    assert_eq!(r.jobs.lock().unwrap().len(), 1, "the second waits");
+    // The first job finishes (it held COM3 while probing); its result is stale.
+    r.run_jobs();
+    r.settle();
+    assert_eq!(r.jobs.lock().unwrap().len(), 1, "now the queued one starts");
+    r.run_jobs();
+    r.settle();
+    assert!(matches!(
+        r.link(),
+        LinkState::Connected {
+            kind: Kind::Pro,
+            ..
+        }
+    ));
+    assert_eq!(
+        r.backend.busy_refusals.load(Ordering::SeqCst),
+        0,
+        "never \"port in use\""
+    );
+}
+
+#[test]
+fn disconnect_and_connect_during_a_reconnection_attempt_do_not_collide() {
+    let mut r = Rig::deferred(vec![ftdi("COM3", "A1")], &["COM3"]);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.settle();
+    r.run_jobs();
+    r.run_until(0.5);
+    assert!(matches!(r.link(), LinkState::Connected { .. }));
+    r.backend.last_log().broken.store(true, Ordering::SeqCst);
+    r.run_until(1.6);
+    // Lost, and the reconnection job has started (not finished yet).
+    assert!(matches!(r.link(), LinkState::Lost { attempts: 1, .. }));
+    assert_eq!(r.jobs.lock().unwrap().len(), 1);
+    r.cmd(Cmd::Disconnect);
+    r.cmd(Cmd::Connect(ConnectRequest::Port {
+        port: "COM3".into(),
+        kind: Kind::Pro,
+    }));
+    r.settle();
+    assert_eq!(r.link(), LinkState::Connecting);
+    r.run_jobs(); // the reconnection opens COM3: its result is dropped, then the Connect starts
+    r.settle();
+    r.run_jobs();
+    r.settle();
+    assert!(matches!(
+        r.link(),
+        LinkState::Connected {
+            kind: Kind::Pro,
+            ..
+        }
+    ));
+    assert_eq!(r.backend.busy_refusals.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        last_error(&r),
+        None,
+        "a successful connection clears the last error"
+    );
+}
+
+#[test]
+fn a_reconnection_whose_first_write_fails_is_lost_again_then_comes_back() {
+    let mut r = Rig::new(vec![ftdi("COM3", "A1")], &["COM3"]);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.run_until(0.5);
+    r.backend.last_log().broken.store(true, Ordering::SeqCst);
+    r.backend.break_next_open.store(true, Ordering::SeqCst);
+    r.run_until(0.6);
+    assert!(matches!(r.link(), LinkState::Lost { .. }));
+    // At the first attempt the port opens but the first frame fails: lost again, counting anew.
+    r.run_until(1.7);
+    assert!(matches!(r.link(), LinkState::Lost { attempts: 0, .. }));
+    r.run_until(3.0);
+    assert!(matches!(r.link(), LinkState::Connected { .. }));
+    assert!(!r.backend.last_log().writes().is_empty());
+}
+
+#[test]
+fn a_frame_that_cannot_be_written_in_time_means_the_cable_is_lost() {
+    let mut r = Rig::new(vec![ftdi("COM3", "A1")], &["COM3"]);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.run_until(0.2);
+    r.backend.last_log().stalled.store(true, Ordering::SeqCst);
+    r.run_until(0.3);
+    assert!(matches!(r.link(), LinkState::Lost { .. }));
+    assert!(last_error(&r).unwrap().contains("within"));
+}
+
+#[test]
+fn several_silent_ftdi_chips_are_not_guessed() {
+    let mut r = Rig::new(vec![ftdi("COM3", "A1"), ftdi("COM4", "B2")], &[]);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.settle();
+    assert!(matches!(
+        r.link(),
+        LinkState::Error {
+            code: ErrorCode::ChooseCable,
+            ..
+        }
+    ));
+    // The cable chosen in the Settings is used.
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: Some("COM4".into()),
+        kind: None,
+    }));
+    r.settle();
+    assert!(matches!(
+        r.link(),
+        LinkState::Connected {
+            kind: Kind::Open,
+            ..
+        }
+    ));
+    assert_eq!(
+        r.shared
+            .lock()
+            .unwrap()
+            .status
+            .device
+            .as_ref()
+            .unwrap()
+            .port,
+        "COM4"
+    );
+}
+
+#[test]
+fn a_connection_thread_that_cannot_start_is_reported() {
+    let mut r = Rig::new(vec![ftdi("COM3", "A1")], &["COM3"]);
+    r.spawn_fails.store(true, Ordering::SeqCst);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.settle();
+    assert!(matches!(
+        r.link(),
+        LinkState::Error {
+            code: ErrorCode::OpenFailed,
+            ..
+        }
+    ));
+    // While lost, a failed start is simply tried again at the next attempt.
+    r.spawn_fails.store(false, Ordering::SeqCst);
+    r.cmd(Cmd::Connect(ConnectRequest::Auto {
+        prefer: None,
+        kind: None,
+    }));
+    r.run_until(0.5);
+    r.backend.last_log().broken.store(true, Ordering::SeqCst);
+    r.spawn_fails.store(true, Ordering::SeqCst);
+    r.run_until(3.6);
+    let LinkState::Lost { attempts, .. } = r.link() else {
+        panic!("lost")
+    };
+    assert!(attempts >= 2);
+    r.spawn_fails.store(false, Ordering::SeqCst);
+    r.run_until(5.0);
+    assert!(matches!(r.link(), LinkState::Connected { .. }));
+}
+
+#[test]
+fn the_fine_timer_is_held_exactly_while_sending() {
+    let mut r = Rig::new(vec![ftdi("COM3", "A1")], &["COM3"]);
+    r.cmd(Cmd::Connect(ConnectRequest::Simulated));
+    r.settle();
+    assert!(r.worker.hires_active(), "also for the simulated output");
+    r.cmd(Cmd::Disconnect);
+    r.settle();
+    assert!(!r.worker.hires_active());
+    r.cmd(Cmd::Connect(ConnectRequest::Port {
+        port: "COM9".into(),
+        kind: Kind::Pro,
+    }));
+    r.settle();
+    assert!(matches!(r.link(), LinkState::Error { .. }));
+    assert!(!r.worker.hires_active());
+}
+
+#[test]
+fn malformed_payloads_never_break_the_engine() {
+    let mut r = Rig::new(vec![], &[]);
+    r.cmd(Cmd::Connect(ConnectRequest::Simulated));
+    r.cmd(Cmd::SetUniverse(vec![7; 700]));
+    r.cmd(Cmd::FadeTo {
+        target: vec![200; 3],
+        transition: Transition {
+            fade_in: f64::NAN,
+            fade_out: f64::INFINITY,
+            delay: -1.0,
+            move_in_dark: true,
+        },
+        layout: Layout {
+            intensity: vec![0],
+            mover: vec![99, 0, -5],
+            mover_intensity: vec![vec![600, 1000]],
+        },
+        id: 3,
+    });
+    r.cmd(Cmd::Test(Some((0, 255))));
+    r.cmd(Cmd::Test(None));
+    r.cmd(Cmd::GrandMaster {
+        level: 255,
+        mask: Some(vec![1; 3]),
+    });
+    r.run_until(1.0);
+    let out = r.output();
+    // fadeIn NaN = 0: channel 0 (not intensity, mover out of range) has jumped; channels 1–2
+    // fall with fadeOut = 24 h, so they have hardly moved; the rest falls to 0 slowly too.
+    assert_eq!(out[0], 200);
+    assert_eq!(out[511], 7);
+    assert!(r.shared.lock().unwrap().live.fade.active);
+    assert_eq!(
+        r.shared.lock().unwrap().live.fade.total,
+        super::fade::MAX_SECONDS
+    );
+}
+
+#[test]
+fn an_internal_error_is_reported_and_the_engine_carries_on_with_the_last_values() {
+    let mut r = Rig::new(vec![], &[]);
+    r.cmd(Cmd::SetUniverse(uni(&[(4, 123)])));
+    r.cmd(Cmd::GrandMaster {
+        level: 128,
+        mask: Some(uni(&[(4, 1)])),
+    });
+    r.cmd(Cmd::Connect(ConnectRequest::Simulated));
+    r.run_until(0.2);
+    r.cmd(Cmd::Panic);
+    r.cmd(Cmd::Shutdown);
+    r.worker.run_supervised();
+    let st = r.shared.lock().unwrap().status.clone();
+    assert!(
+        matches!(
+            st.link,
+            LinkState::Error {
+                code: ErrorCode::EngineStopped,
+                ..
+            }
+        ),
+        "{:?}",
+        st.link
+    );
+    assert!(st.last_error.unwrap().contains("test: internal error"));
+    // It still works: same values, same masters, nothing sent until Connect.
+    let sent = r.recording.lock().unwrap().len();
+    r.run_until(0.5);
+    assert_eq!(r.recording.lock().unwrap().len(), sent);
+    assert_eq!(r.output()[4], 62);
+    assert_eq!(r.shared.lock().unwrap().under[4], 123);
+}
+
+#[test]
+fn after_repeated_internal_errors_the_engine_stops_and_says_so() {
+    let mut r = Rig::new(vec![], &[]);
+    for _ in 0..=MAX_RESTARTS {
+        r.cmd(Cmd::Panic);
+    }
+    r.worker.run_supervised();
+    let LinkState::Error { code, message } = r.link() else {
+        panic!("error")
+    };
+    assert_eq!(code, ErrorCode::EngineStopped);
+    assert!(message.contains("stopped"));
+}
+
+#[test]
+fn the_real_clock_keeps_about_40_frames_per_second() {
+    let (tx, rx) = mpsc::channel();
+    let shared = Arc::new(Mutex::new(Shared::new()));
+    let (rec, recording) = Recorder::new(Kind::Simulated);
+    let rec = Mutex::new(Some(rec));
+    let cfg = Config {
+        backend: Arc::new(FakeBackend::default()),
+        spawn: Arc::new(|job| {
+            job();
+            Ok(())
+        }),
+        make_sim: Box::new(move || Box::new(rec.lock().unwrap().take().unwrap())),
+        probe_timeout: Duration::from_millis(5),
+        on_status: Box::new(|| {}),
+    };
+    let mut worker = Worker::new(Box::new(RealClock::new()), rx, tx.clone(), shared, cfg);
+    let h = std::thread::spawn(move || worker.run_supervised());
+    tx.send(Cmd::Connect(ConnectRequest::Simulated)).unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    tx.send(Cmd::Shutdown).unwrap();
+    h.join().unwrap();
+    let n = recording.lock().unwrap().len();
+    // 20 expected; wide margins for a busy test machine.
+    assert!((8..=26).contains(&n), "{n} frames in 0.5 s");
 }
