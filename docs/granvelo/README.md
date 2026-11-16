@@ -59,6 +59,7 @@ src/modes/       Allestimento (list of lights, stage or address map, properties 
                  MemoryPanel (on stage box + list), ColorPicker, BlindButton/BlindBand, actions (questions), desk.css;
                  show/ = Show: Nastro (the strip), ShowBars (GO bar, desk selector, bands, bottom bar, top-bar tools),
                  SequenceDialog, actions (messages, mode switch, Lock), show.css
+src/print/       electricians' prints: printData (pure), PrintSheets, PrintDialog (preview), printLayer (system print dialog)
 src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
 src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
 ```
@@ -109,8 +110,8 @@ with null for a simple click or Esc. Allestimento shows a preview document while
 `change`, new props, resize); everything disposed on unmount (`forceContextLoss`). Floor solid, volume and trusses in
 lines, scenery Lambert solids with edges, lights as sprites drawn from the symbol paths on a canvas (cached per
 symbol/look/lens colour), turned on screen towards their aim at every render; labels of selected lights as sprites.
-Essenziale = flat additive ellipses; Media = soft (radial texture) pools + additive open cones; "Alta"/"Automatica" draw
-as Media until phase 5. No WebGL (checked once with a throw-away canvas; `/?no3d` forces it), a failed renderer or a lost
+Essenziale = flat additive ellipses; Media = soft (radial texture) pools + additive open cones; Alta = Media + shadows, haze
+beams and warm halogens; Automatica picks one of the three (see "Prints, preview detail…"). No WebGL (checked once with a throw-away canvas; `/?no3d` forces it), a failed renderer or a lost
 context → 2D views (perspective → plan) with a discreet note. The stage is always a dark room, also in the light theme.
 
 **Pools** (`beamPool`): aim on the floor and the whole cone reaches it → exact conic; aim in the air → disc of the beam's
@@ -308,8 +309,37 @@ File format unchanged (format 1 already had `sequence` and the five transition f
 Single-letter keys exist only in Show; none fires while typing in a field, with a dialog or a question open, or when held
 down (repeat). Banco and Allestimento use only arrows, Home/End, Delete, F2 and Esc inside their lists.
 
+## Prints, preview detail and scenery per memory (Granvelo 0.6)
+
+**Prints** (`src/print/`): `printData.ts` (pure, tested: `planData`, `listData`, `sheetTitle`, `addressRange`) builds what the sheets say;
+`PrintSheets.tsx` draws them (props only, black on white; the symbols are the same `SymbolGlyph`); `PrintDialog.tsx` is the preview
+(Pianta / Elenco / Tutte e due; lazy chunk) opened from Allestimento ("Stampa") or File → Stampa…; `printLayer.tsx` renders the
+sheets with `react-dom/server` into `#gv-print` and calls `window.print()` (as Cantinella; on Windows "Microsoft Print to PDF" makes
+the PDF; no PDF library). `print.css` has named pages (`@page gv-plan` A4 landscape, `gv-list` A4 portrait). To look at the paper
+without a printer: in Playwright stub `window.print`, press "Stampa…" and call `page.pdf({preferCSSPageSize: true})`.
+
+**Preview detail** (Settings → Anteprima). `StageDetail` = essential | medium | high. *Alta* (`stage/haze.ts`, `StageView3D.tsx`): the
+scenery casts shadows (a fixed pool of 6 `SpotLight`s with 512² shadow maps for the strongest lights, a `ShadowMaterial` plane over the
+floor — the floor itself stays as in the other levels), beams are a shader cone brighter near the light and soft at the edges
+(haze), and lights without colour channels warm up as they dim (`warmWhenDimmed` in `scene.ts`, also in the 2D views). *Automatica*
+(`stage/benchmark.ts`, `stage/detail.ts`, `store/previewDetail.ts`): on request, or once the first time the stage is shown, it draws an
+off-screen test stage as rich as Alta for at most 30 pictures or 2,5 s, reading one pixel after each to wait for the card, takes the
+typical time (slowest tenth ignored) and maps it: ≤ 18 ms Alta, ≤ 40 ms Media, else Essenziale. The result is kept in the computer
+settings (`autoDetail`, not in the show) and never re-measured by itself. Nothing loops: the view still redraws only on change.
+
+**Mouse on the stage**: bars (americane) drag in Sposta (plan/perspective: depth; front: height; perspective + Shift: height), one undo
+step, a click without moving still opens the editor; `dropEmptiedTrusses` removes a bar with an automatic name that a drag left empty
+(a bar named by the user, or one that was already empty, stays). **Box selection**: drag on empty space in the 2D views, Shift/Ctrl +
+drag in 3D (a plain drag turns or moves the view); `onBox(ids, info)` of the stage API; Shift/Ctrl adds to the selection.
+
+**Scenery per memory** (`model/sceneryMemory.ts`, tested): format 1 already stored it (`memory.scenery` = pieces on stage in that memory
+with position and rotation; the others are off stage), so the format did not change. In Allestimento → Scenografia the right panel has
+"Scenografia di una memoria": choose a memory, tick the pieces that are on stage in it, move them (drag or numbers) — the other memories
+and the piece itself (name, shape, size, colour) are untouched; badges Entra / Esce / Si sposta compare with the memory before in the show;
+"Copia dalla memoria precedente". Banco and the Show thumbnails already draw the scenery of the memory they show; Salva keeps the placements.
+
 ## What is not there yet
 
-Fades from the desk (Banco puts memories on stage without fade), editing scenery placements per memory (Salva keeps them as
-they are), box selection on the stage, dragging trusses with the mouse, real shadows / beams in smoke ("Alta", phase 5), PDF
-prints. In Show the faders show the memory the stage is going to, not the in-between values of a running transition.
+Fades from the desk (Banco puts memories on stage without fade), editing scenery placements from Banco itself (they are edited in
+Allestimento), animated scenery during a transition (the memory in view decides), the 3D benchmark measures a test stage, not the
+show's own. In Show the faders show the memory the stage is going to, not the in-between values of a running transition.
