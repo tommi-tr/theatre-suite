@@ -1,5 +1,6 @@
-import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
+import { open, save, message } from "@tauri-apps/plugin-dialog";
 import { basename, debounce } from "@theatre-suite/core";
+import { confirmSave, confirmYesNo } from "@theatre-suite/ui";
 import { api, isTauri, type VersionEntry } from "./api";
 import { docToFile, parseDoc, useDoc, AUDIO_EXTENSIONS } from "../state/doc";
 import { useSettings } from "../state/settings";
@@ -48,14 +49,16 @@ export async function saveDoc(t: T, saveAs = false): Promise<boolean> {
 /** Asks what to do with unsaved changes. Returns false if the user cancelled. */
 export async function confirmDiscard(t: T): Promise<boolean> {
   if (!useDoc.getState().dirty) return true;
-  const wantSave = await ask(t("The cue list has unsaved changes. Save them first?"), {
-    title: "Diaframma",
-    kind: "warning",
-    okLabel: t("Save"),
-    cancelLabel: t("Don't save"),
+  const choice = await confirmSave({
+    title: t("Unsaved changes"),
+    message: t("The cue list has unsaved changes. Save them first?"),
+    cancel: t("Cancel"),
+    discard: t("Don't save"),
+    save: t("Save"),
+    close: t("Close"),
   });
-  if (wantSave) return saveDoc(t);
-  return true;
+  if (choice === "save") return saveDoc(t);
+  return choice === "discard";
 }
 
 /** Fixes paths: tries the relative path, then marks missing files. */
@@ -145,9 +148,8 @@ export async function locateMissing(t: T): Promise<number> {
 
 // ---------------- Confirmations ----------------
 
-async function confirmBox(t: T, message: string, okLabel: string): Promise<boolean> {
-  if (!isTauri) return window.confirm(message);
-  return ask(message, { title: "Diaframma", kind: "warning", okLabel, cancelLabel: t("Cancel") });
+function confirmBox(t: T, message: string, okLabel: string): Promise<boolean> {
+  return confirmYesNo({ title: t("Please confirm"), message, cancel: t("Cancel"), confirm: okLabel, danger: true, close: t("Close") });
 }
 
 const shown = (track: Track, number: number | null) => (number !== null ? `${number} · ${track.file?.name ?? ""}` : (track.file?.name ?? ""));

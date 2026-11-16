@@ -110,16 +110,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <Row label={t("Language")}>
                   <Segmented small ariaLabel={t("Language")} value={s.language} onChange={(v: Lang) => set({ language: v })} options={LANGS.map((l) => ({ value: l.value, label: l.label }))} />
                 </Row>
-                <Row label={t("Theme")}>
+                <Row label={t("Appearance")}>
                   <Segmented
                     small
-                    ariaLabel={t("Theme")}
+                    ariaLabel={t("Appearance")}
                     value={s.theme}
                     onChange={(v) => set({ theme: v })}
                     options={[
-                      { value: "dark", label: t("Dark"), icon: "moon" },
                       { value: "light", label: t("Light"), icon: "sun" },
-                      { value: "system", label: t("Like Windows"), icon: "monitor" },
+                      { value: "dark", label: t("Dark"), icon: "moon" },
+                      { value: "system", label: t("Like the system"), icon: "monitor" },
                     ]}
                   />
                 </Row>

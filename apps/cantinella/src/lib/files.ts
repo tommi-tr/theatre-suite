@@ -1,5 +1,6 @@
-import { ask, message, open, save } from "@tauri-apps/plugin-dialog";
+import { message, open, save } from "@tauri-apps/plugin-dialog";
 import { basename, debounce, findShow, type TFunc } from "@theatre-suite/core";
+import { confirmSave } from "@theatre-suite/ui";
 import { CantinellaFileError, parse, serialize } from "../model/file";
 import { newData } from "../model/defaults";
 import { api, isTauri } from "./api";
@@ -69,14 +70,16 @@ export async function saveDoc(t: TFunc, saveAs = false): Promise<boolean> {
 /** Asks what to do with unsaved changes. False if the user cancelled. */
 export async function confirmDiscard(t: TFunc): Promise<boolean> {
   if (!useDoc.getState().dirty) return true;
-  const wantSave = await ask(t("There are unsaved changes. Save them first?"), {
-    title: "Cantinella",
-    kind: "warning",
-    okLabel: t("Save"),
-    cancelLabel: t("Don't save"),
+  const choice = await confirmSave({
+    title: t("Unsaved changes"),
+    message: t("There are unsaved changes. Save them first?"),
+    cancel: t("Cancel"),
+    discard: t("Don't save"),
+    save: t("Save"),
+    close: t("Close"),
   });
-  if (wantSave) return saveDoc(t);
-  return true;
+  if (choice === "save") return saveDoc(t);
+  return choice === "discard";
 }
 
 export async function openDocPath(t: TFunc, path: string): Promise<boolean> {

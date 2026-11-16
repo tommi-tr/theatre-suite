@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { I18nProvider, basename, findShow, useApplyTheme, useT, type ShowInfo } from "@theatre-suite/core";
-import { AppLogo, Button, Segmented, TitleBar, useBackToLauncher } from "@theatre-suite/ui";
+import { AppLogo, Button, Segmented, TitleBar, ConfirmHost, useBackToLauncher } from "@theatre-suite/ui";
 import { redo, undo } from "prosemirror-history";
 import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEvent } from "./lib/api";
@@ -279,6 +279,7 @@ function Shell() {
         ) : null}
       </div>
       <Dialogs />
+      <ConfirmHost />
       <BardoToast />
       <PrintRoot />
     </div>

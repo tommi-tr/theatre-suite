@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { dueTodos } from "../model/departments";
 import { todayKey } from "../model/rehearsals";
 import { basename, useT } from "@theatre-suite/core";
-import { useBackToLauncher, AppLogo, Button, StatusBar, TitleBar } from "@theatre-suite/ui";
+import { useBackToLauncher, AppLogo, Button, ConfirmHost, StatusBar, TitleBar } from "@theatre-suite/ui";
 import { api, appWindow, isTauri, onEvent } from "../lib/api";
 import { confirmDiscard, flushAutosave, newDoc, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave, startPlace } from "../lib/files";
 import { APP_NAME, LOGO } from "../lib/version";
@@ -231,6 +231,7 @@ export function Shell() {
         <PartStatus />
       </StatusBar>
       <Dialogs />
+      <ConfirmHost />
       <AppToast />
     </div>
   );

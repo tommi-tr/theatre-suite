@@ -7,8 +7,8 @@ import { createContext, createElement, useContext, type ReactNode } from "react"
  */
 export type Lang = "en" | "it";
 export const LANGS: { value: Lang; label: string }[] = [
-  { value: "en", label: "English" },
   { value: "it", label: "Italiano" },
+  { value: "en", label: "English" },
 ];
 
 export type Dict = Record<string, string>;

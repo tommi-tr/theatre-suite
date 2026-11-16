@@ -113,9 +113,14 @@ export interface Favorite {
   link: string | null;
 }
 
+/** First start: the language of the system (Italian if it is Italian, otherwise English). */
+function systemLanguage(): Lang {
+  return typeof navigator !== "undefined" && /^it\b/i.test(navigator.language) ? "it" : "en";
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   version: 3,
-  language: "en",
+  language: systemLanguage(),
   theme: "dark",
   autoAdvance: true,
   othersOnGo: "fadeOut",

@@ -112,6 +112,7 @@ mod platform {
     use winreg::RegKey;
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 
+    #[link(name = "user32")]
     unsafe extern "system" {
         fn AllowSetForegroundWindow(process_id: u32) -> i32;
     }

@@ -440,6 +440,7 @@ export function Dialog({
   footer,
   onClose,
   width = 560,
+  closeLabel = "Close",
 }: {
   title: string;
   icon?: IconName;
@@ -448,6 +449,8 @@ export function Dialog({
   footer?: ReactNode;
   onClose: () => void;
   width?: number;
+  /** Accessible name of the X button (pass the translated word). */
+  closeLabel?: string;
 }) {
   const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -474,7 +477,7 @@ export function Dialog({
             </div>
             {description ? <div className="ts-dialog__desc">{description}</div> : null}
           </div>
-          <Button variant="ghost" iconOnly icon="x" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32 }} />
+          <Button variant="ghost" iconOnly icon="x" aria-label={closeLabel} onClick={onClose} style={{ width: 32, height: 32 }} />
         </div>
         <div className="ts-dialog__body">{children}</div>
         {footer ? <div className="ts-dialog__foot">{footer}</div> : null}
@@ -599,7 +602,7 @@ export function TitleBar({
         {saveState ? (
           <span className={cx("ts-titlebar__state", saveState.dirty && "ts-titlebar__state--dirty")}>
             {saveState.dirty ? <span className="ts-dot ts-dot--sb" /> : <Icon name="check" size={12} strokeWidth={2.4} />}
-            {saveState.text}
+            <span className="ts-titlebar__state-text">{saveState.text}</span>
           </span>
         ) : null}
       </div>

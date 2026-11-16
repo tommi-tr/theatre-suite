@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { I18nProvider, findShow, useApplyTheme, useT, type ShowInfo } from "@theatre-suite/core";
-import { AppLogo, Button, Segmented, TitleBar, Toast, useBackToLauncher } from "@theatre-suite/ui";
+import { AppLogo, Button, Segmented, TitleBar, Toast, ConfirmHost, useBackToLauncher } from "@theatre-suite/ui";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { DICTS } from "./i18n";
 import { api, appWindow, isTauri, onEngineState, onEvent } from "./lib/api";
@@ -248,6 +248,7 @@ function Shell() {
       {dialog === "guide" ? <GuideDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "phone" ? <PhoneDialog onClose={() => ui.closeDialog()} /> : null}
       {dialog === "versions" ? <VersionsDialog onClose={() => ui.closeDialog()} /> : null}
+      <ConfirmHost />
       {toast ? <Toast message={toast.message} kind={toast.kind} onDone={() => useUi.getState().clearToast()} /> : null}
     </div>
   );

@@ -1,5 +1,5 @@
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
-import { AppLogo, Dialog, Segmented } from "@theatre-suite/ui";
+import { AppLogo, Button, Dialog, Segmented } from "@theatre-suite/ui";
 import { APP_NAME, LOGO } from "../lib/version";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
@@ -9,22 +9,35 @@ export function SettingsDialog() {
   const s = useSettings((x) => x.settings);
   const update = useSettings((x) => x.update);
   return (
-    <Dialog title={t("Settings")} icon="settings" onClose={() => useUi.getState().closeDialog()} width={520}>
+    <Dialog
+      title={t("Settings")}
+      icon="settings"
+      onClose={() => useUi.getState().closeDialog()}
+      width={520}
+      footer={
+        <>
+          <span className="ts-spacer" />
+          <Button variant="primary" icon="check" onClick={() => useUi.getState().closeDialog()}>
+            {t("Done")}
+          </Button>
+        </>
+      }
+    >
       <div className="cn-settings">
         <div className="cn-settings__row">
           <div>
-            <div className="cn-settings__name">{t("Theme")}</div>
+            <div className="cn-settings__name">{t("Appearance")}</div>
             <div className="ts-field__hint">{t("Light is easier to read in the office; dark is better backstage.")}</div>
           </div>
           <Segmented<ThemePref>
-            ariaLabel={t("Theme")}
+            ariaLabel={t("Appearance")}
             small
             value={s.theme}
             onChange={(theme) => update({ theme })}
             options={[
               { value: "light", label: t("Light"), icon: "sun" },
               { value: "dark", label: t("Dark"), icon: "moon" },
-              { value: "system", label: t("As the system"), icon: "monitor" },
+              { value: "system", label: t("Like the system"), icon: "monitor" },
             ]}
           />
         </div>

@@ -238,13 +238,22 @@ textarea {
   text-overflow: ellipsis;
 }
 .ts-titlebar__state {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--text-3);
   font-size: 11.5px;
   white-space: nowrap;
+}
+.ts-titlebar__state-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ts-titlebar__state > .ts-dot,
+.ts-titlebar__state > svg {
+  flex: none;
 }
 .ts-titlebar__state--dirty {
   color: var(--sb);
@@ -781,6 +790,14 @@ textarea {
   background: var(--bar);
 }
 
+.ts-confirm__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-line;
+}
+
 /* ---------- Misc ---------- */
 .ts-spacer {
   flex: 1;
@@ -872,12 +889,14 @@ button.ts-titlebar__home:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+/* When the bar is tight the document name gives way first; the show name stays readable. */
 .ts-titlebar__home .ts-titlebar__file {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 20 auto;
+  min-width: 80px;
 }
 .ts-titlebar__show {
   flex: 0 1 auto;
+  min-width: 90px;
 }
 /* A document alone in the bar (no show) is the main text of the bar. */
 .ts-titlebar__file--lead {
