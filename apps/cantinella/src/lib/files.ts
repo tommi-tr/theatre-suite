@@ -1,5 +1,5 @@
 import { ask, message, open, save } from "@tauri-apps/plugin-dialog";
-import { SHOW_INDEX_FILE, basename, debounce, dirname, joinPath, parseShowIndex, type TFunc } from "@theatre-suite/core";
+import { basename, debounce, findShow, type TFunc } from "@theatre-suite/core";
 import { CantinellaFileError, parse, serialize } from "../model/file";
 import { newData } from "../model/defaults";
 import { api, isTauri } from "./api";
@@ -41,13 +41,8 @@ export async function detectShow(path: string | null): Promise<void> {
     if (isTauri) useDoc.getState().setShow(null);
     return;
   }
-  try {
-    const index = joinPath(dirname(path), SHOW_INDEX_FILE);
-    const show = (await api.pathExists(index)) ? parseShowIndex(await api.readText(index)) : null;
-    if (useDoc.getState().filePath === path) useDoc.getState().setShow(show);
-  } catch {
-    useDoc.getState().setShow(null);
-  }
+  const show = await findShow(path, { exists: api.pathExists, read: api.readText });
+  if (useDoc.getState().filePath === path) useDoc.getState().setShow(show);
 }
 
 export async function saveDoc(t: TFunc, saveAs = false): Promise<boolean> {

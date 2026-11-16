@@ -12,6 +12,7 @@ export const it: Dict = {
   Rehearsal: "Prove",
   Guide: "Guida",
   Settings: "Impostazioni",
+  "Back to Theatre Suite · {show}": "Torna a Theatre Suite · {show}",
   Phone: "Telefono",
   Save: "Salva",
   "Save as…": "Salva con nome…",

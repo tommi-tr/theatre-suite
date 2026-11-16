@@ -28,6 +28,8 @@ export interface ShowInfo {
   id: string;
   title: string;
   color: string;
+  /** Folder of the show (where `progetto.theatre` is). Set by `findShow`, not by `parseShowIndex`. */
+  dir?: string;
 }
 
 /** Reads the launcher's index file. Null if the text is not a show index. */
@@ -51,4 +53,27 @@ export function joinPath(dir: string, name: string): string {
   if (!dir) return name;
   const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
   return dir.endsWith("/") || dir.endsWith("\\") ? dir + name : dir + sep + name;
+}
+
+/** How an app reads files: its own commands (or stand-ins in a browser). */
+export interface ShowIo {
+  exists: (path: string) => Promise<boolean>;
+  read: (path: string) => Promise<string>;
+}
+
+/**
+ * The show a document belongs to: the one whose `progetto.theatre` is in the document's folder.
+ * Null for a document alone (or an index that cannot be read). Same rule in every app.
+ */
+export async function findShow(filePath: string | null, io: ShowIo): Promise<ShowInfo | null> {
+  if (!filePath) return null;
+  try {
+    const dir = dirname(filePath);
+    const index = joinPath(dir, SHOW_INDEX_FILE);
+    if (!(await io.exists(index))) return null;
+    const info = parseShowIndex(await io.read(index));
+    return info ? { ...info, dir } : null;
+  } catch {
+    return null;
+  }
 }

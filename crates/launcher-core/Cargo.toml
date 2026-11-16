@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 theatre-project = { path = "../theatre-project" }
+suite-link = { path = "../suite-link" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 ureq = "3.5.1"

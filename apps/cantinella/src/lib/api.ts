@@ -32,6 +32,9 @@ export const api = {
   },
   pathExists: (path: string) => call<boolean>("path_exists", { path }),
   revealInFolder: (path: string) => call<void>("reveal_in_folder", { path }),
+  /** Is the launcher installed ("Torna al launcher")? In the browser demo: yes, to see the button. */
+  launcherAvailable: () => (isTauri ? call<boolean>("launcher_available") : Promise.resolve(typeof location !== "undefined" && location.search.includes("demo"))),
+  openLauncher: (showDir: string) => (isTauri ? call<void>("open_launcher", { showDir }) : Promise.resolve(void console.info("[demo] back to the launcher:", showDir))),
 };
 
 /** The app window (a harmless stand-in when the interface runs in a plain browser). */

@@ -57,7 +57,8 @@ function Shell() {
     <div className="ln-shell">
       <TitleBar
         logo={<LauncherMark size={20} />}
-        appName={version ? `Theatre Suite ${version}` : "Theatre Suite"}
+        appName="Theatre Suite"
+        version={version || undefined}
         actions={
           <>
             <Button variant="ghost" iconOnly icon="settings" aria-label={t("Settings")} title={t("Settings")} onClick={() => useStore.getState().setDialog({ kind: "settings" })} />

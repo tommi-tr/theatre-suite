@@ -9,7 +9,7 @@ import { newTodo, noteToTodo, presetDepartments, type Departments } from "./depa
 import { newTour, newVenue, type Tour } from "./tour";
 
 /** "La locandiera": the company of the design preview, for `/?demo`. */
-export const DEMO_SHOW: ShowInfo = { id: "demo", title: "La locandiera", color: "#6d5a3a" };
+export const DEMO_SHOW: ShowInfo = { id: "demo", title: "La locandiera", color: "#6d5a3a", dir: "C:\\Spettacoli\\La locandiera" };
 
 /** y = yes, m = maybe, n = no, - = no reply, one letter per date. */
 const DEMO_REPLIES: Array<[string, string]> = [

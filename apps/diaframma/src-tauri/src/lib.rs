@@ -31,6 +31,18 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
     })
 }
 
+/// Is the Theatre Suite launcher installed? ("Torna al launcher" appears only if it is.)
+#[tauri::command]
+fn launcher_available() -> bool {
+    suite_link::find_launcher().is_some()
+}
+
+/// Brings the launcher to the front on `show_dir`. This app stays open and untouched.
+#[tauri::command(async)]
+fn open_launcher(show_dir: String) -> Result<(), String> {
+    suite_link::open_launcher(&show_dir)
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -60,6 +72,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            launcher_available,
+            open_launcher,
             builtin_sounds_dir,
             storage::settings_load,
             storage::settings_save,

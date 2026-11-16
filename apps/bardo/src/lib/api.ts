@@ -30,6 +30,9 @@ export const api = {
     return invoke<void>("file_write_bytes", bytes, { headers: { "x-path": encodeURIComponent(path) } });
   },
   pathExists: (path: string) => call<boolean>("path_exists", { path }),
+  /** Is the launcher installed ("Torna al launcher")? In the browser demo: yes, to see the button. */
+  launcherAvailable: () => (isTauri ? call<boolean>("launcher_available") : Promise.resolve(typeof location !== "undefined" && location.search.includes("demo"))),
+  openLauncher: (showDir: string) => (isTauri ? call<void>("open_launcher", { showDir }) : Promise.resolve(void console.info("[demo] back to the launcher:", showDir))),
   revealInFolder: (path: string) => call<void>("reveal_in_folder", { path }),
   pdfDirectSupported: () => call<boolean>("pdf_direct_supported"),
   printPage: () => call<void>("print_page"),

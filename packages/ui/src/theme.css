@@ -843,6 +843,48 @@ textarea {
   text-overflow: ellipsis;
   max-width: 280px;
 }
+/* Logo + show + document: one group; with a show it is the button "back to the launcher". */
+.ts-titlebar__home {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  margin-left: -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.ts-titlebar__home--static {
+  cursor: default;
+}
+button.ts-titlebar__home {
+  cursor: pointer;
+}
+button.ts-titlebar__home:hover {
+  background: rgba(var(--show-rgb, 120, 120, 120), 0.22);
+}
+button.ts-titlebar__home:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ts-titlebar__home .ts-titlebar__file {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ts-titlebar__show {
+  flex: 0 1 auto;
+}
+/* A document alone in the bar (no show) is the main text of the bar. */
+.ts-titlebar__file--lead {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13.5px;
+}
 .ts-titlebar__version {
   flex: none;
   font-family: var(--font-mono);

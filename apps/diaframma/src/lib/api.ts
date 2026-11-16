@@ -51,6 +51,9 @@ export const api = {
   autosaveWrite: (json: string) => call<void>("autosave_write", { json }),
   autosaveClear: () => call<void>("autosave_clear"),
   readText: (path: string) => call<string>("file_read_text", { path }),
+  /** Is the launcher installed ("Torna al launcher")? In the browser demo: yes, to see the button. */
+  launcherAvailable: () => (isTauri ? call<boolean>("launcher_available") : Promise.resolve(typeof location !== "undefined" && location.search.includes("demo"))),
+  openLauncher: (showDir: string) => (isTauri ? call<void>("open_launcher", { showDir }) : Promise.resolve(void console.info("[demo] back to the launcher:", showDir))),
   writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
   versionsList: (dir: string) => call<VersionEntry[]>("versions_list", { dir }),
   versionDelete: (path: string) => call<void>("version_delete", { path }),

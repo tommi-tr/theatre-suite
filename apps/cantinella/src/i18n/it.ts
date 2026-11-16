@@ -142,6 +142,7 @@ export const it: Dict = {
   "Sectors, prices and a seat map drawn by itself, one per performance.": "Settori, prezzi e una piantina disegnata da sola, una per replica.",
   "Select all": "Tutti",
   "Settings": "Impostazioni",
+  "Back to Theatre Suite · {show}": "Torna a Theatre Suite · {show}",
   "Short names (aliases)": "Alias",
   "Show": "Mostra",
   "Show in folder": "Mostra nella cartella",

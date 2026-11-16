@@ -356,6 +356,7 @@ export const it: Dict = {
   "Sent so far": "Inviati finora",
   "Serif type, names on the left: like a printed edition.": "Carattere con grazie, nomi a sinistra: come un'edizione a stampa.",
   "Settings": "Impostazioni",
+  "Back to Theatre Suite · {show}": "Torna a Theatre Suite · {show}",
   "Share": "Condividi",
   "Short desc.": "Descr. breve",
   "Short description": "Descrizione breve",

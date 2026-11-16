@@ -141,7 +141,7 @@ export function ShowMode() {
         api.engineStandbyStep(k === "ArrowDown" ? 1 : -1).catch(() => {});
         return;
       }
-      if (e.ctrlKey && k.toLowerCase() === "l") {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && k.toLowerCase() === "l") {
         e.preventDefault();
         st.setLocked(!st.locked);
         return;
