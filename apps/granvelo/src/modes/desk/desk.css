@@ -1,0 +1,678 @@
+/* Banco: the virtual desk. Theme variables and components come from packages/ui; only layout lives here.
+   Colour rules (02_design.md): the colour of a light only as swatch and fader fill, never on buttons; green = on stage,
+   amber = changed and not saved, blue = Blind. */
+
+.gv-desk {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 348px;
+}
+.gv-desk__main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gv-desk__side {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+
+/* ---------- Stage (front view) ---------- */
+.gv-dstage {
+  flex: 0 0 36%;
+  min-height: 170px;
+  position: relative;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: #0b0c0f;
+}
+.gv-dstage__view {
+  flex: 1;
+}
+.gv-dstage[data-blind]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--pre);
+  pointer-events: none;
+}
+.gv-dstage__badge {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #04121f;
+  background: var(--pre);
+}
+.gv-dstage__inset {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  width: 168px;
+  height: 92px;
+  border: 2px solid var(--go);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0b0c0f;
+  --gv-stage-bg: #0b0c0f;
+  --gv-stage-floor: #1b1d23;
+  --gv-stage-line: #3a3e48;
+  --gv-stage-edge: #6b7180;
+  --gv-stage-words: #6b7180;
+  --gv-symbol-stroke: #a7aab3;
+  --gv-lens-off: #2a2d35;
+  --gv-stage-text: #ecedf0;
+  --sb: #ffb224;
+}
+.gv-dstage__insetlabel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--go-ink);
+  background: var(--go);
+  border-bottom-right-radius: 4px;
+}
+
+/* ---------- Blind band ---------- */
+.gv-blindband {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  min-height: 38px;
+  font-size: 12.5px;
+  color: var(--pre);
+  background: var(--pre-soft);
+  border-bottom: 1px solid var(--pre-line);
+}
+.gv-blindband strong {
+  letter-spacing: 0.1em;
+  font-size: 12px;
+}
+.gv-blindband__text {
+  min-width: 0;
+  color: var(--text);
+}
+.gv-blindbtn.ts-btn--on,
+.gv-blindbtn.ts-btn--on:hover {
+  color: var(--pre);
+  background: var(--pre-soft);
+  box-shadow: inset 0 0 0 1px var(--pre-line);
+}
+
+/* ---------- Faders area ---------- */
+.gv-faders {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.gv-faders__cards {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 10px 8px;
+}
+.gv-lcards {
+  height: 100%;
+  display: flex;
+  gap: 8px;
+  width: max-content;
+}
+.gv-lcard {
+  flex: none;
+  min-width: 96px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.gv-lcard[data-selected] {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-line);
+  background: var(--surface-2);
+}
+.gv-lcard[data-unused] {
+  opacity: 0.5;
+}
+.gv-lcard__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.gv-lcard__num {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+.gv-lcard__name {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.gv-lcard__note {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--sb);
+  height: 14px;
+  line-height: 14px;
+}
+.gv-lcard__faders {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+/* ---------- Fader ---------- */
+.gv-fader {
+  width: 46px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.gv-fader--narrow {
+  width: 40px;
+}
+.gv-fader__val {
+  flex: none;
+  height: 16px;
+  line-height: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  text-align: center;
+  white-space: nowrap;
+}
+.gv-fader[data-disabled] .gv-fader__val {
+  color: var(--text-3);
+}
+.gv-fader__track {
+  position: relative;
+  flex: 1;
+  min-height: 56px;
+  width: 28px;
+  cursor: ns-resize;
+  touch-action: none;
+  border-radius: 4px;
+}
+.gv-fader[data-disabled] .gv-fader__track {
+  cursor: default;
+}
+.gv-fader__track:focus-visible {
+  outline-offset: 2px;
+}
+.gv-fader__rail {
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+.gv-fader__fill {
+  position: absolute;
+  left: 11px;
+  bottom: 0;
+  width: 6px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.gv-fader__thumb {
+  position: absolute;
+  left: 2px;
+  width: 24px;
+  height: 10px;
+  margin-bottom: -5px;
+  border-radius: 3px;
+  background: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gv-fader__label {
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-2);
+}
+.gv-fader__sw {
+  flex: none;
+  width: 9px;
+  height: 9px;
+}
+.gv-fader__sub {
+  flex: none;
+  height: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* Compact density: one narrow card per light. */
+.gv-lcards--compact .gv-lcard {
+  min-width: 0;
+  padding: 4px 4px 6px;
+}
+.gv-lcards--compact .gv-lcard__head {
+  justify-content: center;
+}
+
+/* ---------- Groups and Grand Master ---------- */
+.gv-masters {
+  flex: none;
+  max-width: 46%;
+  display: flex;
+  min-height: 0;
+  padding: 10px 10px 8px;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+.gv-masters__groups {
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.gv-group {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.gv-group > .gv-fader {
+  flex: 1;
+}
+.gv-group__tools {
+  flex: none;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 64px;
+}
+.gv-group__sel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.gv-group__sel:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.gv-group--new {
+  justify-content: center;
+  padding: 0 2px;
+}
+.gv-masters__gm {
+  flex: none;
+  display: flex;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.gv-masters__gm .gv-fader {
+  width: 64px;
+}
+.gv-masters__gm .gv-fader__val {
+  color: var(--text);
+}
+.gv-masters__gm .gv-fader__label {
+  font-weight: 600;
+  color: var(--text);
+}
+.gv-inline {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+/* Mini density: groups and Grand Master only. */
+.gv-faders--mini .gv-masters {
+  flex: 1;
+  max-width: none;
+  border-left: 0;
+}
+.gv-faders--mini .gv-masters__groups {
+  flex: 1;
+}
+
+/* ---------- Right column ---------- */
+.gv-onstage {
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gv-onstage[data-blind] {
+  background: var(--pre-soft);
+  border-bottom-color: var(--pre-line);
+}
+.gv-onstage[data-blind] .gv-panel__title {
+  color: var(--pre);
+}
+.gv-onstage__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gv-onstage__num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--go);
+}
+.gv-onstage[data-blind] .gv-onstage__num {
+  color: var(--pre);
+}
+.gv-onstage__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.gv-onstage__state {
+  min-height: 18px;
+  font-size: 12.5px;
+}
+.gv-onstage__warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sb);
+  font-weight: 500;
+}
+.gv-onstage__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.gv-onstage__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gv-onstage__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 70px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.gv-onstage__field--grow {
+  flex: 1;
+  width: auto;
+  min-width: 100px;
+}
+.gv-onstage__error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--sb);
+}
+.gv-onstage__form .gv-onstage__buttons {
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+
+.gv-picker {
+  flex: none;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.gv-picker__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px;
+  align-items: center;
+}
+.gv-picker__swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45);
+}
+.gv-picker__swatch[data-on] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gv-picker__custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.gv-picker__custom input {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* ---------- Memory list ---------- */
+.gv-mlist {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gv-mlist__ul {
+  padding-top: 0;
+}
+.gv-mrow {
+  position: relative;
+  border-radius: var(--r-md);
+  border-left: 3px solid transparent;
+}
+.gv-mrow + .gv-mrow {
+  margin-top: 2px;
+}
+.gv-mrow:hover {
+  background: var(--surface);
+}
+.gv-mrow[data-live] {
+  background: var(--go-soft);
+  border-left-color: var(--go);
+}
+.gv-mrow[data-blind] {
+  background: var(--pre-soft);
+  border-left-color: var(--pre);
+}
+.gv-mrow[data-cursor]:not([data-live]):not([data-blind]) {
+  box-shadow: inset 0 0 0 1px var(--pre-line);
+}
+.gv-mrow__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--r-md);
+}
+.gv-mrow__thumb {
+  flex: none;
+  width: 64px;
+  height: 40px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.3);
+}
+.gv-mrow__thumb .gv-stage2d {
+  width: 100%;
+  height: 100%;
+}
+.gv-mrow__text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gv-mrow__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.gv-mrow__num {
+  flex: none;
+  min-width: 18px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gv-mrow[data-live] .gv-mrow__num {
+  color: var(--go);
+}
+.gv-mrow[data-blind] .gv-mrow__num {
+  color: var(--pre);
+}
+.gv-mrow__name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+.gv-mrow__meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.gv-mrow__tag {
+  margin-right: 6px;
+  font-weight: 600;
+}
+.gv-mrow__tag--live {
+  color: var(--go);
+}
+.gv-mrow__tag--blind {
+  color: var(--pre);
+}
+.gv-mrow__tools {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.gv-mrow:hover .gv-mrow__tools,
+.gv-mrow:focus-within .gv-mrow__tools {
+  display: flex;
+}
+.gv-mrow__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.gv-mrow__tool:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.gv-mrow__tool--blind:hover {
+  color: var(--pre);
+}
+.gv-mrow__tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+}
+
+/* Names of groups and "Grand Master" are never cut with "…": up to two lines in a wider fader. */
+.gv-masters .gv-fader,
+.gv-masters .gv-fader--narrow {
+  width: 64px;
+}
+.gv-masters .gv-fader__label {
+  height: 27px;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+}
+.gv-masters .gv-fader__label > span {
+  display: -webkit-box;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}

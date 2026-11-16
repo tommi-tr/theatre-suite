@@ -1,0 +1,530 @@
+/* Controllo luci: the dialog that turns on one light at a time. Green/red keep their suite meaning (works / does
+   not work); the light colours appear only in swatches that sit next to a label, never as the colour of a button. */
+
+.gv-chk {
+  width: 780px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+}
+.gv-chk__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.gv-chk__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.gv-chk__pos {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gv-chk__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px 16px;
+}
+.gv-chk__foot {
+  flex: none;
+}
+.gv-chk-lead {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.gv-chk-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Warning before the first light: attention = amber. */
+.gv-chk-warn {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--sb-line);
+  border-radius: var(--r-lg);
+  background: var(--sb-soft);
+  color: var(--sb);
+}
+.gv-chk-warn > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.gv-chk-warn p {
+  margin: 0;
+}
+.gv-chk-warn__main {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.gv-chk-warn__sub {
+  margin-top: 3px !important;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* Output not connected: stop = red. */
+.gv-chk-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--stop);
+  border-radius: var(--r-lg);
+  background: var(--stop-soft);
+  color: var(--stop);
+}
+.gv-chk-notice > svg {
+  flex: none;
+}
+.gv-chk-notice__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.gv-chk-notice__text strong {
+  font-size: 13.5px;
+  color: var(--text);
+}
+.gv-chk-notice__actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Lights that cannot be checked. */
+.gv-chk-h {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.gv-chk-skipped ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 120px;
+  overflow: auto;
+}
+.gv-chk-skipped li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.gv-chk-skipped__num {
+  min-width: 28px;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+.gv-chk-skipped__why {
+  margin-left: auto;
+  flex: none;
+  color: var(--text-3);
+}
+
+/* The strip of lights: number, with a sign (tick / cross) for what was said. */
+.gv-chk-strip {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 14px 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bar);
+}
+.gv-chk-strip ol {
+  flex: 1;
+  min-width: 0;
+  max-height: 64px;
+  overflow: auto;
+  margin: -3px;
+  padding: 3px;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gv-chk-cell {
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.gv-chk-cell:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.gv-chk-cell[data-verdict="ok"] {
+  background: var(--go-bg);
+  border-color: var(--go-line);
+  color: var(--go);
+}
+.gv-chk-cell[data-verdict="broken"] {
+  background: var(--stop-bg);
+  border-color: var(--stop);
+  color: var(--stop);
+}
+.gv-chk-cell[aria-current="step"] {
+  box-shadow: 0 0 0 2px var(--accent);
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* The light being checked. */
+.gv-chk-card {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--surface-2);
+}
+.gv-chk-card[data-verdict="ok"] {
+  border-color: var(--go-line);
+}
+.gv-chk-card[data-verdict="broken"] {
+  border-color: var(--stop);
+}
+.gv-chk-card__id {
+  flex: none;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.gv-chk-card__num {
+  font-family: var(--font-mono);
+  font-size: 52px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.gv-chk-card__info {
+  flex: 1;
+  min-width: 0;
+}
+.gv-chk-card__name {
+  margin: 0;
+  padding-right: 120px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.gv-chk-card__sub {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.gv-chk-card__addr {
+  margin: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.gv-chk-card__addr b {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--text);
+}
+.gv-chk-card__verdict {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.gv-chk-card__verdict[data-verdict="ok"] {
+  background: var(--go-bg);
+  color: var(--go);
+}
+.gv-chk-card__verdict[data-verdict="broken"] {
+  background: var(--stop-bg);
+  color: var(--stop);
+}
+.gv-chk-chans {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gv-chk-chans li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.gv-chk-chans li[data-on] {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.gv-chk-chans__sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45);
+}
+.gv-chk-chans__ch {
+  font-family: var(--font-mono);
+  color: var(--text-3);
+}
+.gv-chk-chans__val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.gv-chk-note {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.gv-chk-note > svg {
+  flex: none;
+  margin-top: 1px;
+}
+.gv-chk-note[data-tone="warn"] {
+  background: var(--sb-soft);
+  color: var(--text);
+}
+.gv-chk-note[data-tone="warn"] > svg {
+  color: var(--sb);
+}
+
+/* Level and colour. */
+.gv-chk-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 28px;
+}
+.gv-chk-ctl__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gv-chk-ctl__hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.gv-chk-colors {
+  display: flex;
+  gap: 6px;
+}
+.gv-chk-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.5);
+}
+
+/* Navigation: Back · Works · Not working · Next. */
+.gv-chk-nav {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 1fr 1.25fr 1.25fr 1fr;
+  gap: 10px;
+}
+.gv-chk-big {
+  height: 52px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: var(--r-lg);
+}
+.gv-chk-ok {
+  border-color: var(--go-line);
+  background: var(--go-bg);
+  color: var(--go);
+}
+.gv-chk-ok:hover:not(:disabled) {
+  background: var(--go-bg);
+  filter: brightness(1.15);
+}
+.gv-chk-ok[data-chosen] {
+  background: var(--go-fill);
+  border-color: var(--go-fill);
+  color: var(--go-ink);
+}
+.gv-chk-bad {
+  border-color: var(--stop);
+  background: var(--stop-bg);
+  color: var(--stop);
+}
+.gv-chk-bad:hover:not(:disabled) {
+  background: var(--stop-bg);
+  filter: brightness(1.15);
+}
+.gv-chk-bad[data-chosen] {
+  background: var(--stop-fill);
+  border-color: var(--stop-fill);
+  color: #2b0707;
+}
+.gv-chk-big .ts-kbd {
+  margin-left: 2px;
+}
+
+/* Summary. */
+.gv-chk-sums {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.gv-chk-sum {
+  min-width: 0;
+  padding: 10px 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.gv-chk-sum[data-kind="broken"] {
+  border-color: var(--stop);
+}
+.gv-chk-sum[data-kind="unchecked"] {
+  border-style: dashed;
+}
+.gv-chk-sum__title {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.gv-chk-sum[data-kind="broken"] .gv-chk-sum__title {
+  color: var(--stop);
+}
+.gv-chk-sum[data-kind="ok"] .gv-chk-sum__title {
+  color: var(--go);
+}
+.gv-chk-sum[data-kind="unchecked"] .gv-chk-sum__title {
+  color: var(--sb);
+}
+.gv-chk-sum ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 190px;
+  overflow: auto;
+}
+.gv-chk-sum li button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.gv-chk-sum li button:hover {
+  background: var(--surface-3);
+}
+.gv-chk-sum li button > svg {
+  margin-left: auto;
+  flex: none;
+  color: var(--stop);
+}
+.gv-chk-sum__num {
+  min-width: 26px;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+.gv-chk-sum__empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Small windows: a tighter card, the keys in the buttons give way. */
+@media (max-width: 1180px), (max-height: 740px) {
+  .gv-chk__body {
+    gap: 10px;
+    padding: 12px 16px 14px;
+  }
+  .gv-chk-card {
+    gap: 14px;
+    padding: 12px 14px;
+  }
+  .gv-chk-card__num {
+    font-size: 44px;
+  }
+  .gv-chk-card__id {
+    width: 76px;
+  }
+  .gv-chk-card__name {
+    font-size: 19px;
+  }
+  .gv-chk-card__addr {
+    margin-top: 6px;
+  }
+  .gv-chk-chans {
+    margin-top: 8px;
+  }
+  .gv-chk-big {
+    height: 46px;
+  }
+  .gv-chk-big .ts-kbd {
+    display: none;
+  }
+}

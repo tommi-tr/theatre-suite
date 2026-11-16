@@ -169,6 +169,19 @@ export const ICONS = {
   truck: "M2 6h12v10H2zM14 10h4l3 3v3h-7M6 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M17 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3",
   calendar: "M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",
   addressBook: "M6 2h13v20H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 17a4 4 0 0 1 8 0M2 7h3M2 12h3M2 17h3",
+  // Lighting (Granvelo). `eye` (Blind) and `curtain` (Show) already exist above.
+  /** Blackout: a circle crossed out. */
+  blackout: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5.6 5.6l12.8 12.8",
+  /** Fade to black: the light goes down to the floor line. */
+  ftb: "M3 5h4l10 13h4M3 21h18",
+  /** Emergency: triangle with an exclamation mark (same drawing as `alert`, its own name for the safety command). */
+  emergency: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+  /** Bench (Banco): three faders with their handles. */
+  bench: "M6 3v18M12 3v18M18 3v18M4 15h4M10 8h4M16 12h4",
+  /** Stage (Allestimento): the stage floor with a truss and two lights above. */
+  stage: "M3 20l3-6h12l3 6zM4 4h16M8 4v3M16 4v3",
+  /** A plug: the DMX output (cable to the lights). */
+  plug: "M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5",
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -229,3 +242,15 @@ export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth }: 
     </svg>
   );
 }
+
+/**
+ * Granvelo icon "Banco" (100×100, 02_design.md): three faders in ink and three handles in the accent, thick
+ * stroke. Use with `AppLogo` and `strokeWidth={GRANVELO_LOGO.stroke(size)}`; `tools/make_icons.mjs` of the app
+ * draws the same geometry with the same strokes.
+ */
+export const GRANVELO_LOGO = {
+  accent: "M20 62H36M42 34H58M64 50H80",
+  ink: "M28 18V82M50 18V82M72 18V82",
+  /** 6 on the 100×100 grid (6.4 at 64 px, 8.5 at 32 px, 9.5 at 24 px, 11 at 16–20 px). */
+  stroke: (size: number): number => (size <= 20 ? 11 : size <= 24 ? 9.5 : size <= 32 ? 8.5 : size <= 64 ? 6.4 : 6),
+} as const;

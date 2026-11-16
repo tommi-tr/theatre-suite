@@ -1,0 +1,84 @@
+import { create } from "zustand";
+import type { GranveloDoc, Id } from "../../model/types";
+import { useDoc } from "../../store/doc";
+import type { NumberingState } from "./numbering";
+import type { StageCamera } from "../../stage/types";
+
+/** What the centre of Allestimento shows: the stage, or the map of the 512 DMX addresses. */
+export type SetupCentre = "stage" | "map";
+/** The tools above the stage ("Numera a clic" is a run of its own: `numbering`). */
+export type StageTool = "move" | "aim" | "scenery";
+
+/** State of the Allestimento screen that is not part of the document (and not shared with other modes). */
+interface SetupStore {
+  /** The "add lights" dialog is open. */
+  addOpen: boolean;
+  /** Light being renamed in the list. */
+  renamingId: Id | null;
+  /** Truss whose editor is open in the list. */
+  editingTrussId: Id | null;
+  /** "Numera a clic" is running (null = not). */
+  numbering: NumberingState | null;
+  /** Where the next "Numera a clic" starts, before it is started: asked in a small popover. */
+  numberingAsk: boolean;
+  centre: SetupCentre;
+  tool: StageTool;
+  camera: StageCamera;
+  /** Scenery piece selected with the "Scenografia" tool. */
+  sceneryId: Id | null;
+  /** Memory whose scenery is shown and edited with the "Scenografia" tool; null = every piece where it was built. */
+  sceneryMemoryId: Id | null;
+  setAddOpen: (v: boolean) => void;
+  setCentre: (c: SetupCentre) => void;
+  setTool: (t: StageTool) => void;
+  setCamera: (c: StageCamera) => void;
+  setSceneryId: (id: Id | null) => void;
+  setSceneryMemoryId: (id: Id | null) => void;
+  setRenaming: (id: Id | null) => void;
+  setEditingTruss: (id: Id | null) => void;
+  setNumbering: (s: NumberingState | null) => void;
+  setNumberingAsk: (v: boolean) => void;
+}
+
+export const useSetup = create<SetupStore>((set) => ({
+  addOpen: false,
+  renamingId: null,
+  editingTrussId: null,
+  numbering: null,
+  numberingAsk: false,
+  centre: "stage",
+  tool: "move",
+  camera: "perspective",
+  sceneryId: null,
+  sceneryMemoryId: null,
+  setAddOpen: (addOpen) => set({ addOpen }),
+  setCentre: (centre) => set({ centre }),
+  setTool: (tool) => set({ tool }),
+  setCamera: (camera) => set({ camera }),
+  setSceneryId: (sceneryId) => set({ sceneryId }),
+  setSceneryMemoryId: (sceneryMemoryId) => set({ sceneryMemoryId }),
+  setRenaming: (renamingId) => set({ renamingId }),
+  setEditingTruss: (editingTrussId) => set({ editingTrussId }),
+  setNumbering: (numbering) => set({ numbering }),
+  setNumberingAsk: (numberingAsk) => set({ numberingAsk }),
+}));
+
+/**
+ * The document that "Numera a clic" itself produced last. If the document becomes anything else (undo from the top
+ * bar, an edit elsewhere) the run ends, so the bar never says something untrue.
+ */
+export const numberingGuard: { doc: unknown } = { doc: null };
+
+/** Starts a run at `start`. */
+export function beginNumbering(start: NumberingState) {
+  numberingGuard.doc = useDoc.getState().doc;
+  useSetup.getState().setNumbering(start);
+  useSetup.getState().setNumberingAsk(false);
+}
+
+/** One step of the run: the document goes through the store (one undo step) and the state moves on. */
+export function commitNumbering(doc: GranveloDoc, state: NumberingState) {
+  numberingGuard.doc = doc;
+  useDoc.getState().change(() => doc);
+  useSetup.getState().setNumbering(state);
+}
