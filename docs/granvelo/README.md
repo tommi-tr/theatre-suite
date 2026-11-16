@@ -34,10 +34,12 @@ src/model/       pure TypeScript, no React — the foundations of the next phase
   check.ts         Controllo luci: checkLook (one light on), plan/order/skips, the run, restore point
   crossfade.ts     reference crossfade (fade in/out, delay, move in dark) — the Rust engine mirrors it
   ops.ts           document operations (add/remove light, channels, trusses, places, memories)
+  desk.ts          the desk, pure: fader values → universe, "modified" compare, one intensity per light, colour picker,
+                   groups, memory save / save as new / rename / renumber
   file.ts          newDocument, serialize, parse (strict format 1, unknown top-level keys kept)
   demo.ts          La locandiera: 15 lights, 9 memories
 src/store/       zustand: doc (undo/redo via packages/core History), settings (this computer), ui,
-                 output (the DMX output: the single door to the lights)
+                 output (the DMX output: the single door to the lights), desk (the live desk, see "The desk")
   enginePayload.ts document → DMX engine commands (fade layout, intensity mask, memory target)
 src/lib/         Tauri calls, files (save/open/versions/autosave), version, formatting;
                  dmx.ts (typed DMX engine API) + dmxSim.ts (the same engine in the browser)
@@ -48,7 +50,9 @@ src/stage/       the stage, reusable (Allestimento now, Banco and Show next): no
   StageView2D.tsx  SVG plan / front (also thumbnails, `compact`; the fallback without WebGL)
   StageView3D.tsx  three.js, lazy chunk; StageView.tsx = host (3D if possible, else 2D + note)
 src/modes/       Allestimento (list of lights, stage or address map, properties / scenery), Banco, Show (phase 0);
-                 check/ = Controllo luci dialog (opened with ui.openDialog("check"), also for Show)
+                 check/ = Controllo luci dialog (opened with ui.openDialog("check"), also for Show);
+                 desk/ = Banco: Fader, Faders (LightCards, Masters: props only), DeskFaders (store-connected), DeskStage,
+                 MemoryPanel (on stage box + list), ColorPicker, BlindButton/BlindBand, actions (questions), desk.css
 src/common/      dialogs (Settings, Versions, New show), File menu, FixtureSymbol, ComingSoon, OutputChip
 src-tauri/       storage commands as Cantinella + versions folder as Diaframma; suite-link; src/dmx (engine)
 ```
@@ -183,9 +187,50 @@ a new break never starts before the previous frame has left the line, measured i
 data write started (+ 3 ms). On Windows the timer resolution is raised to 1 ms (`timeBeginPeriod`, this process
 only) while something is sent (cable or simulated output) or a lost cable is being reconnected.
 
+## The desk (Granvelo 0.4, Banco)
+
+**Store** `src/store/desk.ts` (`useDesk`), reused by Show in the next phase. State: `values` (`FixtureValues`: per light id and
+channel position, **not in the document**), `liveMemoryId`, `modified` (faders differ from the memory on stage, compared with
+`valuesDiffer`: unused lights and, in `address` binding, lights without address are ignored; a desk without memory is never
+"modified"), `grandMaster` (0–255, session, starts at 255), `blind` (`{memoryId, values, modified}` | null), `cursorId`
+(memory selected in the list, the one Blind would edit), `active`, `canUndo/canRedo`.
+Actions: `activate` (the desk owns the output from now on; Banco calls it on mount), `setChannel(id, index, v)`,
+`setIntensity(id, level)` (compact density), `setColor(ids, hex)`, `setGrandMaster`, `setCursor`, `loadMemory(id)` (no fade,
+no question: the screen asks, see `modes/desk/actions.ts`), `restore`, `save`, `saveAsNew(number, label)`, `startBlind(id)`
+→ `"ok" | "same" | "missing"`, `exitBlind`, `undo`, `redo`. In Blind the edit actions work on `blind.values` and `restore/save`
+on the blind memory; `loadMemory` and `setGrandMaster` do nothing.
+
+**Output.** Every change calls `useOutput.setUniverse(deskUniverse(doc, values))` = patch → **groups applied in TS**
+(levels saved in the document); the **Grand Master is only `setGrandMaster(level, intensityMask(doc))`** (sent when it moves,
+on `activate` and when the patch changes) — never applied twice. The stage on the screen is drawn with `shownUniverse` (same
+plus the Grand Master), so it works also with no output connected. **Nothing is sent while Blind is on** (also groups and the
+Grand Master are disabled then); leaving Blind sends the live values again. The store follows the document: a new show resets
+the desk (all at zero), any other change keeps the values by light id (`reconcileValues`), drops a deleted memory from the
+stage, resends.
+
+**Undo / redo.** The desk has its own history of snapshots (`values`, `liveMemoryId`, blind values) with moves of the same
+fader coalesced (1,2 s window, as the document). In Banco Ctrl Z / Ctrl Y and the top-bar arrows call `useDesk.undo/redo`,
+which fall through to the document history when the desk history is empty (so a rename or a group can still be undone).
+The two histories are **not interleaved**: Salva is a document step, not a desk step. Cleared at load and when Blind starts or ends.
+
+**Components** (`src/modes/desk/`, `density`: `"extended"` every channel, `"compact"` one intensity per light, `"mini"` groups
+and Grand Master only): `<DeskFaders density editable?>` (connected to the stores = what Show mounts), made of the props-only
+`<LightCards fixtures values selection density units onSelect onChannel onIntensity>` and `<Masters groups grandMaster density
+units disabled onGroupLevel onGrandMaster …>`; `<Fader>` (drag, wheel on hover, Shift = steps of 1, arrows, click on the value
+to type, 0–255 or % from the settings, `role="slider"`; mirrors `VFader` of `packages/ui`, which has no fill colour nor typing);
+`<DeskStage>` (front view fed with the desk, Blind frame + green inset); `selectLight(id, "one" | "add")`.
+Selection is `useUi.selection`, shared with Allestimento.
+
+**Banco.** Right column: on-stage box (amber "changed, not saved"; Salva / Salva come nuova / Ripristina), colour picker (sets
+R, G, B and W/A through `setColor`), memory list (click = on stage at once, asking Salva / Non salvare / Annulla when the memory
+on stage has unsaved changes; hover tools: Blind, rename, number, delete; double click on the name renames; Ctrl+click only
+selects). Blind: top-bar button, **Ctrl B**, **Esc** to leave (asks if unsaved); the Blind button of a row starts it on that row;
+Ctrl B on the memory that is on stage says to choose another. Model ops in `model/desk.ts` (tests in `desk.test.ts`; store tests in
+`store/desk.test.ts`). File format unchanged.
+
 ## What is not there yet
 
-No faders, no show playback (they use the output store above when they arrive); the stage shows `under` of the output
-store when the output is connected or simulated (otherwise lenses are dark and there is no light). Not yet: box
-selection on the stage, dragging trusses with the mouse, scenery per memory (the placements are in the file and the
-views accept them; editing them comes with Banco), real shadows / beams in smoke ("Alta", phase 5), PDF prints.
+Show (playback, GO, the three densities on the performance screen: the components above are ready), fades from the desk
+(Banco puts memories on stage without fade), editing scenery placements per memory (Salva keeps them as they are), a "bring the
+desk in line with what Show left on stage" step when entering Banco (the desk starts from its own values), box selection on the
+stage, dragging trusses with the mouse, real shadows / beams in smoke ("Alta", phase 5), PDF prints.

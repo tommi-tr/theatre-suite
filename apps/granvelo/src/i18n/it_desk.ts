@@ -19,7 +19,6 @@ export const itDesk: Dict = {
   "Delete the memory?": "Eliminare la memoria?",
   "Go back to the saved values of this memory": "Torna ai valori salvati di questa memoria",
   "Grand Master": "Grand Master",
-  Group: "Gruppo",
   "Group name": "Nome del gruppo",
   "Group {n}": "Gruppo {n}",
   "Group {name}": "Gruppo {name}",

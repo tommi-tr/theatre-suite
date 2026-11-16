@@ -199,7 +199,7 @@
 
 /* ---------- Fader ---------- */
 .gv-fader {
-  width: 42px;
+  width: 46px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -207,7 +207,7 @@
   gap: 3px;
 }
 .gv-fader--narrow {
-  width: 38px;
+  width: 40px;
 }
 .gv-fader__val {
   flex: none;
@@ -272,7 +272,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-2);
 }
 .gv-fader__sw {
@@ -329,13 +329,15 @@
   height: 20px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 0;
+  width: 46px;
 }
 .gv-group__sel {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 15px;
   height: 20px;
   padding: 0;
   border: 0;
@@ -350,7 +352,7 @@
 }
 .gv-group--new {
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 2px;
 }
 .gv-masters__gm {
   flex: none;

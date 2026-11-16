@@ -153,7 +153,6 @@ export function Masters({ groups, grandMaster, density, units, disabled, onGroup
               disabled={disabled}
               narrow={narrow}
               resetTo={255}
-              sub={g.fixtureIds.length === 1 ? t("1 light") : t("{n} lights", { n: g.fixtureIds.length })}
             />
             <div className="gv-group__tools">
               {renaming === g.id ? (
@@ -191,9 +190,7 @@ export function Masters({ groups, grandMaster, density, units, disabled, onGroup
         ))}
         {onCreate ? (
           <div className="gv-group gv-group--new">
-            <Button variant="sm" icon="plus" disabled={!canCreate} title={canCreate ? t("Make a group from the selected lights") : t("Select some lights first")} onClick={onCreate}>
-              {t("Group")}
-            </Button>
+            <Button variant="ghost" iconOnly icon="plus" disabled={!canCreate} aria-label={t("Make a group from the selected lights")} title={canCreate ? t("Make a group from the selected lights") : t("Select some lights first")} onClick={onCreate} />
           </div>
         ) : null}
         {!groups.length && !onCreate ? <p className="gv-empty">{t("No groups.")}</p> : null}

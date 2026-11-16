@@ -24,7 +24,10 @@ export async function selectMemory(t: TFunc, id: Id): Promise<void> {
     useUi.getState().showToast(t("Leave Blind first (Esc) to change what is on stage."));
     return;
   }
-  if (d.liveMemoryId === id && !d.modified) return;
+  if (d.liveMemoryId === id && !d.modified) {
+    d.setCursor(id);
+    return;
+  }
   if (d.modified && d.liveMemoryId && d.liveMemoryId !== id) {
     const choice = await confirmSave({
       title: t("Changes not saved"),
