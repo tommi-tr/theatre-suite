@@ -1,0 +1,52 @@
+[package]
+name = "diaframma"
+version = "0.2.2"
+description = "Diaframma — sound for the theatre (Theatre Suite)"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "diaframma_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-single-instance = "2.5.5"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+parking_lot = "0.13.0"
+cpal = "0.18.2"
+symphonia = { version = "0.5.5", features = ["all"] }
+rtrb = "0.4.1"
+log = "0.4.35"
+tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+tiny_http = "0.12.0"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+  "Foundation",
+  "Foundation_Collections",
+  "Media_Control",
+  "Storage_Streams",
+  "Win32_Foundation",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_System_Threading",
+  "Win32_System_WinRT",
+  "Win32_System_ProcessStatus",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_Devices_FunctionDiscovery",
+] }
+windows-core = "0.62.2"
