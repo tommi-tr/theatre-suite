@@ -26,11 +26,14 @@ interface SetupStore {
   camera: StageCamera;
   /** Scenery piece selected with the "Scenografia" tool. */
   sceneryId: Id | null;
+  /** Memory whose scenery is shown and edited with the "Scenografia" tool; null = every piece where it was built. */
+  sceneryMemoryId: Id | null;
   setAddOpen: (v: boolean) => void;
   setCentre: (c: SetupCentre) => void;
   setTool: (t: StageTool) => void;
   setCamera: (c: StageCamera) => void;
   setSceneryId: (id: Id | null) => void;
+  setSceneryMemoryId: (id: Id | null) => void;
   setRenaming: (id: Id | null) => void;
   setEditingTruss: (id: Id | null) => void;
   setNumbering: (s: NumberingState | null) => void;
@@ -47,11 +50,13 @@ export const useSetup = create<SetupStore>((set) => ({
   tool: "move",
   camera: "perspective",
   sceneryId: null,
+  sceneryMemoryId: null,
   setAddOpen: (addOpen) => set({ addOpen }),
   setCentre: (centre) => set({ centre }),
   setTool: (tool) => set({ tool }),
   setCamera: (camera) => set({ camera }),
   setSceneryId: (sceneryId) => set({ sceneryId }),
+  setSceneryMemoryId: (sceneryMemoryId) => set({ sceneryMemoryId }),
   setRenaming: (renamingId) => set({ renamingId }),
   setEditingTruss: (editingTrussId) => set({ editingTrussId }),
   setNumbering: (numbering) => set({ numbering }),

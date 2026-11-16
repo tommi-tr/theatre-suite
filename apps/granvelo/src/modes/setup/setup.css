@@ -1038,3 +1038,44 @@
   font-family: var(--font-ui);
   font-weight: 600;
 }
+
+/* Scenery per memory: a tick for "on stage in this memory" in front of each piece, and what changes from the memory before. */
+.gv-su-pieceRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.gv-su-pieceRow.is-off .gv-su-piece {
+  opacity: 0.5;
+}
+.gv-su-piececheck {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 0 0 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.gv-su-change {
+  margin-left: auto;
+  flex: none;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+.gv-su-change--enters {
+  color: var(--go);
+  border-color: var(--go-line);
+}
+.gv-su-change--leaves {
+  color: var(--stop);
+  border-color: var(--stop);
+}
+.gv-su-change--moves {
+  color: var(--sb);
+  border-color: var(--sb-line);
+}

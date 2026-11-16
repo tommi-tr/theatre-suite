@@ -41,6 +41,7 @@ export function DeskStage() {
       <StageView
         doc={stageDoc}
         camera="front"
+        margin={0.3}
         values={shown}
         selected={selection}
         scenery={(blindMemory ?? liveMemory)?.scenery ?? "all"}
@@ -55,7 +56,7 @@ export function DeskStage() {
         <>
           <span className="gv-dstage__badge">{t("BLIND · only you can see this")}</span>
           <div className="gv-dstage__inset" aria-label={t("What is really on stage")}>
-            <StageView2D doc={stageDoc} view="front" values={real} scenery={liveMemory?.scenery ?? "all"} compact />
+            <StageView2D doc={stageDoc} view="front" margin={0.3} values={real} scenery={liveMemory?.scenery ?? "all"} compact />
             <span className="gv-dstage__insetlabel">{t("On stage")}</span>
           </div>
         </>

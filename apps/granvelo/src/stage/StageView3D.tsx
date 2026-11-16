@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useT } from "@theatre-suite/core";
@@ -190,6 +190,8 @@ interface Ctx {
   /** Symbols to turn towards their aim at every render. */
   facing: { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; offset: number }[];
   pickables: THREE.Object3D[];
+  /** Where every light is, for the box selection. */
+  lightPoints: { id: string; at: THREE.Vector3 }[];
   /** Spotlights that make the shadows of the scenery ("Alta"); created the first time they are needed. */
   spots: SpotPool | null;
   pending: number;
@@ -204,7 +206,8 @@ export default function StageView3D(props: StageView3DProps) {
   const ctxRef = useRef<Ctx | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
-  const dragRef = useRef<{ drag: StageDrag | null; hit: StageHit; info: PressInfo; start: { x: number; y: number }; startWorld: Vec3 | null; moved: boolean; axes: DragAxes; pointer: number } | null>(null);
+  const dragRef = useRef<{ drag: StageDrag | null; hit: StageHit; info: PressInfo; start: { x: number; y: number }; startWorld: Vec3 | null; moved: boolean; axes: DragAxes; pointer: number; box?: boolean } | null>(null);
+  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
   // Start three.js once.
   useEffect(() => {
@@ -248,6 +251,7 @@ export default function StageView3D(props: StageView3DProps) {
       shared: { circle: new THREE.CircleGeometry(1, 48), cone: new THREE.ConeGeometry(1, 1, 32, 1, true) },
       facing: [],
       pickables: [],
+      lightPoints: [],
       spots: null,
       pending: 0,
       pal,
@@ -360,7 +364,7 @@ export default function StageView3D(props: StageView3DProps) {
       }
     } else {
       const view = ctx.mode === "plan" ? "plan" : "front";
-      const b = viewBounds({ ...doc, scenery: [] }, view, 0.6);
+      const b = viewBounds({ ...doc, scenery: [] }, view, propsRef.current.margin ?? 0.6);
       const bw = b.maxX - b.minX;
       const bh = b.maxY - b.minY;
       const scale = Math.max(bw / aspect, bh) / 2;
@@ -419,6 +423,7 @@ export default function StageView3D(props: StageView3DProps) {
     ctx.content.clear();
     ctx.facing = [];
     ctx.pickables = [];
+    ctx.lightPoints = [];
     const G = ctx.content;
     const { width, depth, height } = doc.stage;
     const high = (p.detail ?? "medium") === "high" && !p.compact;
@@ -509,6 +514,7 @@ export default function StageView3D(props: StageView3DProps) {
     let order = 0;
     for (const l of lights) {
       const pos = W(l.pos);
+      ctx.lightPoints.push({ id: l.f.id, at: pos });
       if (l.light) {
         const { hue, level } = l.light;
         const pool = l.pool;
@@ -676,6 +682,16 @@ export default function StageView3D(props: StageView3DProps) {
     if (!p.onPress || e.button !== 0) return;
     const hit = hitAt(e);
     const info = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, alt: e.altKey };
+    if (hit.kind === "empty" && p.onBox && (info.shift || info.ctrl)) {
+      // Shift or Ctrl + drag on empty space: a box that selects lights (a plain drag turns or moves the view).
+      const r = boxRef.current!.getBoundingClientRect();
+      dragRef.current = { drag: null, hit, info, start: { x: e.clientX, y: e.clientY }, startWorld: null, moved: false, axes: "xy", pointer: e.pointerId, box: true };
+      setBox({ x0: e.clientX - r.left, y0: e.clientY - r.top, x1: e.clientX - r.left, y1: e.clientY - r.top });
+      e.stopPropagation();
+      e.preventDefault();
+      boxRef.current?.setPointerCapture(e.pointerId);
+      return;
+    }
     if (hit.kind === "empty") {
       // The click on empty space is decided on release: a drag there turns or moves the view.
       dragRef.current = { drag: null, hit, info, start: { x: e.clientX, y: e.clientY }, startWorld: null, moved: false, axes: "xy", pointer: e.pointerId };
@@ -717,6 +733,13 @@ export default function StageView3D(props: StageView3DProps) {
       return;
     }
     if (e.pointerId !== d.pointer) return;
+    if (d.box) {
+      if (!d.moved && Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 4) return;
+      d.moved = true;
+      const r = boxRef.current!.getBoundingClientRect();
+      setBox((b) => (b ? { ...b, x1: e.clientX - r.left, y1: e.clientY - r.top } : b));
+      return;
+    }
     if (!d.moved && Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 4) return;
     d.moved = true;
     if (!d.drag) return;
@@ -727,6 +750,29 @@ export default function StageView3D(props: StageView3DProps) {
   function finish(e: { clientX: number; clientY: number } | null) {
     const d = dragRef.current;
     if (!d) return;
+    if (d.box) {
+      dragRef.current = null;
+      const r = box;
+      setBox(null);
+      const ctx = ctxRef.current;
+      if (e && d.moved && r && ctx) {
+        const x0 = Math.min(r.x0, r.x1);
+        const x1 = Math.max(r.x0, r.x1);
+        const y0 = Math.min(r.y0, r.y1);
+        const y1 = Math.max(r.y0, r.y1);
+        const v = new THREE.Vector3();
+        const ids = ctx.lightPoints
+          .filter((l) => {
+            v.copy(l.at).project(ctx.camera);
+            const px = ((v.x + 1) / 2) * ctx.size.w;
+            const py = ((1 - v.y) / 2) * ctx.size.h;
+            return v.z < 1 && px >= x0 && px <= x1 && py >= y0 && py <= y1;
+          })
+          .map((l) => l.id);
+        propsRef.current.onBox?.(ids, d.info);
+      }
+      return;
+    }
     const to = d.drag && e && d.moved ? dragPoint(e) : null;
     dragRef.current = null;
     if (!d.drag) {
@@ -738,7 +784,11 @@ export default function StageView3D(props: StageView3DProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && dragRef.current?.drag) {
+      if (e.key === "Escape" && dragRef.current?.box) {
+        e.stopPropagation();
+        dragRef.current = null;
+        setBox(null);
+      } else if (e.key === "Escape" && dragRef.current?.drag) {
         e.stopPropagation();
         finish(null);
       }
@@ -758,6 +808,8 @@ export default function StageView3D(props: StageView3DProps) {
       onPointerUp={(e) => finish(e)}
       onPointerCancel={() => finish(null)}
       onContextMenu={(e) => e.preventDefault()}
-    />
+    >
+      {box ? <div className="gv-stage3d__box" style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }} /> : null}
+    </div>
   );
 }

@@ -20,14 +20,13 @@ export const itStage: Dict = {
   "Delete the piece": "Elimina l'elemento",
   "Delete this piece?": "Eliminare questo elemento?",
   Diameter: "Diametro",
-  "Drag a light to move it (Shift: up and down). Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.":
-    "Trascina una luce per spostarla (Maiusc: su e giù). Lasciata in alto senza americane vicine ne crea una; vicino a un'americana ci si aggancia; vicino al pavimento va a terra.",
-  "Drag a light to move it. Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.":
-    "Trascina una luce per spostarla. Lasciata in alto senza americane vicine ne crea una; vicino a un'americana ci si aggancia; vicino al pavimento va a terra.",
+  "Drag a light or a truss to move it (Shift: up and down). Shift + drag on empty space selects several lights. A light left high with no truss nearby creates one; near a truss it hangs on it; near the floor it stands on it.":
+    "Trascina una luce o un'americana per spostarla (Maiusc: su e giù). Maiusc + trascina nello spazio vuoto per selezionare più luci. Una luce lasciata in alto senza americane vicine ne crea una; vicino a un'americana ci si aggancia; vicino al pavimento va a terra.",
+  "Drag a light or a truss to move it. Shift + drag on empty space selects several lights. A light left high with no truss nearby creates one; near a truss it hangs on it; near the floor it stands on it.":
+    "Trascina una luce o un'americana per spostarla. Maiusc + trascina nello spazio vuoto per selezionare più luci. Una luce lasciata in alto senza americane vicine ne crea una; vicino a un'americana ci si aggancia; vicino al pavimento va a terra.",
   "Drag the round handle to where the selected lights should point.": "Trascina il mirino dove devono puntare le luci selezionate.",
   "Flat panel": "Pannello piano",
   Front: "Frontale",
-  "Memories remember which pieces are on stage and where: that comes with the desk.": "Le memorie ricordano quali elementi sono in scena e dove: arriva con il Banco.",
   "Mouse: left turns, right moves, wheel zooms.": "Mouse: sinistro ruota, destro sposta, rotella avvicina.",
   Move: "Sposta",
   "Name of the piece": "Nome dell'elemento",

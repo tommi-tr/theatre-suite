@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { Button, Segmented } from "@theatre-suite/ui";
-import { dropLights, setAims, updateScenery } from "../../model/ops";
+import { dropLights, moveTruss, setAims, updateScenery } from "../../model/ops";
+import { moveSceneryInMemory } from "../../model/sceneryMemory";
 import type { GranveloDoc, Id, Vec3 } from "../../model/types";
 import { fmtNum } from "../../lib/format";
 import { useDoc } from "../../store/doc";
 import { useOutput } from "../../store/output";
 import { useStageDetail } from "../../store/previewDetail";
 import { useUi } from "../../store/ui";
-import { StageView, lightPosition, webglAvailable, resolveDrop, type OnStagePress, type StageCamera, type StageDrag } from "../../stage";
+import { StageView, lightPosition, webglAvailable, resolveDrop, type DragAxes, type OnStagePress, type PressInfo, type StageCamera, type StageDrag } from "../../stage";
 import { trussName, useSelectedIds } from "./common";
 import { numberClick } from "./LightsList";
 import { useSetup, type StageTool } from "./store";
@@ -29,6 +30,7 @@ export function StagePanel() {
   const tool = useSetup((s) => s.tool);
   const camera = useSetup((s) => s.camera);
   const sceneryId = useSetup((s) => s.sceneryId);
+  const memoryId = useSetup((s) => s.sceneryMemoryId);
   const numbering = useSetup((s) => s.numbering);
   const ask = useSetup((s) => s.numberingAsk);
   const detail = useStageDetail();
@@ -55,14 +57,30 @@ export function StagePanel() {
       const start = useDoc.getState().doc!;
       const piece = start.scenery.find((s) => s.id === hit.id);
       if (!piece) return null;
+      // With a memory chosen, the drag moves the piece in that memory only (one undo step).
+      const mem = useSetup.getState().sceneryMemoryId;
+      const placed = mem ? start.memories.find((m) => m.id === mem)?.scenery.find((p) => p.sceneryId === piece.id) : null;
+      if (mem) {
+        if (!placed) return null;
+        const put = (d: GranveloDoc, to: Vec3) => moveSceneryInMemory(d, mem, piece.id, { position: to });
+        return drag(placed.position, (to) => {
+          setReadout(`${piece.name || t("Piece")} · ${xyz(to)}`);
+          return put(start, to);
+        }, put);
+      }
       return drag(piece.position, (to) => {
         setReadout(`${piece.name || t("Piece")} · ${xyz(to)}`);
         return updateScenery(start, piece.id, { position: to });
       }, (d, to) => updateScenery(d, piece.id, { position: to }));
     }
     if (hit.kind === "truss") {
-      setup.setEditingTruss(hit.id);
-      return null;
+      const start = useDoc.getState().doc!;
+      const bar = start.trusses.find((x) => x.id === hit.id);
+      if (!bar || tool !== "move") {
+        setup.setEditingTruss(hit.id);
+        return null;
+      }
+      return trussDrag(start, bar);
     }
     if (hit.kind === "empty") {
       if (!info.ctrl && !info.shift) ui.setSelection([]);
@@ -146,6 +164,42 @@ export function StagePanel() {
     return null;
   };
 
+  /**
+   * Moving a bar with the mouse: in the plan and in perspective it changes its depth (Y), in the front view its height (Z),
+   * in perspective with Shift its height. The lights on it follow. A click without moving opens its editor in the list.
+   */
+  function trussDrag(start: GranveloDoc, bar: { id: Id; y: number; z: number }): StageDrag {
+    const moved = (d: GranveloDoc, to: Vec3, axes: DragAxes) => {
+      const lim = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+      const patch = axes === "xz" || axes === "z" ? { z: lim(to.z, 0.5, 30) } : { y: lim(to.y, 0, start.stage.depth + 1) };
+      return moveTruss(d, bar.id, patch);
+    };
+    const name = (d: GranveloDoc) => trussName(t, d, bar.id);
+    return {
+      from: { x: 0, y: bar.y, z: bar.z },
+      move: (to, axes) => {
+        const d = moved(start, to, axes);
+        const b = d.trusses.find((x) => x.id === bar.id)!;
+        setReadout(`${name(start)} · Y ${n(b.y)} · Z ${n(b.z)} m`);
+        setPreview(d);
+      },
+      end: (to, axes) => {
+        setPreview(null);
+        setReadout(null);
+        if (!to) useSetup.getState().setEditingTruss(bar.id);
+        else useDoc.getState().change((d) => moved(d, to, axes));
+      },
+    };
+  }
+
+  /** The lights inside a box drawn on the stage become the selection (Shift or Ctrl adds to it). */
+  const onBox = (ids: Id[], info: PressInfo) => {
+    const ui = useUi.getState();
+    const was = ui.selection;
+    const next = info.ctrl || info.shift ? [...was, ...ids.filter((x) => !was.includes(x))] : ids;
+    ui.setSelection(next, next[next.length - 1] ?? null, next[0] ?? null);
+  };
+
   /** A drag that shows `preview(to)` while moving and commits `commit(doc, to)` once at the end (one step of undo). */
   function drag(from: Vec3, previewAt: (to: Vec3) => GranveloDoc, commit: (d: GranveloDoc, to: Vec3) => GranveloDoc): StageDrag {
     const done = (to: Vec3 | null) => {
@@ -157,6 +211,8 @@ export function StagePanel() {
   }
 
   const shown = preview ?? doc;
+  // The scenery of the memory chosen with the "Scenografia" tool (every piece where it was built when none is chosen).
+  const sceneryOfMemory = tool === "scenery" && memoryId ? (shown.memories.find((m) => m.id === memoryId)?.scenery ?? "all") : "all";
   // Without 3D the perspective is not offered: the plan stands in for it.
   const can3D = !no3D && webglAvailable();
   const cam: StageCamera = !can3D && camera === "perspective" ? "plan" : camera;
@@ -169,13 +225,15 @@ export function StagePanel() {
     ? t("Click the lights one after the other: each gets the next address.")
     : tool === "move"
       ? cam === "perspective"
-        ? t("Drag a light to move it (Shift: up and down). Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.")
-        : t("Drag a light to move it. Left high with no truss nearby, it creates one; near a truss it hangs on it; near the floor it stands on it.")
+        ? t("Drag a light or a truss to move it (Shift: up and down). Shift + drag on empty space selects several lights. A light left high with no truss nearby creates one; near a truss it hangs on it; near the floor it stands on it.")
+        : t("Drag a light or a truss to move it. Shift + drag on empty space selects several lights. A light left high with no truss nearby creates one; near a truss it hangs on it; near the floor it stands on it.")
       : tool === "aim"
         ? selected.length
           ? t("Drag the round handle to where the selected lights should point.")
           : t("Select one or more lights, then drag the round handle to where they should point.")
-        : t("Add a piece on the right, then drag it on the stage. Size, turn and colour are on the right.");
+        : memoryId
+          ? t("Drag a piece to move it in this memory only. Pieces that are not on stage in this memory are added from the list on the right.")
+          : t("Add a piece on the right, then drag it on the stage. Size, turn and colour are on the right.");
 
   return (
     <section className="gv-su-stagearea" aria-label={t("Stage")}>
@@ -186,7 +244,10 @@ export function StagePanel() {
           value={tool}
           onChange={(v) => {
             useSetup.getState().setTool(v);
-            if (v !== "scenery") useSetup.getState().setSceneryId(null);
+            if (v !== "scenery") {
+              useSetup.getState().setSceneryId(null);
+              useSetup.getState().setSceneryMemoryId(null);
+            }
           }}
           options={[
             { value: "move", label: t("Move") },
@@ -227,11 +288,13 @@ export function StagePanel() {
           camera={cam}
           values={values}
           selected={selected}
+          scenery={sceneryOfMemory}
           selectedScenery={tool === "scenery" ? sceneryId : null}
           detail={detail}
           showAims={tool === "aim" && !numbering}
           pick={pick}
           onPress={onPress}
+          onBox={!numbering && tool !== "scenery" ? onBox : undefined}
           onNo3D={() => setNo3D(true)}
           className="gv-su-stagebox"
         />

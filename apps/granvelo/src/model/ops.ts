@@ -658,7 +658,19 @@ export function dropLights(doc: GranveloDoc, moves: { id: Id; to: Vec3 }[]): { d
     } else mount = drop.mount;
     d = { ...d, fixtures: d.fixtures.map((x) => (x.id === m.id ? { ...x, mount, position } : x)) };
   }
-  return { doc: d, newTrusses };
+  return { doc: dropEmptiedTrusses(doc, d), newTrusses };
+}
+
+/**
+ * Takes away the trusses with an automatic name (never the ones the user named) that had lights in `before` and have
+ * none in `after`: a truss that was born from a drop disappears when its lights are dragged away. A truss that was
+ * already empty is kept (it was made on purpose).
+ */
+export function dropEmptiedTrusses(before: GranveloDoc, after: GranveloDoc): GranveloDoc {
+  const hung = (d: GranveloDoc, id: Id) => d.fixtures.some((f) => f.mount.kind === "truss" && f.mount.trussId === id);
+  const gone = after.trusses.filter((t) => t.name === null && hung(before, t.id) && !hung(after, t.id)).map((t) => t.id);
+  if (gone.length === 0) return after;
+  return { ...after, trusses: after.trusses.filter((t) => !gone.includes(t.id)) };
 }
 
 /** "Orienta": the aim point of each light given (metres). */

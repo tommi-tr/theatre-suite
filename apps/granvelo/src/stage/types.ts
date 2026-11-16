@@ -48,6 +48,9 @@ export interface StagePick {
   trusses?: boolean;
 }
 
+/** Lights inside a box dragged on empty space (Shift or Ctrl held on press = add to the selection). */
+export type OnStageBox = (ids: Id[], info: PressInfo) => void;
+
 export interface StageViewProps {
   doc: StageDoc;
   /** The 512 DMX values to show (index = channel − 1); omitted = no light, only the symbols. */
@@ -63,6 +66,10 @@ export interface StageViewProps {
   showAims?: boolean;
   pick?: StagePick;
   onPress?: OnStagePress;
+  /** Box selection: drag on empty space (2D views) or Shift/Ctrl + drag (3D, where a plain drag turns or moves the view). */
+  onBox?: OnStageBox;
+  /** Empty room around what is drawn, in metres (default: 0,8 in 2D, 0,6 in the orthogonal 3D views). */
+  margin?: number;
   /** A thumbnail: no labels, no conflicts, thinner lines. */
   compact?: boolean;
   className?: string;

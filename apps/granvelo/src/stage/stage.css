@@ -138,3 +138,19 @@
   color: var(--gv-stage-words);
   pointer-events: none;
 }
+
+.gv-stage2d__box,
+.gv-stage3d__box {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-dasharray: 0.12 0.08;
+  pointer-events: none;
+}
+.gv-stage3d__box {
+  position: absolute;
+  border: 1px dashed var(--accent);
+  background: var(--accent-soft);
+  stroke: none;
+  fill: none;
+  stroke-dasharray: none;
+}

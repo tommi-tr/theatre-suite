@@ -77,6 +77,24 @@
     width: var(--gv-w0);
   }
 }
+@keyframes gv-nastro-open {
+  0%,
+  82% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes gv-nastro-close {
+  0% {
+    opacity: 1;
+  }
+  18%,
+  100% {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .gv-nastro__card {
     animation: none !important;
@@ -163,7 +181,7 @@
 }
 .gv-nastro__trin {
   position: relative;
-  width: 166px;
+  width: 194px;
   height: 100%;
   display: flex;
   flex-direction: column;

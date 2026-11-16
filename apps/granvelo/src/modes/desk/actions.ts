@@ -2,6 +2,7 @@ import type { TFunc } from "@theatre-suite/core";
 import { confirmSave, confirmYesNo } from "@theatre-suite/ui";
 import { addGroup, removeGroup, renameGroup } from "../../model/desk";
 import { memoryNumberFree, renameMemory, setMemoryNumber } from "../../model/desk";
+import { hasRaisedFaders } from "../../model/deskRaised";
 import { removeMemory } from "../../model/ops";
 import { useDesk } from "../../store/desk";
 import { useDoc } from "../../store/doc";
@@ -45,6 +46,17 @@ export async function selectMemory(t: TFunc, id: Id): Promise<void> {
       title: t("Restore the memory?"),
       message: t("The changes you made to the faders will be lost."),
       confirm: t("Restore"),
+      cancel: t("Cancel"),
+      danger: true,
+      close: t("Close"),
+    });
+    if (!ok) return;
+  } else if (!d.liveMemoryId && hasRaisedFaders(useDoc.getState().doc!, d.values)) {
+    // The free desk: what was set with the faders is not in any memory and would be lost.
+    const ok = await confirmYesNo({
+      title: t("Put the memory on stage?"),
+      message: t("The faders are up and not saved in any memory. Putting this memory on stage will lose what you set."),
+      confirm: t("Put on stage"),
       cancel: t("Cancel"),
       danger: true,
       close: t("Close"),

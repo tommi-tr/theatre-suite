@@ -1,11 +1,11 @@
-import { useEffect, useId, useMemo, useRef, type PointerEvent as RPointerEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { useT } from "@theatre-suite/core";
 import { fixtureType } from "../model/fixtureTypes";
 import type { Vec3 } from "../model/types";
 import { SymbolGlyph } from "../common/symbolGlyph";
 import { facing, project, sceneryOutline, unproject, viewBounds, type Box2, type View2D } from "./geometry";
 import { lightLabel, sceneryOnStage, stageLights, symbolOffset, type StageLight } from "./scene";
-import type { DragAxes, StageDrag, StageHit, StageViewProps } from "./types";
+import type { DragAxes, PressInfo, StageDrag, StageHit, StageViewProps } from "./types";
 import "./stage.css";
 
 const NONE: readonly string[] = [];
@@ -17,18 +17,20 @@ const NONE: readonly string[] = [];
  * Units of the drawing = metres.
  */
 export function StageView2D(props: StageViewProps & { view: View2D }) {
-  const { doc, view, values, selected = NONE, scenery = "all", selectedScenery = null, detail = "medium", showAims, pick = {}, onPress, compact, className, label } = props;
+  const { doc, view, values, selected = NONE, scenery = "all", selectedScenery = null, detail = "medium", showAims, pick = {}, onPress, onBox, margin, compact, className, label } = props;
   const t = useT();
   const uid = useId().replace(/:/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<{ drag: StageDrag; start: { x: number; y: number }; startWorld: Vec3; moved: boolean; axes: DragAxes; pointer: number } | null>(null);
   const frozen = useRef<Box2 | null>(null);
+  const boxing = useRef<{ from: { x: number; y: number }; info: PressInfo; pointer: number; moved: boolean } | null>(null);
+  const [box, setBox] = useState<Box2 | null>(null);
 
   const lights = useMemo(() => stageLights(doc, values, selected, !compact, detail === "high"), [doc, values, selected, compact, detail]);
   const pieces = useMemo(() => sceneryOnStage(doc, scenery), [doc, scenery]);
-  const live = useMemo(() => viewBounds(doc, view), [doc, view]);
+  const live = useMemo(() => viewBounds(doc, view, margin), [doc, view, margin]);
   // While dragging, the drawing does not re-frame itself under the mouse.
-  const b = dragging.current && frozen.current ? frozen.current : live;
+  const b = (dragging.current || boxing.current) && frozen.current ? frozen.current : live;
   const w = b.maxX - b.minX;
   const h = b.maxY - b.minY;
   const s = Math.min(0.8, Math.max(0.3, Math.max(w, h) * 0.042));
@@ -59,8 +61,20 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
 
   const onPointerDown = (e: RPointerEvent<SVGSVGElement>) => {
     if (!onPress || e.button !== 0) return;
-    const drag = onPress(hitOf(e.target), { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, alt: e.altKey });
-    if (!drag) return;
+    const hit = hitOf(e.target);
+    const info = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, alt: e.altKey };
+    const drag = onPress(hit, info);
+    if (!drag) {
+      // Nothing to grab: a drag on empty space draws a box that selects the lights inside it.
+      const m = svgRef.current?.getScreenCTM();
+      if (onBox && hit.kind === "empty" && m) {
+        const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+        boxing.current = { from: { x: p.x, y: p.y }, info, pointer: e.pointerId, moved: false };
+        frozen.current = live;
+        svgRef.current?.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
     const startWorld = toWorld(e, drag.from);
     if (!startWorld) return;
     e.preventDefault();
@@ -76,7 +90,22 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
     const to = { x: f.x + p.x - d.startWorld.x, y: f.y + p.y - d.startWorld.y, z: f.z + p.z - d.startWorld.z };
     return view === "plan" ? { ...to, z: f.z } : { ...to, y: f.y };
   };
+  const svgPoint = (e: { clientX: number; clientY: number }) => {
+    const m = svgRef.current?.getScreenCTM();
+    if (!m) return null;
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  };
   const onPointerMove = (e: RPointerEvent<SVGSVGElement>) => {
+    const bx = boxing.current;
+    if (bx && e.pointerId === bx.pointer) {
+      const p = svgPoint(e);
+      if (!p) return;
+      if (!bx.moved && Math.hypot(p.x - bx.from.x, p.y - bx.from.y) * (svgRef.current?.getScreenCTM()?.a ?? 1) < 4) return;
+      bx.moved = true;
+      setBox({ minX: Math.min(bx.from.x, p.x), maxX: Math.max(bx.from.x, p.x), minY: Math.min(bx.from.y, p.y), maxY: Math.max(bx.from.y, p.y) });
+      return;
+    }
     const d = dragging.current;
     if (!d || e.pointerId !== d.pointer) return;
     if (!d.moved && Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 4) return;
@@ -85,6 +114,24 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
     if (to) d.drag.move(to, d.axes);
   };
   const finish = (e: { clientX: number; clientY: number } | null) => {
+    const bx = boxing.current;
+    if (bx) {
+      boxing.current = null;
+      frozen.current = null;
+      const r = box;
+      setBox(null);
+      if (e && bx.moved && r && onBox) {
+        const ids = lights.filter((l) => {
+          const p = project(l.pos, view);
+          return p.x >= r.minX && p.x <= r.maxX && p.y >= r.minY && p.y <= r.maxY;
+        });
+        onBox(
+          ids.map((l) => l.f.id),
+          bx.info,
+        );
+      }
+      return;
+    }
     const d = dragging.current;
     if (!d) return;
     const to = e && d.moved ? pointAt(e) : null;
@@ -96,7 +143,12 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
   // Esc while dragging puts everything back.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && dragging.current) {
+      if (e.key === "Escape" && boxing.current) {
+        e.stopPropagation();
+        boxing.current = null;
+        frozen.current = null;
+        setBox(null);
+      } else if (e.key === "Escape" && dragging.current) {
         e.stopPropagation();
         finish(null);
       }
@@ -315,6 +367,8 @@ export function StageView2D(props: StageViewProps & { view: View2D }) {
             );
           })
         : null}
+
+      {box ? <rect x={box.minX} y={box.minY} width={box.maxX - box.minX} height={box.maxY - box.minY} className="gv-stage2d__box" strokeWidth={stroke * 1.2} /> : null}
     </svg>
   );
 }

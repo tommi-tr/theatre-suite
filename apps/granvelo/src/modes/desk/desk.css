@@ -331,7 +331,7 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 46px;
+  width: 64px;
 }
 .gv-group__sel {
   display: inline-flex;
@@ -362,7 +362,7 @@
   border-left: 1px solid var(--border);
 }
 .gv-masters__gm .gv-fader {
-  width: 56px;
+  width: 64px;
 }
 .gv-masters__gm .gv-fader__val {
   color: var(--text);
@@ -651,4 +651,28 @@
   opacity: 0.35;
   cursor: default;
   background: none;
+}
+
+/* Names of groups and "Grand Master" are never cut with "…": up to two lines in a wider fader. */
+.gv-masters .gv-fader,
+.gv-masters .gv-fader--narrow {
+  width: 64px;
+}
+.gv-masters .gv-fader__label {
+  height: 27px;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+}
+.gv-masters .gv-fader__label > span {
+  display: -webkit-box;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }

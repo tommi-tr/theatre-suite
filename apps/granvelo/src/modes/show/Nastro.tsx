@@ -20,8 +20,8 @@ import { lockedSays, showAction } from "./actions";
 
 /** Slot sizes in pixels (the strip is laid out here so that every card can move from its old slot to its new one). */
 const LIVE_W = 250;
-const TRANS_W = 168;
-const READY_W = 206;
+const TRANS_W = 196;
+const READY_W = 216;
 const NEXT_W = 150;
 const GAP = 10;
 const FOLLOWING = 6;
@@ -182,17 +182,20 @@ export function Nastro() {
    * stage (it slides out on the left as it fills; on Indietro it opens between the two), and the box of the next GO
    * opens between the new live and ready cards (on Indietro, the old one closes): nothing ever covers the cards.
    */
-  const tMove = (x0: number, w0: number, x1: number, w1: number): CSSProperties => {
+  const tMove = (x0: number, w0: number, x1: number, w1: number, kind: "travel" | "open" | "close" = "travel"): CSSProperties => {
     if (!fade || (x0 === x1 && w0 === w1)) return { left: x1, width: w1 };
+    // A box that opens or closes is only seen when it is (nearly) open: a half-open one would squeeze its text, also while paused.
+    const names = kind === "travel" ? "gv-nastro-move" : `gv-nastro-move, gv-nastro-${kind}`;
+    const rep = (v: string) => (kind === "travel" ? v : `${v}, ${v}`);
     return {
       left: x1,
       width: w1,
       ["--gv-dx" as string]: `${x0 - x1}px`,
       ["--gv-w0" as string]: `${w0}px`,
-      animationName: "gv-nastro-move",
-      animationDuration: `${Math.max(1, fade.durationMs)}ms`,
-      animationDelay: `-${startOffset}ms`,
-      animationPlayState: fade.pausedAt !== null ? "paused" : "running",
+      animationName: names,
+      animationDuration: rep(`${Math.max(1, fade.durationMs)}ms`),
+      animationDelay: rep(`-${startOffset}ms`),
+      animationPlayState: rep(fade.pausedAt !== null ? "paused" : "running"),
     };
   };
   const transBox = (m: Memory | undefined, isRunning: boolean, style: CSSProperties, key: string) => {
@@ -261,8 +264,8 @@ export function Nastro() {
           <>
             {transBox(byId.get(fade.toId), true, fade.back ? tMove(0, 0, LIVE_W + GAP, TRANS_W) : tMove(LIVE_W + GAP, TRANS_W, -(TRANS_W + GAP), TRANS_W), "run")}
             {fade.back
-              ? transBox(before[1] ? byId.get(before[1]) : undefined, false, tMove(LIVE_W + GAP, TRANS_W, slot(2).x - GAP, 0), "old")
-              : transBox(ready, false, tMove(slot(1).x + READY_W + GAP, 0, LIVE_W + GAP, TRANS_W), "next")}
+              ? transBox(before[1] ? byId.get(before[1]) : undefined, false, tMove(LIVE_W + GAP, TRANS_W, slot(2).x - GAP, 0, "close"), "old")
+              : transBox(ready, false, tMove(slot(1).x + READY_W + GAP, 0, LIVE_W + GAP, TRANS_W, "open"), "next")}
           </>
         ) : (
           transBox(ready, false, { left: LIVE_W + GAP, width: TRANS_W }, "idle")

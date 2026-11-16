@@ -46,6 +46,30 @@ describe("dropLights", () => {
     expect(r.doc.fixtures[2]).toBe(doc.fixtures[2]);
   });
 
+  it("an automatic truss left empty by the drag disappears; a named one or one that was already empty stays", () => {
+    const { doc, id } = base();
+    const hung = dropLights(doc, [{ id: "f1", to: { x: 0, y: 1.5, z: 4.5 } }]).doc;
+    expect(hung.trusses).toHaveLength(1);
+    const moved = dropLights(hung, [{ id: "f1", to: { x: 0, y: -3, z: 5 } }]);
+    expect(moved.doc.trusses).toHaveLength(0);
+    // named: kept
+    const named = { ...hung, trusses: hung.trusses.map((t) => ({ ...t, name: "Ribalta" })) };
+    expect(dropLights(named, [{ id: "f1", to: { x: 0, y: -3, z: 5 } }]).doc.trusses).toHaveLength(1);
+    // already empty (made on purpose): kept when other lights are moved
+    const other = addTruss(doc, { y: 4, z: 4.5 }).doc;
+    expect(dropLights(other, [{ id: "f1", to: { x: 0, y: -3, z: 5 } }]).doc.trusses).toHaveLength(2);
+    expect(id).toBeTruthy();
+  });
+
+  it("moving a light from one truss to another leaves the first one only if it still has lights", () => {
+    const d0 = addTruss(base().doc, { y: 4, z: 4.5 });
+    const d1 = dropLights(d0.doc, [{ id: "f1", to: { x: 0, y: 1.5, z: 4.5 } }, { id: "f2", to: { x: 1, y: 1.5, z: 4.5 } }]).doc;
+    const r = dropLights(d1, [{ id: "f1", to: { x: 0, y: 4, z: 4.5 } }]);
+    expect(r.doc.trusses).toHaveLength(2);
+    const r2 = dropLights(r.doc, [{ id: "f2", to: { x: 1, y: 4, z: 4.5 } }]);
+    expect(r2.doc.trusses.map((t) => t.y)).toEqual([4]);
+  });
+
   it("ignores unknown lights and impossible points", () => {
     const { doc } = base();
     expect(dropLights(doc, [{ id: "nope", to: { x: 0, y: 0, z: 0 } }, { id: "f1", to: { x: NaN, y: 0, z: 0 } }]).doc).toBe(doc);
