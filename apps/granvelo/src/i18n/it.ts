@@ -30,8 +30,6 @@ export const it: Dict = {
   "Back": "Indietro",
   "Back to Theatre Suite · {show}": "Torna a Theatre Suite · {show}",
   "Beam": "Fascio",
-  "Beam and aim of every light, scenery pieces, and automatic addresses by clicking the lights in order.":
-    "Fascio e puntamento di ogni luce, la scenografia e gli indirizzi automatici cliccando le luci in ordine.",
   "Before going back to another version": "Prima di tornare a un'altra versione",
   "Before the first save of this session": "Prima del primo salvataggio di questa sessione",
   "Blackout, Fade to black and Emergency always in the same place at the bottom, and Lock against accidental changes.":
@@ -114,16 +112,12 @@ export const it: Dict = {
   "Language": "Lingua",
   "Light": "Chiaro",
   "Lights": "Luci",
-  "Lights placed with the mouse: on a truss (it snaps on), floating, or on the floor; a new truss is born when a light is left at a new depth.":
-    "Le luci si sistemano col mouse: su un'americana (con la calamita), fluttuanti o a terra; lasciando una luce a una profondità nuova nasce una nuova americana.",
   "Like the system": "Come il sistema",
   "Load this version as unsaved changes": "Carica questa versione come modifiche non salvate",
   "Macro": "Macro",
   "Main": "Main",
   "Marked as not working by the light check.": "Segnata come guasta dal controllo luci.",
   "Maximize": "Ingrandisci",
-  "Meanwhile the list on the left shows the lights of the show with their addresses: amber means two lights share a channel.":
-    "Intanto l'elenco a sinistra mostra le luci dello spettacolo con i loro indirizzi: in ambra quando due luci usano lo stesso canale.",
   "Meanwhile the memories of the show are listed here, as they are saved in the file.": "Intanto qui accanto ci sono le memorie dello spettacolo, come sono salvate nel file.",
   "Medium": "Media",
   "Memories": "Memorie",
@@ -136,7 +130,6 @@ export const it: Dict = {
   "New show": "Nuovo spettacolo",
   "New show…": "Nuovo spettacolo…",
   "No address conflicts": "Nessun conflitto di indirizzi",
-  "No lights yet. Adding lights on the stage arrives with Granvelo 0.3.": "Ancora nessuna luce. Le luci si aggiungono sul palco con Granvelo 0.3.",
   "No memories in the sequence yet.": "Ancora nessuna memoria nella sequenza.",
   "No memories yet.": "Ancora nessuna memoria.",
   "No note": "Senza nota",
@@ -181,7 +174,6 @@ export const it: Dict = {
   "Saved": "Salvato",
   "Saved, and kept as a version.": "Salvata, e conservata come versione.",
   "Scenery": "Scenografia",
-  "Select a light in the list to see its type, address and channels.": "Seleziona una luce nell'elenco per vederne tipo, indirizzo e canali.",
   "Separate times to go up and down, delay, moving heads that move in the dark, memories that start by themselves.":
     "Tempi separati di salita e discesa, ritardo, teste mobili che si spostano al buio, memorie che partono da sole.",
   "Sequence": "Sequenza",
@@ -214,8 +206,6 @@ export const it: Dict = {
   "The memory on stage in a green box, the next one ready in amber: GO with the space bar, Back and Pause of the transition.":
     "La memoria in scena in un riquadro verde, la successiva pronta in ambra: GO con la barra spaziatrice, Indietro e Pause della transizione.",
   "The show, memory after memory": "Lo spettacolo, memoria dopo memoria",
-  "The stage drawn in 3D with its trusses, viewed in perspective, from above or from the front.": "Il palco disegnato in 3D con le sue americane, visto in prospettiva, dall'alto o di fronte.",
-  "The stage in 3D": "Il palco in 3D",
   "The stage preview arrives with Granvelo 0.3; the levels High and Automatic with Granvelo 0.6.": "L'anteprima del palco arriva con Granvelo 0.3; i livelli Alta e Automatica con Granvelo 0.6.",
   "The test plays the whole sequence of memories without sending anything to the lights, and then writes a short report: how long each transition took and whether anything went wrong. Useful before the first performance and on an old computer.":
     "Il test fa girare tutta la sequenza delle memorie senza mandare nulla alle luci, poi scrive un breve rapporto: quanto è durata ogni transizione e se qualcosa non è andato. Utile prima della prima replica e su un computer vecchio.",

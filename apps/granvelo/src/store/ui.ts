@@ -22,8 +22,12 @@ interface UiStore {
   settingsTab: SettingsTab;
   toast: Toast | null;
   banner: { kind: BannerKind; data?: string } | null;
-  /** Light selected in the list of Allestimento. */
+  /** Light with the cursor in the list of Allestimento (the one the properties name first). */
   fixtureId: Id | null;
+  /** All lights selected in Allestimento (several with Ctrl/Shift click); `fixtureId` is one of them. */
+  selection: Id[];
+  /** Where a Shift range starts. */
+  anchorId: Id | null;
   setMode: (m: Mode) => void;
   openDialog: (kind: DialogKind) => void;
   openSettings: (tab?: SettingsTab) => void;
@@ -33,6 +37,8 @@ interface UiStore {
   clearToast: () => void;
   setBanner: (kind: BannerKind | null, data?: string) => void;
   selectFixture: (id: Id | null) => void;
+  /** Selects several lights at once; `cursor` = the one with the cursor (default: the last), `anchor` = start of a Shift range (default: the cursor). */
+  setSelection: (ids: Id[], cursor?: Id | null, anchor?: Id | null) => void;
 }
 
 export const useUi = create<UiStore>((set) => ({
@@ -42,6 +48,8 @@ export const useUi = create<UiStore>((set) => ({
   toast: null,
   banner: null,
   fixtureId: null,
+  selection: [],
+  anchorId: null,
   setMode: (mode) => set({ mode }),
   openDialog: (dialog) => set({ dialog }),
   openSettings: (tab) => set((s) => ({ dialog: "settings", settingsTab: tab ?? s.settingsTab })),
@@ -50,5 +58,9 @@ export const useUi = create<UiStore>((set) => ({
   showToast: (message, kind = "info") => set({ toast: { message, kind } }),
   clearToast: () => set({ toast: null }),
   setBanner: (kind, data) => set({ banner: kind ? { kind, data } : null }),
-  selectFixture: (fixtureId) => set({ fixtureId }),
+  selectFixture: (fixtureId) => set({ fixtureId, selection: fixtureId ? [fixtureId] : [], anchorId: fixtureId }),
+  setSelection: (ids, cursor, anchor) => {
+    const c = cursor === undefined ? (ids[ids.length - 1] ?? null) : cursor;
+    set({ selection: ids, fixtureId: c, anchorId: anchor === undefined ? c : anchor });
+  },
 }));

@@ -148,3 +148,51 @@ export function applyAddresses<D extends Pick<GranveloDoc, "fixtures">>(doc: D, 
   if (addresses.size === 0) return doc;
   return { ...doc, fixtures: doc.fixtures.map((f) => (addresses.has(f.id) ? { ...f, address: addresses.get(f.id)! } : f)) };
 }
+
+/** Ids of the lights with an address problem (conflict or out of range). */
+export function problemIds(problems: AddressProblems): Set<Id> {
+  return new Set<Id>([...problems.conflicts.keys(), ...problems.outOfRange]);
+}
+
+/** Number of conflicts, counted as pairs of lights that share channels (two lights on the same channel = 1). */
+export function conflictPairs(problems: AddressProblems): number {
+  let n = 0;
+  for (const [id, others] of problems.conflicts) for (const o of others) if (id < o) n++;
+  return n;
+}
+
+export interface ConflictDetail {
+  other: Fixture;
+  /** First and last channel the two lights share. */
+  from: number;
+  to: number;
+}
+
+/** With which other used lights, and on which channels, a light is in conflict (empty for an unused light or one without address). */
+export function conflictDetails(doc: Pick<GranveloDoc, "fixtures">, id: Id): ConflictDetail[] {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f || f.unused || f.address === null) return [];
+  const mine = new Set(occupiedChannels(f));
+  const out: ConflictDetail[] = [];
+  for (const o of doc.fixtures) {
+    if (o.id === id || o.unused) continue;
+    const shared = occupiedChannels(o).filter((c) => mine.has(c));
+    if (shared.length) out.push({ other: o, from: shared[0], to: shared[shared.length - 1] });
+  }
+  return out;
+}
+
+/** Lights of the document that have an address problem in `after` and did not have it in `before`. */
+export function newProblems(before: Pick<GranveloDoc, "fixtures">, after: Pick<GranveloDoc, "fixtures">): Id[] {
+  const was = problemIds(addressProblems(before));
+  return [...problemIds(addressProblems(after))].filter((id) => !was.has(id));
+}
+
+/**
+ * "Numera in fila da…": the lights, in the order given, get consecutive addresses (each after the channels of the
+ * previous one) from `start`. Lights that do not fit before channel 512 keep their address and are returned.
+ */
+export function numberInRow<D extends Pick<GranveloDoc, "fixtures">>(doc: D, orderedIds: Id[], start: number): { doc: D; notFitting: Id[] } {
+  const r = numberByClicks(doc, orderedIds, start);
+  return { doc: applyAddresses(doc, r.addresses), notFitting: r.notFitting };
+}

@@ -1,8 +1,8 @@
 import { uid } from "@theatre-suite/core";
 import { defaultChannels, fixtureType } from "./fixtureTypes";
-import { nextFreeAddress } from "./addresses";
+import { nextFreeAddress, occupiedChannels } from "./addresses";
 import { valuesOf } from "./universe";
-import type { Channel, Fixture, FixtureTypeId, GranveloDoc, Id, Memory, Mount, Stage, Truss, Vec3 } from "./types";
+import { CHANNEL_FUNCTIONS, type Channel, type ChannelFunction, type Fixture, type FixtureTypeId, type GranveloDoc, type Id, type Memory, type Mount, type Stage, type Truss, type Vec3 } from "./types";
 
 /**
  * Operations on the document. Every function returns a new document (the old one is untouched: undo keeps
@@ -51,7 +51,7 @@ export function nextFixtureNumber(doc: Pick<GranveloDoc, "fixtures">): number {
 export function defaultAim(position: Vec3, mount: Mount, stage: Stage): Vec3 {
   const half = stage.width / 2;
   if (position.y < 0) return { x: round2(Math.max(-half * 0.7, Math.min(half * 0.7, position.x * 0.6))), y: round2(Math.min(1.5, stage.depth / 3)), z: 1.6 };
-  if (mount.kind === "floor") return { x: position.x <= 0 ? round2(half) : round2(-half), y: position.y, z: position.z };
+  if (mount.kind === "floor") return { x: position.x <= 0 ? round2(half) : round2(-half), y: position.y, z: round2(position.z + 1.2) };
   if (position.y > stage.depth * 0.7) return { x: position.x, y: round2(Math.max(0, position.y - 2.5)), z: 1.5 };
   return { x: position.x, y: position.y, z: 0 };
 }
@@ -196,4 +196,445 @@ export function removeMemory(doc: GranveloDoc, id: Id): GranveloDoc {
 export function addMemory(doc: GranveloDoc, memory: Memory, inSequence = true): GranveloDoc {
   if (doc.memories.some((m) => m.number === memory.number || m.id === memory.id)) throw new Error(`Memory ${memory.number} already exists`);
   return { ...doc, memories: [...doc.memories, memory], sequence: inSequence ? [...doc.sequence, memory.id] : doc.sequence };
+}
+
+/* ------------------------------------------------------------------ */
+/* Allestimento: lists, placement, adding and editing lights           */
+/* ------------------------------------------------------------------ */
+
+/** Where lights are placed when they are added (a truss that exists, or one of the free places). */
+export type PlaceChoice = { kind: "house" } | { kind: "truss"; trussId: Id } | { kind: "floating" } | { kind: "floor" };
+
+export interface Placement {
+  mount: Mount;
+  position: Vec3;
+  aim: Vec3;
+}
+
+const sameChoice = (f: Fixture, doc: Pick<GranveloDoc, "trusses">, place: PlaceChoice): boolean => {
+  const k = placeOf(f, doc);
+  if (place.kind === "truss") return k.kind === "truss" && k.trussId === place.trussId;
+  if (place.kind === "floating") return k.kind === "floatingStage";
+  return k.kind === place.kind;
+};
+
+/**
+ * Takes `count` of `slots` that are the farthest from the already used `taken` values (each taken value
+ * removes the slot nearest to it); the rest, in order, are the places for the new lights.
+ */
+function freeSlots(slots: number[], taken: number[], count: number): number[] {
+  const left = [...slots];
+  for (const t of taken) {
+    if (left.length <= count) break;
+    let best = 0;
+    for (let i = 1; i < left.length; i++) if (Math.abs(left[i] - t) < Math.abs(left[best] - t)) best = i;
+    left.splice(best, 1);
+  }
+  return left.slice(0, count);
+}
+
+/** `n` centres of equal slots between `lo` and `hi`. */
+const slotCentres = (n: number, lo: number, hi: number): number[] => Array.from({ length: n }, (_, i) => lo + ((i + 0.5) * (hi - lo)) / n);
+
+/**
+ * Believable first position, beam position and aim for `count` new lights at a place (10_granvelo.md:
+ * "in sala puntano al proscenio (distribuite, non tutte al centro), sopra il palco a pioggia, i tagli orizzontali,
+ * quelle sul fondo in controluce"). New lights are spread across the width of the stage (on the floor: along its
+ * depth, alternating sides) and keep away from the lights that are already there. Pure: the 3D stage reuses it
+ * for lights dropped without a precise position.
+ */
+export function defaultPlacement(doc: Pick<GranveloDoc, "stage" | "trusses" | "fixtures">, place: PlaceChoice, count: number): Placement[] {
+  const { stage } = doc;
+  const here = doc.fixtures.filter((f) => sameChoice(f, doc, place));
+  const half = Math.max(0.5, stage.width / 2 - 0.6);
+  const out: Placement[] = [];
+  if (place.kind === "floor") {
+    const ys = freeSlots(slotCentres(here.length + count, stage.depth * 0.1, stage.depth * 0.9), here.map((f) => f.position.y), count);
+    ys.forEach((y, i) => {
+      const side = (here.length + i) % 2 === 0 ? -1 : 1;
+      const mount: Mount = { kind: "floor" };
+      const position = { x: round2(side * (stage.width / 2 - 0.4)), y: round2(y), z: 0 };
+      out.push({ mount, position, aim: defaultAim(position, mount, stage) });
+    });
+    return out;
+  }
+  const xs = freeSlots(slotCentres(here.length + count, -half, half), here.map((f) => f.position.x), count);
+  let mount: Mount;
+  let y: number;
+  let z: number;
+  if (place.kind === "truss") {
+    const truss = doc.trusses.find((t) => t.id === place.trussId);
+    mount = { kind: "truss", trussId: place.trussId };
+    y = truss?.y ?? stage.depth / 2;
+    z = truss?.z ?? stage.height;
+  } else if (place.kind === "house") {
+    mount = { kind: "floating" };
+    y = here[0]?.position.y ?? -3;
+    z = here[0]?.position.z ?? 3;
+  } else {
+    mount = { kind: "floating" };
+    y = round2(stage.depth / 2);
+    z = round2(stage.height * 0.8);
+  }
+  for (const x of xs) {
+    const position = { x: round2(x), y: round2(y), z: round2(z) };
+    out.push({ mount, position, aim: defaultAim(position, mount, stage) });
+  }
+  return out;
+}
+
+/** Depth and height for a new truss: the first free step of 1,5 m from the front, a little under the top of the stage. */
+export function nextTrussSpot(doc: Pick<GranveloDoc, "stage" | "trusses">): { y: number; z: number } {
+  const z = round2(Math.max(2, doc.stage.height - 0.5));
+  for (let y = 1.5; y <= doc.stage.depth - 0.5; y += 1.5)
+    if (!doc.trusses.some((t) => Math.abs(t.y - y) < 0.6)) return { y: round2(y), z };
+  return { y: round2(doc.stage.depth / 2), z };
+}
+
+/** Adds a truss. Returns the document and its id. */
+export function addTruss(doc: GranveloDoc, spot: { y: number; z: number; name?: string | null }): { doc: GranveloDoc; id: Id } {
+  const truss: Truss = { id: uid(), name: spot.name?.trim() ? spot.name.trim() : null, y: round2(spot.y), z: round2(spot.z) };
+  return { doc: { ...doc, trusses: [...doc.trusses, truss] }, id: truss.id };
+}
+
+/** Renames a truss; an empty name goes back to the automatic one ("1ª americana"). */
+export function renameTruss(doc: GranveloDoc, id: Id, name: string): GranveloDoc {
+  const next = name.trim() ? name.trim() : null;
+  if (!doc.trusses.some((t) => t.id === id && t.name !== next)) return doc;
+  return { ...doc, trusses: doc.trusses.map((t) => (t.id === id ? { ...t, name: next } : t)) };
+}
+
+/** Moves a truss (depth Y and/or height Z, metres): the lights on it follow. */
+export function moveTruss(doc: GranveloDoc, id: Id, to: { y?: number; z?: number }): GranveloDoc {
+  const t = doc.trusses.find((x) => x.id === id);
+  if (!t) return doc;
+  const y = to.y === undefined ? t.y : round2(to.y);
+  const z = to.z === undefined ? t.z : round2(to.z);
+  if (y === t.y && z === t.z) return doc;
+  return {
+    ...doc,
+    trusses: doc.trusses.map((x) => (x.id === id ? { ...x, y, z } : x)),
+    fixtures: doc.fixtures.map((f) => (f.mount.kind === "truss" && f.mount.trussId === id ? { ...f, position: { ...f.position, y, z } } : f)),
+  };
+}
+
+/** Lights hanging on a truss. */
+export function lightsOnTruss(doc: Pick<GranveloDoc, "fixtures">, id: Id): Fixture[] {
+  return doc.fixtures.filter((f) => f.mount.kind === "truss" && f.mount.trussId === id);
+}
+
+/** Removes a truss; the lights that hung on it become floating at the same coordinates. */
+export function removeTruss(doc: GranveloDoc, id: Id): GranveloDoc {
+  if (!doc.trusses.some((t) => t.id === id)) return doc;
+  return {
+    ...doc,
+    trusses: doc.trusses.filter((t) => t.id !== id),
+    fixtures: doc.fixtures.map((f) => (f.mount.kind === "truss" && f.mount.trussId === id ? { ...f, mount: { kind: "floating" } as Mount } : f)),
+  };
+}
+
+/** What the list of Allestimento shows: like `fixturesByPlace` but every truss appears, also without lights. */
+export function listGroups(doc: Pick<GranveloDoc, "fixtures" | "trusses">): PlaceGroup[] {
+  const filled = fixturesByPlace(doc);
+  const out: PlaceGroup[] = [];
+  const house = filled.find((g) => g.key.kind === "house");
+  if (house) out.push(house);
+  for (const t of trussesInOrder(doc)) out.push(filled.find((g) => g.key.kind === "truss" && g.key.trussId === t.id) ?? { key: { kind: "truss", trussId: t.id }, fixtures: [] });
+  for (const k of ["floatingStage", "floor"] as const) {
+    const g = filled.find((x) => x.key.kind === k);
+    if (g) out.push(g);
+  }
+  return out;
+}
+
+/** The lights in the order of the list (top to bottom). */
+export function listOrder(doc: Pick<GranveloDoc, "fixtures" | "trusses">): Id[] {
+  return listGroups(doc).flatMap((g) => g.fixtures.map((f) => f.id));
+}
+
+/** Where `count` new lights go: a place that exists, or a new truss created for the occasion. */
+export type AddPlace = PlaceChoice | { kind: "newTruss" };
+/** First address of new lights: the first free ones, a given one (consecutive from there), or none. */
+export type AddressStart = { kind: "next" } | { kind: "at"; address: number } | { kind: "none" };
+
+export interface AddFixturesSpec {
+  typeId: FixtureTypeId;
+  /** 1–24 */
+  count: number;
+  /** "PAR" gives "PAR 1", "PAR 2"…; empty = no name (the list shows the type). */
+  baseName: string;
+  place: AddPlace;
+  address: AddressStart;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Highest N among the lights named "<base> N". */
+function highestSuffix(doc: Pick<GranveloDoc, "fixtures">, base: string): number {
+  const re = new RegExp(`^${escapeRe(base)} (\\d+)$`);
+  return doc.fixtures.reduce((n, f) => {
+    const m = re.exec(f.name);
+    return m ? Math.max(n, Number(m[1])) : n;
+  }, 0);
+}
+
+/** The names `addFixtures` would give: "PAR 4", "PAR 5"… continuing after the existing ones (empty base = no names). */
+export function autoNames(doc: Pick<GranveloDoc, "fixtures">, baseName: string, count: number): string[] {
+  const base = baseName.trim();
+  const first = highestSuffix(doc, base) + 1;
+  return Array.from({ length: count }, (_, i) => (base ? `${base} ${first + i}` : ""));
+}
+
+/**
+ * Adds several lights of one type with believable positions (`defaultPlacement`) and names ("PAR 1", "PAR 2"…,
+ * continuing after the ones that exist). Addresses: `next` = each light takes the first free address after the
+ * ones already taken; `at` = consecutive from the address given (a light that does not fit before 512 gets none).
+ * Never changes the other lights.
+ */
+export function addFixtures(doc: GranveloDoc, spec: AddFixturesSpec): { doc: GranveloDoc; ids: Id[]; trussId: Id | null; unaddressed: number } {
+  const count = Math.max(1, Math.min(24, Math.floor(spec.count)));
+  let d = doc;
+  let place: PlaceChoice;
+  let trussId: Id | null = null;
+  if (spec.place.kind === "newTruss") {
+    const made = addTruss(d, nextTrussSpot(d));
+    d = made.doc;
+    trussId = made.id;
+    place = { kind: "truss", trussId: made.id };
+  } else place = spec.place;
+  const placements = defaultPlacement(d, place, count);
+  const base = spec.baseName.trim();
+  const first = highestSuffix(d, base) + 1;
+  const type = fixtureType(spec.typeId);
+  const ids: Id[] = [];
+  let unaddressed = 0;
+  let cursor = spec.address.kind === "at" ? spec.address.address : 1;
+  placements.forEach((p, i) => {
+    const channels = defaultChannels(spec.typeId);
+    let address: number | null = null;
+    if (spec.address.kind === "next") address = nextFreeAddress(d, channels.length);
+    else if (spec.address.kind === "at") {
+      address = cursor >= 1 && cursor + channels.length - 1 <= 512 ? cursor : null;
+      cursor += channels.length;
+    }
+    if (spec.address.kind !== "none" && address === null) unaddressed++;
+    const f: Fixture = {
+      id: uid(),
+      number: nextFixtureNumber(d),
+      name: base ? `${base} ${first + i}` : "",
+      typeId: spec.typeId,
+      universe: 1,
+      address,
+      channels,
+      mount: p.mount,
+      position: p.position,
+      beam: { angle: type.beam },
+      aim: p.aim,
+      unused: false,
+      broken: false,
+    };
+    d = { ...d, fixtures: [...d.fixtures, f] };
+    ids.push(f.id);
+  });
+  return { doc: d, ids, trussId, unaddressed };
+}
+
+/** Removes several lights. The others keep their numbers and addresses. */
+export function removeFixtures(doc: GranveloDoc, ids: Id[]): GranveloDoc {
+  return ids.reduce((d, id) => removeFixture(d, id), doc);
+}
+
+/**
+ * How many memories use these lights, i.e. have something other than zero on them: for a memory bound to the
+ * lights, a value of the light; for a memory bound to addresses, a value on the channels the light occupies.
+ * Used to ask before deleting. (Deleting is always safe: see `removeFixture`.)
+ */
+export function memoriesUsing(doc: Pick<GranveloDoc, "fixtures" | "memories">, ids: Id[]): number {
+  const lights = doc.fixtures.filter((f) => ids.includes(f.id));
+  return doc.memories.filter((m) => {
+    if (m.state.binding === "fixture") {
+      const fx = m.state.fixtures;
+      return lights.some((f) => (fx[f.id] ?? []).some((v) => v > 0));
+    }
+    const dmx = m.state.dmx;
+    return lights.some((f) => occupiedChannels(f).some((ch) => (dmx[ch - 1] ?? 0) > 0));
+  }).length;
+}
+
+/** Name for a copy: "PAR 3" → "PAR 4" (after the highest one that exists); a name without number gets " 2". */
+export function copyName(doc: Pick<GranveloDoc, "fixtures">, name: string): string {
+  if (!name.trim()) return "";
+  const m = /^(.*\D)\s+(\d+)$/.exec(name) ?? /^(.*\D)(\d+)$/.exec(name);
+  if (!m) return `${name} 2`;
+  return `${m[1].trimEnd()} ${highestSuffix(doc, m[1].trimEnd()) + 1}`;
+}
+
+/** Duplicates lights: same type, channels, place and aim, a little to the side, next free address, new number. */
+export function duplicateFixtures(doc: GranveloDoc, ids: Id[]): { doc: GranveloDoc; ids: Id[] } {
+  let d = doc;
+  const created: Id[] = [];
+  for (const src of doc.fixtures.filter((f) => ids.includes(f.id))) {
+    const half = d.stage.width / 2;
+    const dx = src.position.x + 0.5 > half ? -0.5 : 0.5;
+    const channels = src.channels.map((c) => ({ ...c }));
+    const copy: Fixture = {
+      ...src,
+      id: uid(),
+      number: nextFixtureNumber(d),
+      name: copyName(d, src.name),
+      channels,
+      address: src.address === null ? null : nextFreeAddress(d, channels.length),
+      position: { ...src.position, x: round2(src.position.x + dx) },
+      aim: { ...src.aim, x: round2(src.aim.x + dx) },
+      broken: false,
+    };
+    d = { ...d, fixtures: [...d.fixtures, copy] };
+    created.push(copy.id);
+  }
+  return { doc: d, ids: created };
+}
+
+/** Gives a light another number (positive whole number, not used by another light). Null if it cannot. */
+export function setFixtureNumber(doc: GranveloDoc, id: Id, number: number): GranveloDoc | null {
+  if (!Number.isInteger(number) || number < 1 || number > 99999) return null;
+  if (doc.fixtures.some((f) => f.number === number && f.id !== id)) return null;
+  return updateFixture(doc, id, { number });
+}
+
+/** The same change on several lights. */
+export function updateFixtures(doc: GranveloDoc, ids: Id[], patch: Partial<Omit<Fixture, "id" | "channels" | "universe">>): GranveloDoc {
+  return { ...doc, fixtures: doc.fixtures.map((f) => (ids.includes(f.id) ? { ...f, ...patch } : f)) };
+}
+
+/** Address of one light (null = none). Does not check conflicts: the interface says them. */
+export function setFixtureAddress(doc: GranveloDoc, id: Id, address: number | null): GranveloDoc {
+  if (address !== null && (!Number.isInteger(address) || address < 1 || address > 512)) return doc;
+  return updateFixture(doc, id, { address });
+}
+
+/** "Primo indirizzo libero" for one light: the first place where all its channels are free (its own channels do not count). */
+export function giveFirstFreeAddress(doc: GranveloDoc, id: Id): GranveloDoc {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f) return doc;
+  const a = nextFreeAddress(doc, f.channels.length, 1, [id]);
+  return a === null ? doc : updateFixture(doc, id, { address: a });
+}
+
+/** Changes the type of several lights (channels and beam go back to the defaults of the type). */
+export function changeFixtureTypes(doc: GranveloDoc, ids: Id[], typeId: FixtureTypeId): GranveloDoc {
+  return ids.reduce((d, id) => changeFixtureType(d, id, typeId), doc);
+}
+
+/** True if the channels of a light are not the default ones of its type (changing the type would lose the changes). */
+export function channelsCustomised(f: Pick<Fixture, "typeId" | "channels">): boolean {
+  return !sameLayout(f.channels, defaultChannels(f.typeId));
+}
+
+/** Where lights go with `setMount`. */
+export type MountChoice = { kind: "truss"; trussId: Id } | { kind: "floating" } | { kind: "floor" };
+
+/**
+ * Hangs lights on a truss (they take its depth and height), leaves them floating (they keep their coordinates;
+ * from the floor they rise to a height above the stage) or puts them on the floor (height 0).
+ */
+export function setMount(doc: GranveloDoc, ids: Id[], to: MountChoice): GranveloDoc {
+  const truss = to.kind === "truss" ? doc.trusses.find((t) => t.id === to.trussId) : undefined;
+  if (to.kind === "truss" && !truss) return doc;
+  return {
+    ...doc,
+    fixtures: doc.fixtures.map((f) => {
+      if (!ids.includes(f.id)) return f;
+      if (to.kind === "truss") return { ...f, mount: { kind: "truss", trussId: to.trussId }, position: { ...f.position, y: truss!.y, z: truss!.z } };
+      if (to.kind === "floor") return { ...f, mount: { kind: "floor" }, position: { ...f.position, z: 0 } };
+      const z = f.mount.kind === "floor" && f.position.z < 0.5 ? round2(doc.stage.height * 0.8) : f.position.z;
+      return { ...f, mount: { kind: "floating" }, position: { ...f.position, z } };
+    }),
+  };
+}
+
+/** Position in metres (any of x, y, z). On a truss the depth and height are the truss's: only x changes there. */
+export function setPosition(doc: GranveloDoc, ids: Id[], patch: Partial<Vec3>): GranveloDoc {
+  return {
+    ...doc,
+    fixtures: doc.fixtures.map((f) => {
+      if (!ids.includes(f.id)) return f;
+      const onTruss = f.mount.kind === "truss";
+      const position = { x: patch.x ?? f.position.x, y: onTruss ? f.position.y : (patch.y ?? f.position.y), z: onTruss ? f.position.z : (patch.z ?? f.position.z) };
+      return { ...f, position };
+    }),
+  };
+}
+
+/** The point the lights look at (any of x, y, z). */
+export function setAim(doc: GranveloDoc, ids: Id[], patch: Partial<Vec3>): GranveloDoc {
+  return { ...doc, fixtures: doc.fixtures.map((f) => (ids.includes(f.id) ? { ...f, aim: { x: patch.x ?? f.aim.x, y: patch.y ?? f.aim.y, z: patch.z ?? f.aim.z } } : f)) };
+}
+
+/** Full beam angle in degrees (0–180). */
+export function setBeamAngle(doc: GranveloDoc, ids: Id[], angle: number): GranveloDoc {
+  if (!Number.isFinite(angle)) return doc;
+  const a = Math.min(180, Math.max(0, angle));
+  return { ...doc, fixtures: doc.fixtures.map((f) => (ids.includes(f.id) ? { ...f, beam: { ...f.beam, angle: a } } : f)) };
+}
+
+/** "Non usata in questa produzione": stays in the drawing and keeps its addresses, sends nothing. */
+export function setUnused(doc: GranveloDoc, ids: Id[], unused: boolean): GranveloDoc {
+  return updateFixtures(doc, ids, { unused });
+}
+
+/** Size of the stage in metres. */
+export function setStage(doc: GranveloDoc, stage: Stage): GranveloDoc {
+  const ok = (v: number, max: number) => Number.isFinite(v) && v >= 0.5 && v <= max;
+  if (!ok(stage.width, 200) || !ok(stage.depth, 200) || !ok(stage.height, 100)) return doc;
+  if (stage.width === doc.stage.width && stage.depth === doc.stage.depth && stage.height === doc.stage.height) return doc;
+  return { ...doc, stage: { ...stage } };
+}
+
+/* ---- channels of one light ---- */
+
+/** Moves the channel at `from` to position `to` (0-based). The values of memories bound to lights follow the channel. */
+export function moveChannel(doc: GranveloDoc, id: Id, from: number, to: number): GranveloDoc {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f || from === to || from < 0 || to < 0 || from >= f.channels.length || to >= f.channels.length) return doc;
+  const next = f.channels.map((c) => ({ ...c }));
+  const [c] = next.splice(from, 1);
+  next.splice(to, 0, c);
+  return setFixtureChannels(doc, id, next);
+}
+
+/** Adds a channel at the end: the first function the light does not have yet among Main/Strobe/Other. */
+export function addChannel(doc: GranveloDoc, id: Id, fn?: ChannelFunction): GranveloDoc {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f || f.channels.length >= 64) return doc;
+  const has = (x: ChannelFunction) => f.channels.some((c) => c.function === x);
+  const pick: ChannelFunction = fn ?? (!has("dimmer") ? "dimmer" : !has("strobe") ? "strobe" : "other");
+  return setFixtureChannels(doc, id, [...f.channels.map((c) => ({ ...c })), { function: pick }]);
+}
+
+/** Removes a channel (a light keeps at least one). */
+export function removeChannel(doc: GranveloDoc, id: Id, index: number): GranveloDoc {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f || f.channels.length <= 1 || index < 0 || index >= f.channels.length) return doc;
+  return setFixtureChannels(doc, id, f.channels.filter((_, i) => i !== index).map((c) => ({ ...c })));
+}
+
+/** Function and/or label of one channel. An empty label removes it. */
+export function setChannel(doc: GranveloDoc, id: Id, index: number, patch: { function?: ChannelFunction; label?: string }): GranveloDoc {
+  const f = doc.fixtures.find((x) => x.id === id);
+  if (!f || index < 0 || index >= f.channels.length) return doc;
+  if (patch.function !== undefined && !CHANNEL_FUNCTIONS.includes(patch.function)) return doc;
+  const next = f.channels.map((c, i) => {
+    if (i !== index) return { ...c };
+    const fn = patch.function ?? c.function;
+    const label = patch.label === undefined ? c.label : patch.label.trim();
+    return label ? { function: fn, label } : { function: fn };
+  });
+  return setFixtureChannels(doc, id, next);
+}
+
+/** The other lights of the same type whose channels differ from those of `id` ("Applica a tutte le luci di questo tipo" would change them). */
+export function lightsToSync(doc: Pick<GranveloDoc, "fixtures">, id: Id): Id[] {
+  const src = doc.fixtures.find((x) => x.id === id);
+  if (!src) return [];
+  return doc.fixtures.filter((f) => f.typeId === src.typeId && f.id !== id && !sameLayout(f.channels, src.channels)).map((f) => f.id);
 }
