@@ -58,7 +58,8 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "about", label: "About", icon: "info" },
 ];
 
-const EXTENSION_PAGE = "https://github.com/tommi-tr/theatre-suite/releases/latest";
+// The release of this very version: it carries the Chrome extension as a .zip next to the installer.
+const EXTENSION_PAGE = `https://github.com/tommi-tr/theatre-suite/releases/tag/diaframma-v${APP_VERSION}`;
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
@@ -273,7 +274,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <Row label={t("Chrome extension")} hint={t("Lets Diaframma control each Chrome tab separately in Rehearsal mode.")}>
                   <Switch checked={s.extensionBridgeEnabled} onChange={(v) => set({ extensionBridgeEnabled: v })} label={t("Chrome extension")} />
                 </Row>
-                <Row label={t("Download the Chrome extension")} hint={t("On the page that opens, download “Diaframma-Chrome-extension”, unzip it and load it in Chrome (chrome://extensions, Developer mode).")}>
+                <Row label={t("Download the Chrome extension")} hint={t("On the page that opens, download “Diaframma-Chrome-extension.zip”, unzip it and load it in Chrome (chrome://extensions, Developer mode).")}>
                   <Button variant="sm" icon="download" onClick={() => api.openProjectPage(EXTENSION_PAGE).catch((e) => useUi.getState().showToast(String(e), "error"))}>
                     {t("Open the download page")}
                   </Button>

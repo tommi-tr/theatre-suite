@@ -65,12 +65,29 @@ impl Settings {
     /// A missing or damaged file gives the defaults (a damaged one is kept aside).
     pub fn load(file: &Path) -> Settings {
         match std::fs::read_to_string(file) {
-            Ok(t) => serde_json::from_str(&t).unwrap_or_else(|_| {
-                let _ = std::fs::rename(file, file.with_extension("json.damaged"));
-                Settings::default()
-            }),
+            Ok(t) => serde_json::from_str::<Settings>(&t)
+                .map(Settings::without_retired_source)
+                .unwrap_or_else(|_| {
+                    let _ = std::fs::rename(file, file.with_extension("json.damaged"));
+                    Settings::default()
+                }),
             Err(_) => Settings::default(),
         }
+    }
+
+    /// A source saved by an older launcher that points to the retired releases repository
+    /// goes back to the default one (the releases now live in the code repository).
+    fn without_retired_source(mut self) -> Settings {
+        if self.update_source.kind == "github"
+            && self
+                .update_source
+                .value
+                .trim()
+                .eq_ignore_ascii_case(crate::update_check::RETIRED_RELEASES_REPO)
+        {
+            self.update_source = Settings::default().update_source;
+        }
+        self
     }
 
     pub fn save(&self, file: &Path) -> Result<()> {
@@ -96,5 +113,22 @@ mod tests {
         std::fs::write(&f, "garbage").unwrap();
         assert_eq!(Settings::load(&f), Settings::default());
         assert!(d.path().join("settings.json.damaged").is_file());
+    }
+
+    #[test]
+    fn retired_releases_repository_is_replaced() {
+        let d = tempfile::tempdir().unwrap();
+        let f = d.path().join("settings.json");
+        std::fs::write(
+            &f,
+            r#"{"updateSource":{"kind":"github","value":"tommi-tr/Theatre-Suite-Releases"},"language":"en"}"#,
+        )
+        .unwrap();
+        let s = Settings::load(&f);
+        assert_eq!(s.update_source, Settings::default().update_source);
+        assert_eq!(s.language, "en");
+        // another source chosen by the person is left alone
+        std::fs::write(&f, r#"{"updateSource":{"kind":"github","value":"someone/else"}}"#).unwrap();
+        assert_eq!(Settings::load(&f).update_source.value, "someone/else");
     }
 }

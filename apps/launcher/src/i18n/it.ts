@@ -142,6 +142,8 @@ export const it: Dict = {
   "Add the versions of the apps and of Windows, so I can reproduce the problem": "Aggiungi le versioni delle app e di Windows, così posso riprodurre il problema",
   "Nothing is sent from here. Your mail program (or the GitHub page) opens with the text ready, and you decide whether to send it.":
     "Da qui non parte nulla. Si apre il tuo programma di posta (o la pagina di GitHub) con il testo già pronto, e decidi tu se spedirlo.",
+  "On GitHub the message is public: don't write passwords or private data.":
+    "Su GitHub il messaggio è pubblico: non scrivere password o dati privati.",
   "Copy the text": "Copia il testo",
   "Write it on GitHub": "Scrivilo su GitHub",
   "Send by e-mail": "Invia per email",

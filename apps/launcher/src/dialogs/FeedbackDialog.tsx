@@ -104,7 +104,10 @@ export function FeedbackDialog({ app }: { app?: string }) {
           <span>{t("Add the versions of the apps and of Windows, so I can reproduce the problem")}</span>
         </label>
         {withInfo && info ? <pre className="ln-info">{info}</pre> : null}
-        <p className="ln-privacy">{t("Nothing is sent from here. Your mail program (or the GitHub page) opens with the text ready, and you decide whether to send it.")}</p>
+        <p className="ln-privacy">
+          {t("Nothing is sent from here. Your mail program (or the GitHub page) opens with the text ready, and you decide whether to send it.")}{" "}
+          {t("On GitHub the message is public: don't write passwords or private data.")}
+        </p>
       </div>
     </Dialog>
   );

@@ -27,9 +27,10 @@ links are not followed. The copy gets a new id and remembers its parent.
 
 ## Updates and installing
 
-Installers are published as releases of the **public** repository `tommi-tr/theatre-suite-releases`
-(tags `<app>-v<semver>`, e.g. `launcher-v0.3.0`, `diaframma-v0.2.0`, `bardo-v0.1.1`; one Windows
-`*-setup.exe` per release; drafts and pre-releases ignored). The code repository stays private.
+Installers are published as releases of the public code repository `tommi-tr/theatre-suite`
+(tags `<app>-v<semver>`, e.g. `launcher-v0.4.0`, `diaframma-v0.3.0`, `bardo-v0.2.0`; one Windows
+`*-setup.exe` per release; drafts and pre-releases ignored). The separate repository
+`theatre-suite-releases` is retired (16/11/2026): the app and the launcher no longer read it.
 
 - **Check**: reads the list of releases (source in the settings, then the public repository),
   keeps every version of every app (`updates-cache.json`: `latest` + `releases`). Weekly at start
@@ -42,8 +43,8 @@ Installers are published as releases of the **public** repository `tommi-tr/thea
 - **Older versions**: every published version can be installed (Tauri NSIS allows downgrades).
 - **Keep this version** (`settings.held`: app → version): no update is offered for that app while
   the installed version is that one.
-- Publishing: until a `RELEASES_TOKEN` secret exists, releases are created by hand (or by Claude)
-  from the installers built by the workflows; with the secret, tagging `launcher-v*` publishes there.
+- Publishing: pushing a tag `<app>-v<version>` makes the workflow of that app build the installer and
+  publish the release in this same repository (built-in `GITHUB_TOKEN`, no secret needed).
 
 ## Home order
 
@@ -61,8 +62,9 @@ with "<title in the script> - ". Found at every look, never stored.
 
 "Explore, install and update" → "Send feedback". Nothing is sent by the launcher: the text (kind,
 app, message, optionally app versions and OS, always shown before use) opens in the person's mail
-program (`FEEDBACK_EMAIL` in `src/lib/feedback.ts`, hidden while empty), as a new GitHub issue in
-the public releases repository, or is copied.
+program (`FEEDBACK_EMAIL` in `src/lib/feedback.ts`, hidden while empty), as a new issue in the
+public repository `tommi-tr/theatre-suite` (the default: no e-mail address is published; the dialog
+warns that issues are public), or is copied.
 
 ## Installed apps
 
