@@ -61,6 +61,38 @@ describe("the primary applies the secondary's requests like its keys", () => {
     handleRequest(t, "r4", { kind: "emergency" });
     expect(useRun.getState().playback.emergency).toBe(false);
   });
+
+  it("safety commands pressed on both computers at once do not cancel out", () => {
+    setLink(["stable"]);
+    // The primary pressed P, B, F and E E; the secondary pressed the same before seeing it: nothing is undone.
+    useRun.setState({ playback: { ...useRun.getState().playback, paused: true, blackout: true, ftb: true } });
+    handleRequest(t, "r1", { kind: "pause", on: true });
+    handleRequest(t, "r2", { kind: "blackout", on: true });
+    handleRequest(t, "r3", { kind: "fadeToBlack", on: true });
+    let p = useRun.getState().playback;
+    expect([p.paused, p.blackout, p.ftb]).toEqual([true, true, true]);
+    handleRequest(t, "r4", { kind: "emergency", on: true });
+    handleRequest(t, "r5", { kind: "emergency", on: true });
+    expect(useRun.getState().playback.emergency).toBe(true);
+    handleRequest(t, "r6", { kind: "emergency", on: false });
+    handleRequest(t, "r7", { kind: "emergency", on: false });
+    p = useRun.getState().playback;
+    expect(p.emergency).toBe(false);
+  });
+
+  it("Back pressed on both computers at once goes back once", () => {
+    setLink(["stable"]);
+    const reply = vi.spyOn(linkApi(), "reply");
+    handleRequest(t, "r1", { kind: "go", standbyId: useRun.getState().playback.standbyId });
+    handleRequest(t, "r2", { kind: "go", standbyId: useRun.getState().playback.standbyId });
+    const seen = useRun.getState().playback.lastGoId;
+    handleRequest(t, "r3", { kind: "back", fromLastGoId: seen });
+    const once = useRun.getState().playback.lastGoId;
+    expect(once).not.toBe(seen);
+    handleRequest(t, "r4", { kind: "back", fromLastGoId: seen });
+    expect(reply).toHaveBeenCalledWith("r4", false, "alreadyGiven");
+    expect(useRun.getState().playback.lastGoId).toBe(once);
+  });
 });
 
 describe("the secondary asks, it does not run", () => {

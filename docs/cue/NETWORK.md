@@ -74,14 +74,21 @@ the sender's inbound loss count). On loss: the secondary's reservation ends at o
 (`notConnected`), the pointer hides; the secondary looks for the primary again (HELLO) and reconnects by itself.
 
 ## Requests, reservation, commands
-- Requests: `go {standbyId}`, `back`, `pause`, `blackout {on?}`, `fadeToBlack`, `emergency`, `stopAudio`, `standby {goId}`,
+- Requests: `go {standbyId}`, `back {fromLastGoId}`, `pause {on}`, `blackout {on}`, `fadeToBlack {on}`, `emergency {on}`, `stopAudio`, `standby {goId}`,
   `edit {op}`, `reserve`, `release`, `available`, `unavailable`. The primary's link decides first
   (`decide_request`): commands taken → everything refused except release/available and the safety commands (pause, blackout, fadeToBlack, emergency); primary holds the reservation →
   go/back/standby/reserve refused (safety commands still pass); unavailable → go/back/standby/reserve/edit refused.
   Accepted ones (except reserve/release/availability, handled natively) arrive as `cue-link-event {type:"request"}`;
   the UI applies them with role `"secondary"` and calls `reply(requestId, false, reason)` if playback refuses them.
   `checkRemoteGo` refuses a GO whose `standbyId` already started (both pressed at once): see open points.
+- **Pressed on both computers at once** (0.6.1): a GO carries the standby it meant, a Back the last GO it saw, and the
+  safety commands the state wanted (`on`); the primary applies them only if they still change something, so two
+  GOs never fire two cues, two Backs go back once, and Pausa/Blackout/Fade to black/Emergenza never cancel out.
 - Reservation (key C held): arbitrated on the primary, first wins; `reservation` in the state says who holds it.
+  `reserve`, `release`, `available`, `unavailable` carry a counter `n` (per secondary): the primary ignores one older
+  than the last applied (a reserve retried late after its release would otherwise keep the reservation for ever).
+  The secondary's heartbeat carries `res` (C held now) and `ctl` (its last `n`): if the primary sees the secondary
+  holding the reservation with `res: false` and nothing newer pending, it drops it (a lost release).
 - Wi-Fi backup (off by default, set on the primary, mirrored to the secondary): every message goes on all live paths;
   duplicates dropped by `seq`. Without it only the best path (cable) is used.
 
@@ -91,6 +98,9 @@ deepest folder containing all files (relative source paths keep working); videos
 drive are skipped (`skipped`). The secondary fetches only files with a different SHA-256 into
 `<data>/link/received/<showId>/`, writes `<name>.part`, checks SHA-256, renames over its copy (primary wins) and emits
 `cue-link-file {phase:"received", path, showJson}`: it opens `path` (using `showJson` when present).
+One fetch at a time (0.6.1): a manifest arriving during a fetch waits (the newest replaces older ones); a fetch
+refused because a newer show replaced it shows no error. Names that are Windows devices (CON, NUL, COM1…) are refused.
+The primary sends again when the show is saved for the first time (a never-saved show has no file: it says so once).
 
 ## Native API
 Commands: `link_info`, `link_configure({role?, wifiBackup?, manualPeer?, name?})`, `link_new_code`, `link_enter_code(code)`,

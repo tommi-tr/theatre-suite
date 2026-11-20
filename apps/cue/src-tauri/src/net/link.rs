@@ -52,6 +52,8 @@ const RECV_TIMEOUT: Duration = Duration::from_millis(50);
 const ALWAYS_ALLOWED: &[&str] = &["release", "available", "unavailable"];
 /// Safety commands: accepted from the secondary always, also when its commands are taken away (director's decision).
 const SAFETY: &[&str] = &["pause", "blackout", "fadeToBlack", "emergency"];
+/// Requests that change the secondary's control state, applied in order (`n`).
+const CONTROL: &[&str] = &["reserve", "release", "available", "unavailable"];
 /// Requests refused while the primary holds the reservation.
 const RESERVABLE: &[&str] = &["go", "back", "standby"];
 /// Requests known to the primary.
@@ -297,6 +299,11 @@ struct Inner {
     commands_taken: bool,
     peer_available: bool,
     peer_wifi: bool,
+    /// Secondary: counter of reserve/release/available/unavailable (each carries it as `n`) and key C held now.
+    ctl_n: u64,
+    want_res: bool,
+    /// Primary: the highest `n` applied in this session (an older one, retried late or on the other path, is ignored).
+    peer_ctl_n: u64,
     // Reliable messages.
     outbox: Outbox,
     inbox: Inbox,
@@ -312,6 +319,9 @@ struct Inner {
     last_low_ms: u64,
     // Files.
     offer: Option<Arc<Prepared>>,
+    /// Secondary: a fetch is running; the newest manifest that arrived meanwhile waits here (one fetch at a time).
+    fetch_busy: bool,
+    fetch_next: Option<(transfer::Manifest, SocketAddr)>,
     // Interface.
     last_info: Option<LinkInfo>,
     last_info_ms: u64,
@@ -527,6 +537,10 @@ impl Shared {
             p["taken"] = json!(inner.commands_taken);
             p["avail"] = json!(inner.peer_available);
             p["wifi"] = json!(inner.stored.wifi_backup);
+        } else if inner.stored.role == Role::Secondary {
+            // Key C held now, and the last control counter: lets the primary drop a reservation whose release was lost.
+            p["res"] = json!(inner.want_res);
+            p["ctl"] = json!(inner.ctl_n);
         }
         self.send_session(inner, out, "hb", p, now);
     }
@@ -721,6 +735,7 @@ impl Shared {
             inner.peer_hb = None;
             inner.inbox.clear();
             inner.peer_state_rev = 0;
+            inner.peer_ctl_n = 0;
             out.info_changed = true;
             if inner.stored.role == Role::Primary {
                 inner.state_sent_ms = 0; // send the state at the next tick
@@ -789,6 +804,14 @@ impl Shared {
                     inner.commands_taken = p.get("taken").and_then(Value::as_bool).unwrap_or(false);
                     inner.peer_available = p.get("avail").and_then(Value::as_bool).unwrap_or(true);
                     inner.peer_wifi = p.get("wifi").and_then(Value::as_bool).unwrap_or(false);
+                } else if inner.stored.role == Role::Primary {
+                    let res = p.get("res").and_then(Value::as_bool);
+                    let ctl = p.get("ctl").and_then(Value::as_u64).unwrap_or(0);
+                    if stale_reservation(inner.holder, res, ctl, inner.peer_ctl_n) {
+                        inner.holder = Holder::None;
+                        out.info_changed = true;
+                        self.heartbeat(inner, out, now);
+                    }
                 }
             }
             "probe" => {}
@@ -861,6 +884,15 @@ impl Shared {
                 match decide_request(&kind, inner.holder, inner.commands_taken, inner.peer_available) {
                     Err(reason) => json!({ "ok": false, "reason": reason }),
                     Ok(()) => {
+                        if CONTROL.contains(&kind.as_str()) {
+                            // Reserve and release (and availability) apply in the order they were made, not received.
+                            if let Some(n) = op.get("n").and_then(Value::as_u64) {
+                                if n <= inner.peer_ctl_n {
+                                    return json!({ "ok": true, "stale": true });
+                                }
+                                inner.peer_ctl_n = n;
+                            }
+                        }
                         match kind.as_str() {
                             "reserve" => inner.holder = Holder::Secondary,
                             "release" => {
@@ -896,7 +928,14 @@ impl Shared {
             }
             (Role::Secondary, "file") => match serde_json::from_value::<transfer::Manifest>(body) {
                 Ok(m) => {
-                    out.fetch = Some((m.clone(), SocketAddr::new(from.ip(), m.port)));
+                    let job = (m.clone(), SocketAddr::new(from.ip(), m.port));
+                    // One fetch at a time: two at once would write the same files. The newest waits and replaces older ones.
+                    if inner.fetch_busy {
+                        inner.fetch_next = Some(job);
+                    } else {
+                        inner.fetch_busy = true;
+                        out.fetch = Some(job);
+                    }
                     json!({ "ok": true })
                 }
                 Err(_) => json!({ "ok": false, "reason": "bad" }),
@@ -1097,6 +1136,12 @@ pub fn decide_request(kind: &str, holder: Holder, commands_taken: bool, availabl
     Ok(())
 }
 
+/// Primary: the secondary's heartbeat says key C is no longer held (and nothing newer is on its way): its reservation
+/// ends even if the release was lost.
+pub fn stale_reservation(holder: Holder, held: Option<bool>, ctl: u64, applied: u64) -> bool {
+    holder == Holder::Secondary && held == Some(false) && ctl >= applied
+}
+
 fn paired_key(inner: &Inner, sender: &str) -> Option<Key> {
     inner.stored.pairing.as_ref().filter(|p| p.peer_id == sender).and_then(|p| p.key())
 }
@@ -1174,6 +1219,8 @@ fn reset_connection(inner: &mut Inner) {
         let _ = tx.send(Outcome { request_id: rid, ok: false, reason: Some("notConnected".into()) });
     }
     inner.peer_state_rev = 0;
+    inner.peer_ctl_n = 0;
+    inner.fetch_next = None;
     inner.chat_queue.clear();
     inner.pointer = None;
     inner.offer = None;
@@ -1227,10 +1274,23 @@ fn run_fetch(shared: Arc<Shared>, manifest: transfer::Manifest, addr: SocketAddr
             "bytes": f.bytes,
             "skipped": manifest.skipped,
         })),
-        Err(e) => emit(json!({ "phase": "failed", "transferId": tid, "error": e })),
+        Err(e) => {
+            // A newer show is already waiting: this one was replaced, not lost (no message).
+            let replaced = lock(&shared.inner).fetch_next.is_some();
+            if !replaced {
+                emit(json!({ "phase": "failed", "transferId": tid, "error": e }));
+            }
+        }
     }
+    let failed = done.get("ok").and_then(Value::as_bool) != Some(true);
     shared.with(|inner, out, now| {
-        shared.send_rel(inner, out, "fileDone", done, Priority::High, now);
+        if !(failed && inner.fetch_next.is_some()) {
+            shared.send_rel(inner, out, "fileDone", done, Priority::High, now);
+        }
+        match inner.fetch_next.take() {
+            Some(next) if link_up(inner) => out.fetch = Some(next),
+            _ => inner.fetch_busy = false,
+        }
     });
 }
 
@@ -1297,6 +1357,9 @@ impl Link {
             commands_taken: false,
             peer_available: true,
             peer_wifi: false,
+            ctl_n: 0,
+            want_res: false,
+            peer_ctl_n: 0,
             outbox: Outbox::new(),
             inbox: Inbox::new(),
             waiters: HashMap::new(),
@@ -1308,6 +1371,8 @@ impl Link {
             pointer: None,
             last_low_ms: 0,
             offer: None,
+            fetch_busy: false,
+            fetch_next: None,
             last_info: None,
             last_info_ms: 0,
         };
@@ -1533,6 +1598,7 @@ impl Link {
 
     /// Secondary: sends a request and waits for the primary's answer (at most ~1 s).
     pub fn request(&self, op: Value) -> Outcome {
+        let mut op = op;
         let kind = op.get("kind").and_then(Value::as_str).unwrap_or("").to_string();
         let (tx, rx) = mpsc::channel();
         let sent = self.shared.with(|inner, out, now| {
@@ -1541,6 +1607,15 @@ impl Link {
             }
             if !REQUESTS.contains(&kind.as_str()) {
                 return Err("unknown");
+            }
+            if CONTROL.contains(&kind.as_str()) {
+                inner.ctl_n += 1;
+                op["n"] = json!(inner.ctl_n);
+                match kind.as_str() {
+                    "reserve" => inner.want_res = true,
+                    "release" => inner.want_res = false,
+                    _ => {}
+                }
             }
             let rid = self.shared.send_rel(inner, out, "req", json!({ "op": op }), Priority::High, now).ok_or("notConnected")?;
             inner.waiters.insert(rid.clone(), tx);
@@ -1714,5 +1789,11 @@ mod tests {
         assert_eq!(decide_request("available", Holder::None, true, false), Ok(()));
         assert_eq!(decide_request("go", Holder::None, false, false), Err("unavailable"));
         assert_eq!(decide_request("pause", Holder::None, false, false), Ok(()));
+        // A reservation is dropped when the secondary's heartbeat says C is up and nothing newer is pending.
+        assert!(stale_reservation(Holder::Secondary, Some(false), 4, 4));
+        assert!(!stale_reservation(Holder::Secondary, Some(false), 3, 4), "an old heartbeat");
+        assert!(!stale_reservation(Holder::Secondary, Some(true), 4, 4));
+        assert!(!stale_reservation(Holder::Secondary, None, 4, 4), "a heartbeat without the field");
+        assert!(!stale_reservation(Holder::Primary, Some(false), 4, 4));
     }
 }

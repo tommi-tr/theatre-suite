@@ -85,4 +85,9 @@ export const itLink: Dict = {
   "Windows will ask for permission": "Windows ti chiederà il permesso",
   "Write…": "Scrivi…",
   "Wrong code. Check the numbers on the primary.": "Codice sbagliato. Controlla i numeri sul primario.",
+
+  "Save the show: the secondary receives it as soon as it has a file.": "Salva lo spettacolo: il secondario lo riceve appena ha un file.",
+  "The show could not be sent to the secondary: {error}": "Non è stato possibile mandare lo spettacolo al secondario: {error}",
+  "The secondary did not receive the show ({error}): it is sent again at the next change or connection.": "Il secondario non ha ricevuto lo spettacolo ({error}): viene rimandato alla prossima modifica o connessione.",
+  "The show did not arrive from the primary ({error}): it is sent again at the next change or connection.": "Lo spettacolo non è arrivato dal primario ({error}): viene rimandato alla prossima modifica o connessione.",
 };

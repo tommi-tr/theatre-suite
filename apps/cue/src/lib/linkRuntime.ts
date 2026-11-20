@@ -81,11 +81,21 @@ async function openReceived(f: Extract<FileEvent, { phase: "received" }>) {
 let lastSent = "";
 let fromPrimary = false;
 
+let unsavedSaid = false;
+
 /** Primary: sends the show (file, linked sources and unsaved edits) to the secondary. */
 export async function sendShowNow(): Promise<void> {
   const { show, filePath } = useDoc.getState();
   const info = useLink.getState().info;
-  if (!show || !filePath || info.role !== "primary" || !linkUp(info)) return;
+  if (!show || info.role !== "primary" || !linkUp(info)) return;
+  if (!filePath) {
+    // A new show that was never saved has no file to send: say it once, it goes out at the first save.
+    const t = tNow();
+    if (!unsavedSaid) useUi.getState().showToast(t("Save the show: the secondary receives it as soon as it has a file."));
+    unsavedSaid = true;
+    return;
+  }
+  unsavedSaid = false;
   const extraPaths = useLibrary
     .getState()
     .library.sources.map((s) => s.absPath)
@@ -96,6 +106,8 @@ export async function sendShowNow(): Promise<void> {
     lastSent = showJson;
   } catch (e) {
     console.error("show not sent", e);
+    const t = tNow();
+    useUi.getState().showToast(t("The show could not be sent to the secondary: {error}", { error: String(e) }), "error");
   }
 }
 
@@ -140,7 +152,14 @@ export function startLink(): () => void {
   stops.push(
     link.onFile((f) => {
       if (f.phase === "received") void openReceived(f);
-      else if (f.phase === "failed") useUi.getState().showToast(f.error, "error");
+      else if (f.phase === "failed") {
+        const t = tNow();
+        const text =
+          useLink.getState().info.role === "primary"
+            ? t("The secondary did not receive the show ({error}): it is sent again at the next change or connection.", { error: f.error })
+            : t("The show did not arrive from the primary ({error}): it is sent again at the next change or connection.", { error: f.error });
+        useUi.getState().showToast(text, "error");
+      }
     }),
   );
 
@@ -161,6 +180,11 @@ export function startLink(): () => void {
   // Edits: the secondary asks the primary; the primary sends the new show to the secondary.
   const unDoc = useDoc.subscribe((s, prev) => {
     const info = useLink.getState().info;
+    // Primary: a show saved for the first time (or saved elsewhere) is sent at once.
+    if (info.role === "primary" && linkUp(info) && s.filePath && s.filePath !== prev.filePath) {
+      void sendShowNow();
+      return;
+    }
     if (fromPrimary || !s.show || !prev.show || s.loadRev !== prev.loadRev || s.show === prev.show || !linkUp(info)) return;
     if (info.role === "secondary" && !info.simulated) {
       const patch = editPatch(prev.show, s.show);

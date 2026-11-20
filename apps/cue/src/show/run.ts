@@ -26,7 +26,7 @@ import {
   type Schedule,
   type StepResult,
 } from "../model/playback";
-import { checkRemoteGo, refusalText as linkRefusalText, routeAction, type LinkOp } from "../model/link";
+import { checkRemoteBack, checkRemoteGo, remoteToggleApplies, refusalText as linkRefusalText, routeAction, type LinkOp } from "../model/link";
 import { doublePress } from "./keys";
 import { linkApi } from "../lib/link";
 import { linkInfo } from "../store/link";
@@ -270,7 +270,7 @@ export function runGo(t: TFunc) {
 
 /** Indietro (Backspace). */
 export function runBack(t: TFunc) {
-  routed(t, { kind: "back" }, () => void apply(t, back(useRun.getState().playback, gosNow(), { lookup: lookup() })));
+  routed(t, { kind: "back", fromLastGoId: useRun.getState().playback.lastGoId }, () => void apply(t, back(useRun.getState().playback, gosNow(), { lookup: lookup() })));
 }
 
 /** A click on a GO button: a future GO becomes standby. */
@@ -279,16 +279,16 @@ export function runClick(t: TFunc, goId: string) {
 }
 
 export function runPause(t: TFunc) {
-  routed(t, { kind: "pause" }, () => void apply(t, togglePause(useRun.getState().playback)));
+  routed(t, { kind: "pause", on: !useRun.getState().playback.paused }, () => void apply(t, togglePause(useRun.getState().playback)));
 }
 
 export function runBlackout(t: TFunc) {
-  routed(t, { kind: "blackout" }, () => void apply(t, blackout(useRun.getState().playback)));
+  routed(t, { kind: "blackout", on: !useRun.getState().playback.blackout }, () => void apply(t, blackout(useRun.getState().playback)));
 }
 
 /** Fade to black in the time of the show (Settings; default 3 s); again = back up in the same time. */
 export function runFadeToBlack(t: TFunc) {
-  routed(t, { kind: "fadeToBlack" }, () => void apply(t, fadeToBlack(useRun.getState().playback, ftbSeconds())));
+  routed(t, { kind: "fadeToBlack", on: !useRun.getState().playback.ftb }, () => void apply(t, fadeToBlack(useRun.getState().playback, ftbSeconds())));
 }
 
 const ftbSeconds = () => useDoc.getState().show?.settings.ftbSeconds ?? 3;
@@ -310,7 +310,7 @@ export function runEmergencyPress(t: TFunc, now = Date.now()) {
     }, 1050);
     return;
   }
-  routed(t, { kind: "emergency" }, () => {
+  routed(t, { kind: "emergency", on: true }, () => {
     clearAuto();
     apply(t, emergency(st.playback));
     useRun.setState({ preset: false, autoPending: null });
@@ -318,7 +318,7 @@ export function runEmergencyPress(t: TFunc, now = Date.now()) {
 }
 
 export function runLeaveEmergency(t: TFunc) {
-  routed(t, { kind: "emergency" }, () => void apply(t, leaveEmergency(useRun.getState().playback, gosNow(), { lookup: lookup() })));
+  routed(t, { kind: "emergency", on: false }, () => void apply(t, leaveEmergency(useRun.getState().playback, gosNow(), { lookup: lookup() })));
 }
 
 /** The memory in scene now (for Piazzato off), or null. */
@@ -436,25 +436,27 @@ export function handleRequest(t: TFunc, requestId: string, op: LinkOp): void {
       refused = checkRemoteGo(op, st.playback.standbyId) ?? apply(t, go(st.playback, gos, { role: "secondary", lookup: lookup() }), by);
       break;
     case "back":
-      refused = apply(t, back(st.playback, gos, { lookup: lookup() }), by);
+      refused = checkRemoteBack(op, st.playback.lastGoId) ?? apply(t, back(st.playback, gos, { lookup: lookup() }), by);
       break;
     case "standby":
       refused = apply(t, click(st.playback, gos, op.goId), { ...by, quiet: ["alreadyStandby"] });
       if (refused === "alreadyStandby") refused = null;
       break;
+    // Safety commands: applied only if they still change something (both computers pressing at once do not cancel out).
     case "pause":
-      apply(t, togglePause(st.playback), by);
+      if (remoteToggleApplies(op.on, st.playback.paused)) apply(t, togglePause(st.playback), by);
       break;
     case "blackout":
-      if (op.on === undefined || op.on !== st.playback.blackout) apply(t, blackout(st.playback), by);
+      if (remoteToggleApplies(op.on, st.playback.blackout)) apply(t, blackout(st.playback), by);
       break;
     case "fadeToBlack":
-      apply(t, fadeToBlack(st.playback, ftbSeconds()), by);
+      if (remoteToggleApplies(op.on, st.playback.ftb)) apply(t, fadeToBlack(st.playback, ftbSeconds()), by);
       break;
     case "stopAudio":
       apply(t, stopAudio(st.playback), by);
       break;
     case "emergency":
+      if (!remoteToggleApplies(op.on, st.playback.emergency)) break;
       if (st.playback.emergency) apply(t, leaveEmergency(st.playback, gos, { lookup: lookup() }), by);
       else {
         clearAuto();

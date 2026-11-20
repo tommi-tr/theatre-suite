@@ -121,7 +121,15 @@ pub fn safe_name(name: &str) -> bool {
             && !part.ends_with(' ')
             && !part.ends_with('.')
             && !part.chars().any(|c| c.is_control() || "<>:\"\\|?*".contains(c))
+            && !windows_device(part)
     })
+}
+
+/// CON, PRN, AUX, NUL, COM1–9, LPT1–9 (also with an extension): Windows opens a device instead of a file.
+fn windows_device(part: &str) -> bool {
+    let stem = part.split('.').next().unwrap_or("").to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((stem.starts_with("COM") || stem.starts_with("LPT")) && stem.len() == 4 && stem.as_bytes()[3].is_ascii_digit() && stem.as_bytes()[3] != b'0')
 }
 
 fn is_video(p: &Path) -> bool {
@@ -365,6 +373,8 @@ mod tests {
         assert!(safe_name("Audio/Suoni è belli.diaframma"));
         assert!(!safe_name("../x"));
         assert!(!safe_name("a/../x"));
+        assert!(!safe_name("con.txt") && !safe_name("a/NUL") && !safe_name("Com1.granvelo"));
+        assert!(safe_name("console.pdf") && safe_name("COM0.txt") && safe_name("lpt.tcue"));
         assert!(!safe_name("/etc/x"));
         assert!(!safe_name("C:/x"));
         assert!(!safe_name("a\\b"));

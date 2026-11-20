@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeT } from "@theatre-suite/core";
 import { DICTS } from "../i18n";
 import { simInfo } from "../lib/link";
-import { checkRemoteGo, formatElapsed, formatLatency, givenByLabel, linkPanel, NO_LINK, playbackRole, refusalText, reservationView, routeAction, type LinkInfo } from "./link";
+import { checkRemoteBack, checkRemoteGo, remoteToggleApplies, formatElapsed, formatLatency, givenByLabel, linkPanel, NO_LINK, playbackRole, refusalText, reservationView, routeAction, type LinkInfo } from "./link";
 
 const t = makeT(DICTS, "it");
 const NOW = 1_000_000;
@@ -84,6 +84,15 @@ describe("routing", () => {
     expect(checkRemoteGo({ kind: "go", standbyId: "g7" }, "g8")).toBe("alreadyGiven");
     expect(checkRemoteGo({ kind: "go" }, "g8")).toBeNull();
     expect(refusalText("alreadyGiven", t)).toBe("Quel GO è già partito");
+  });
+
+  it("refuses a remote Back for a GO already undone, and toggles only when they still change something", () => {
+    expect(checkRemoteBack({ kind: "back", fromLastGoId: "g3" }, "g3")).toBeNull();
+    expect(checkRemoteBack({ kind: "back", fromLastGoId: "g3" }, "g2")).toBe("alreadyGiven");
+    expect(checkRemoteBack({ kind: "back" }, "g2")).toBeNull();
+    expect(remoteToggleApplies(true, false)).toBe(true);
+    expect(remoteToggleApplies(true, true)).toBe(false);
+    expect(remoteToggleApplies(undefined, true)).toBe(true);
   });
 });
 

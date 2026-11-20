@@ -119,6 +119,24 @@ fn primary_and_secondary_on_one_computer() {
     assert!(audio.exists(), "relative layout kept");
     wait("primary told", 5, || find(&pev, "cue-link-file", |v| v["phase"] == "sent").is_some());
 
+    // Two shows sent one right after the other (two quick edits): one fetch at a time, the newest wins, no failure shown.
+    sev.lock().unwrap().clear();
+    let send = |json: &str| {
+        p.send_show(SendShow {
+            show_id: "abc123".into(),
+            tcue_path: show.join("Serata.tcue").to_string_lossy().into(),
+            extra_paths: vec![],
+            show_json: Some(json.into()),
+        })
+        .unwrap();
+    };
+    std::fs::write(show.join("Serata.tcue"), [&big[..], b"v2"].concat()).unwrap();
+    send("{\"title\":\"v2\"}");
+    send("{\"title\":\"v3\"}");
+    wait("the newest show received", 10, || find(&sev, "cue-link-file", |v| v["phase"] == "received" && v["showJson"] == "{\"title\":\"v3\"}").is_some());
+    assert!(find(&sev, "cue-link-file", |v| v["phase"] == "failed").is_none(), "{:?}", sev.lock().unwrap());
+    assert_eq!(std::fs::read(path).unwrap(), [&big[..], b"v2"].concat());
+
     // The primary stops: the secondary sees the link lost, its reservation ends.
     assert!(s.reserve(true).ok);
     wait("reservation mirrored", 3, || s.info().reservation == Holder::Secondary);

@@ -83,11 +83,13 @@ export const NO_LINK: LinkInfo = {
 /** What the secondary may ask the primary (the same names on the native side). */
 export type LinkOp =
   | { kind: "go"; standbyId?: string | null }
-  | { kind: "back" }
-  | { kind: "pause" }
+  /** `fromLastGoId`: the last GO the sender saw (both pressing Back at once go back once). */
+  | { kind: "back"; fromLastGoId?: string | null }
+  /** Safety commands carry the state the sender wants (`on`): pressed on both computers at once, they do not cancel out. */
+  | { kind: "pause"; on?: boolean }
   | { kind: "blackout"; on?: boolean }
-  | { kind: "fadeToBlack" }
-  | { kind: "emergency" }
+  | { kind: "fadeToBlack"; on?: boolean }
+  | { kind: "emergency"; on?: boolean }
   | { kind: "stopAudio" }
   | { kind: "standby"; goId: string }
   | { kind: "edit"; op: unknown }
@@ -154,6 +156,23 @@ export function routeAction(i: LinkInfo, op: LinkOp): Route {
 export function checkRemoteGo(op: LinkOp, standbyId: string | null): Refusal | null {
   if (op.kind !== "go" || op.standbyId === undefined) return null;
   return op.standbyId === standbyId ? null : "alreadyGiven";
+}
+
+/**
+ * On the primary, before applying a secondary's Back: it meant to undo the last GO it saw. If that GO was already
+ * undone (both pressed Backspace at once), the request is refused instead of going back twice.
+ */
+export function checkRemoteBack(op: LinkOp, lastGoId: string | null): Refusal | null {
+  if (op.kind !== "back" || op.fromLastGoId === undefined) return null;
+  return op.fromLastGoId === lastGoId ? null : "alreadyGiven";
+}
+
+/**
+ * On the primary: does a secondary's toggle (pause, blackout, fade to black, emergency) still change something?
+ * With `on` given, only when the state is not already the one asked for; without it (older senders), always.
+ */
+export function remoteToggleApplies(on: boolean | undefined, current: boolean): boolean {
+  return on === undefined || on !== current;
 }
 
 /** Who holds the reservation, seen from this computer. */
