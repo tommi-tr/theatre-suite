@@ -106,8 +106,10 @@ export type Refusal =
   | "alreadyGiven"
   | "unknown";
 
+/** Safety commands: the primary accepts them from the secondary always, also with the commands taken away. */
+export const SAFETY_OPS: LinkOp["kind"][] = ["pause", "blackout", "fadeToBlack", "emergency"];
 /** Taken away from the secondary, these still work. */
-const ALWAYS_ALLOWED: LinkOp["kind"][] = ["release", "available", "unavailable"];
+const ALWAYS_ALLOWED: LinkOp["kind"][] = ["release", "available", "unavailable", ...SAFETY_OPS];
 /** Only the computer holding the reservation (key C) may give these. */
 const RESERVABLE: LinkOp["kind"][] = ["go", "back", "standby"];
 
@@ -208,6 +210,18 @@ export function refusalText(reason: string | null | undefined, t: TFunc): string
       return t("The primary did not answer in time");
     case "alreadyGiven":
       return t("That GO has already started");
+    case "givenByPrimary":
+      return t("This GO is given by the primary.");
+    case "givenBySecondary":
+      return t("This GO is given by the secondary.");
+    case "end":
+      return t("That was the last GO: there is nothing after it.");
+    case "emergency":
+      return t("Emergency is on: press “Back to the show” first.");
+    case "start":
+      return t("No GO has been given yet: there is nothing to go back to.");
+    case "past":
+      return t("This GO has already been given: use Back (Backspace) to go back.");
     default:
       return t("Request not recognised");
   }
@@ -227,6 +241,9 @@ export function formatElapsed(ms: number): string {
   const ss = String(s % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
+
+/** "482913" → "482 913". */
+export const splitCode = (code: string): string => `${code.slice(0, 3)} ${code.slice(3)}`;
 
 export type Tone = "neutral" | "go" | "amber" | "red" | "blue";
 
@@ -313,7 +330,7 @@ export function linkPanel(i: LinkInfo, t: TFunc, lang: Lang, nowMs: number): Lin
       break;
   }
   // No secondary connected yet: neutral panel.
-  if (primary && i.pairingCode) return { ...base, title: t("No secondary"), detail: t("Pairing code {code}", { code: `${i.pairingCode.slice(0, 3)} ${i.pairingCode.slice(3)}` }) };
+  if (primary && i.pairingCode) return { ...base, title: t("No secondary"), detail: t("Pairing code {code}", { code: splitCode(i.pairingCode) }) };
   if (i.role === "secondary" && i.found?.pairing) return { ...base, title: t("Looking for the primary…"), detail: t("Type the code shown by {name}", { name: i.found.name }) };
   if (i.role === "secondary") return { ...base, title: t("Looking for the primary…"), detail: t("Choose Primary on the other computer") };
   if (primary && i.pairedWith) return { ...base, title: t("No secondary"), detail: t("Looking for the secondary…") };

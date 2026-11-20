@@ -14,7 +14,7 @@ export interface Toast {
   kind: "info" | "error";
 }
 
-export type BannerKind = "crashRestored" | "crashRestoreAvailable";
+export type BannerKind = "crashRestored" | "crashRestoreAvailable" | "showReceived";
 
 interface UiStore {
   mode: Mode;

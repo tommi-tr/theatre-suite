@@ -3,6 +3,7 @@ import { useT } from "@theatre-suite/core";
 import { chordFromEvent } from "../model/keys";
 import { showKeyAction } from "./keys";
 import { useSettings } from "../store/settings";
+import { useLink } from "../store/link";
 import { useUi } from "../store/ui";
 import {
   runBack,
@@ -19,6 +20,11 @@ import {
   useRun,
 } from "./run";
 
+const shortcutsOff = () => {
+  const i = useLink.getState().info;
+  return i.role === "secondary" && i.status === "unavailable";
+};
+
 export const isTyping = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
 
 /**
@@ -31,6 +37,8 @@ export function useShowKeys() {
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (useUi.getState().dialog) return;
+      // Secondary "Non disponibile": the shortcuts are off (the veil says so).
+      if (shortcutsOff()) return;
       const typing = isTyping(e.target);
       const id = showKeyAction(e, useSettings.getState().settings.keymap, typing);
       if (!id) return;

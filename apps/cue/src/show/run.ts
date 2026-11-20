@@ -4,6 +4,7 @@ import { numberGos, sortGos, type Go, type LightAction } from "../model/gos";
 import {
   back,
   blackout,
+  canGive,
   click,
   columns,
   emergency,
@@ -25,7 +26,10 @@ import {
   type Schedule,
   type StepResult,
 } from "../model/playback";
+import { checkRemoteGo, refusalText as linkRefusalText, routeAction, type LinkOp } from "../model/link";
 import { doublePress } from "./keys";
+import { linkApi } from "../lib/link";
+import { linkInfo } from "../store/link";
 import { audioApi, engineId } from "../lib/audio";
 import { dmxApi } from "../lib/dmx";
 import { runCommands } from "../lib/showRunner";
@@ -107,6 +111,9 @@ function say(message: string, kind: "info" | "error" = "info") {
 
 async function run(commands: readonly EngineCommand[]) {
   if (!commands.length) return;
+  // The secondary never drives the engines: it only shows what the primary does.
+  const li = linkInfo();
+  if (li.role === "secondary" && !li.simulated) return;
   const [dmx, audio] = await Promise.all([dmxApi(), audioApi()]);
   await runCommands(commands, {
     dmx,
@@ -144,14 +151,14 @@ export function refusalText(t: TFunc, r: Refusal): string {
 }
 
 /** Applies a step of playback: new state, engine commands, running time, auto GO timer, words when refused. */
-function apply(t: TFunc, res: StepResult, opts: { quiet?: Refusal[] } = {}) {
+function apply(t: TFunc, res: StepResult, opts: { quiet?: Refusal[]; silent?: boolean; by?: "primary" | "secondary" } = {}): Refusal | null {
   toastT = t;
   if (res.refused) {
-    if (!opts.quiet?.includes(res.refused)) {
+    if (!opts.silent && !opts.quiet?.includes(res.refused)) {
       const text = refusalText(t, res.refused);
       if (text) say(text);
     }
-    return;
+    return res.refused;
   }
   const prev = useRun.getState();
   const now = Date.now();
@@ -175,6 +182,32 @@ function apply(t: TFunc, res: StepResult, opts: { quiet?: Refusal[] } = {}) {
   if (res.skipped.length) say(t("Some actions of this GO were skipped: their memory or track is missing."), "error");
   void run(res.commands);
   if (res.fired.length || res.state.standbyId !== prev.playback.standbyId) afterStandbyChange(res.fired.length > 0);
+  if (res.fired.length) for (const f of firedListeners) f(res.fired, opts.by ?? "primary");
+  return null;
+}
+
+/** Told after a GO fires on this computer (the link publishes the event to the secondary). */
+type FiredListener = (goIds: string[], by: "primary" | "secondary") => void;
+const firedListeners = new Set<FiredListener>();
+export function onFired(fn: FiredListener): () => void {
+  firedListeners.add(fn);
+  return () => firedListeners.delete(fn);
+}
+
+/**
+ * Where a Show action goes (model/link.ts `routeAction`): applied here (no link, or this is the primary, whose
+ * state the link then publishes), asked to the primary (secondary), or refused in words.
+ */
+function routed(t: TFunc, op: LinkOp, local: () => void) {
+  const r = routeAction(linkInfo(), op);
+  if (r.kind === "local") return local();
+  if (r.kind === "refuse") return say(linkRefusalText(r.reason, t));
+  linkApi()
+    .request(op)
+    .then((o) => {
+      if (!o.ok) say(linkRefusalText(o.reason, t));
+    })
+    .catch(() => say(linkRefusalText("timeout", t)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -230,35 +263,39 @@ export function runGo(t: TFunc) {
   const st = useRun.getState();
   const gos = gosNow();
   if (!gos.length) return say(t("This show has no GOs yet: create them in Prepare by dragging memories and tracks onto the script."));
-  apply(t, go(st.playback, gos, { role: st.role, lookup: lookup() }));
+  const sb = gos.find((g) => g.id === st.playback.standbyId);
+  const can = sb ? canGive(sb, st.role) : { ok: true as const };
+  if (!can.ok) return say(refusalText(t, can.reason));
+  routed(t, { kind: "go", standbyId: st.playback.standbyId }, () => void apply(t, go(st.playback, gos, { role: st.role, lookup: lookup() })));
 }
 
 /** Indietro (Backspace). */
 export function runBack(t: TFunc) {
-  apply(t, back(useRun.getState().playback, gosNow(), { lookup: lookup() }));
+  routed(t, { kind: "back" }, () => void apply(t, back(useRun.getState().playback, gosNow(), { lookup: lookup() })));
 }
 
 /** A click on a GO button: a future GO becomes standby. */
 export function runClick(t: TFunc, goId: string) {
-  apply(t, click(useRun.getState().playback, gosNow(), goId), { quiet: ["alreadyStandby"] });
+  routed(t, { kind: "standby", goId }, () => void apply(t, click(useRun.getState().playback, gosNow(), goId), { quiet: ["alreadyStandby"] }));
 }
 
 export function runPause(t: TFunc) {
-  apply(t, togglePause(useRun.getState().playback));
+  routed(t, { kind: "pause" }, () => void apply(t, togglePause(useRun.getState().playback)));
 }
 
 export function runBlackout(t: TFunc) {
-  apply(t, blackout(useRun.getState().playback));
+  routed(t, { kind: "blackout" }, () => void apply(t, blackout(useRun.getState().playback)));
 }
 
 /** Fade to black in the time of the show (Settings; default 3 s); again = back up in the same time. */
 export function runFadeToBlack(t: TFunc) {
-  const seconds = useDoc.getState().show?.settings.ftbSeconds ?? 3;
-  apply(t, fadeToBlack(useRun.getState().playback, seconds));
+  routed(t, { kind: "fadeToBlack" }, () => void apply(t, fadeToBlack(useRun.getState().playback, ftbSeconds())));
 }
 
+const ftbSeconds = () => useDoc.getState().show?.settings.ftbSeconds ?? 3;
+
 export function runStopAudio(t: TFunc) {
-  apply(t, stopAudio(useRun.getState().playback));
+  routed(t, { kind: "stopAudio" }, () => void apply(t, stopAudio(useRun.getState().playback)));
 }
 
 /** E: the first press arms (the command blinks), a second within 1 s turns the emergency on. */
@@ -274,13 +311,15 @@ export function runEmergencyPress(t: TFunc, now = Date.now()) {
     }, 1050);
     return;
   }
-  clearAuto();
-  apply(t, emergency(st.playback));
-  useRun.setState({ preset: false, autoPending: null });
+  routed(t, { kind: "emergency" }, () => {
+    clearAuto();
+    apply(t, emergency(st.playback));
+    useRun.setState({ preset: false, autoPending: null });
+  });
 }
 
 export function runLeaveEmergency(t: TFunc) {
-  apply(t, leaveEmergency(useRun.getState().playback, gosNow(), { lookup: lookup() }));
+  routed(t, { kind: "emergency" }, () => void apply(t, leaveEmergency(useRun.getState().playback, gosNow(), { lookup: lookup() })));
 }
 
 /** The memory in scene now (for Piazzato off), or null. */
@@ -295,6 +334,7 @@ function lightInScene(): { goId: string; action: LightAction } | null {
 /** Q: Piazzato rapido on (the memory chosen in the settings, with its times) and off (back to the memory in scene). */
 export function runPreset(t: TFunc) {
   toastT = t;
+  if (linkInfo().role === "secondary" && !linkInfo().simulated) return say(t("The preset is for the primary computer."));
   const st = useRun.getState();
   if (st.playback.emergency) return say(refusalText(t, "emergency"));
   const ref = useDoc.getState().show?.settings.presetRef ?? null;
@@ -328,9 +368,103 @@ export function setLocked(locked: boolean) {
 
 export const toggleLock = () => setLocked(!useRun.getState().locked);
 
-/** C held / released (phase 3: the other computer is told; for now only this screen). */
+/**
+ * C held / released: asks for the reservation (arbitrated on the primary, the first wins) and releases it. The blue
+ * outline follows what the link reports (`reservation`), not the key alone.
+ */
 export function setReserved(reserved: boolean) {
-  if (useRun.getState().reserved !== reserved) useRun.setState({ reserved });
+  if (useRun.getState().reserved === reserved) return;
+  useRun.setState({ reserved });
+  if (linkInfo().role === "none") return;
+  // Refused (the other holds it, or unavailable): the grey button already says so.
+  void linkApi().reserve(reserved).catch(() => {});
+}
+
+/* ------------------------------------------------------------------ */
+/* The link: state published by the primary, requests applied by it     */
+/* ------------------------------------------------------------------ */
+
+/** What the primary publishes and the secondary shows. */
+export interface SharedRun {
+  playback: PlaybackState;
+  startedAt: number | null;
+  pausedAt: number | null;
+  pausedMs: number;
+  preset: boolean;
+  autoPending: RunStore["autoPending"];
+}
+
+export const sharedRun = (s: RunStore): SharedRun => ({
+  playback: s.playback,
+  startedAt: s.startedAt,
+  pausedAt: s.pausedAt,
+  pausedMs: s.pausedMs,
+  preset: s.preset,
+  autoPending: s.autoPending,
+});
+
+/** Secondary: shows the primary's state (buttons, columns, running time). Anything that is not a state is ignored. */
+export function applySharedRun(raw: unknown): boolean {
+  const x = raw as Partial<SharedRun> | null;
+  const p = x?.playback;
+  if (!p || typeof p !== "object" || !Array.isArray(p.history) || typeof p.paused !== "boolean") return false;
+  const prev = useRun.getState().playback;
+  useRun.setState({
+    playback: { ...p, emergencyArmedAt: null },
+    startedAt: x.startedAt ?? null,
+    pausedAt: x.pausedAt ?? null,
+    pausedMs: x.pausedMs ?? 0,
+    preset: !!x.preset,
+    autoPending: x.autoPending ?? null,
+  });
+  if (p.standbyId !== prev.standbyId || p.lastGoId !== prev.lastGoId) afterStandbyChange(p.lastGoId !== prev.lastGoId);
+  return true;
+}
+
+/**
+ * Primary: a request of the secondary, applied through the same code as the keys (as the secondary). Refused by
+ * the playback rules → `reply(requestId, false, reason)`: the secondary shows it.
+ */
+export function handleRequest(t: TFunc, requestId: string, op: LinkOp): void {
+  const st = useRun.getState();
+  const gos = gosNow();
+  const by = { silent: true, by: "secondary" } as const;
+  let refused: string | null = null;
+  switch (op.kind) {
+    case "go":
+      refused = checkRemoteGo(op, st.playback.standbyId) ?? apply(t, go(st.playback, gos, { role: "secondary", lookup: lookup() }), by);
+      break;
+    case "back":
+      refused = apply(t, back(st.playback, gos, { lookup: lookup() }), by);
+      break;
+    case "standby":
+      refused = apply(t, click(st.playback, gos, op.goId), { ...by, quiet: ["alreadyStandby"] });
+      if (refused === "alreadyStandby") refused = null;
+      break;
+    case "pause":
+      apply(t, togglePause(st.playback), by);
+      break;
+    case "blackout":
+      if (op.on === undefined || op.on !== st.playback.blackout) apply(t, blackout(st.playback), by);
+      break;
+    case "fadeToBlack":
+      apply(t, fadeToBlack(st.playback, ftbSeconds()), by);
+      break;
+    case "stopAudio":
+      apply(t, stopAudio(st.playback), by);
+      break;
+    case "emergency":
+      if (st.playback.emergency) apply(t, leaveEmergency(st.playback, gos, { lookup: lookup() }), by);
+      else {
+        clearAuto();
+        apply(t, emergency(st.playback), by);
+        useRun.setState({ preset: false, autoPending: null });
+      }
+      break;
+    default:
+      break;
+  }
+  if (refused) void linkApi().reply(requestId, false, refused);
 }
 
 /* ------------------------------------------------------------------ */

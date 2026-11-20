@@ -23,8 +23,10 @@ import { applySavedOutputs } from "../settings/outputStatus";
 import { startAudioSync, startLibrarySync } from "../store/library";
 import { startOutputs } from "../store/outputs";
 import { startRunSync } from "../show/run";
+import { startLink } from "../lib/linkRuntime";
 import { startFollow } from "../script/follow";
 import { LockButton, LockVeil, ShowStatusLine } from "../show/ShowParts";
+import { LinkBorder, UnavailableVeil } from "../show/LinkPanel";
 import { lockBlocks } from "../show/useShowKeys";
 
 export function Shell() {
@@ -44,7 +46,7 @@ export function Shell() {
   // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
   useEffect(() => {
     void applySavedOutputs();
-    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow()];
+    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startLink()];
     return () => stops.forEach((f) => f());
   }, []);
 
@@ -209,9 +211,11 @@ export function Shell() {
       {banner ? (
         <div className="ts-banner" role="status">
           <span className="ts-dot ts-dot--sb" />
-          {banner.kind === "crashRestored"
-            ? t("Cue was closed unexpectedly. Your work has been recovered: nothing was sent to lights, sound or screens.")
-            : t("Cue was closed unexpectedly. The show as it was a moment before can be recovered.")}
+          {banner.kind === "showReceived"
+            ? t("Show received from the primary")
+            : banner.kind === "crashRestored"
+              ? t("Cue was closed unexpectedly. Your work has been recovered: nothing was sent to lights, sound or screens.")
+              : t("Cue was closed unexpectedly. The show as it was a moment before can be recovered.")}
           <span className="ts-spacer" />
           {banner.kind === "crashRestoreAvailable" && banner.data ? (
             <Button
@@ -242,6 +246,8 @@ export function Shell() {
       {dialog === "newShow" ? <NewShowDialog /> : null}
       <ReplaceScriptDialog />
       <LockVeil />
+      {show && mode === "show" ? <LinkBorder /> : null}
+      {show && mode === "show" ? <UnavailableVeil /> : null}
       <ConfirmHost />
       <AppToast />
     </div>

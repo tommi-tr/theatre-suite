@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ScriptStage } from "../script/ScriptStage";
+import { ReservationBand } from "../show/LinkPanel";
 import { ShowBands } from "../show/ShowParts";
 import { useShowKeys } from "../show/useShowKeys";
 import { ensureDmx } from "../store/outputs";
@@ -24,6 +25,7 @@ export function ShowMode() {
   return (
     <div className="cue-show">
       <ShowBands />
+      <ReservationBand />
       <ScriptStage mode="show" />
     </div>
   );

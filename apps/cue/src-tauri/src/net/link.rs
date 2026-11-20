@@ -50,6 +50,8 @@ const RECV_TIMEOUT: Duration = Duration::from_millis(50);
 
 /// Requests a secondary may send while its commands are taken away.
 const ALWAYS_ALLOWED: &[&str] = &["release", "available", "unavailable"];
+/// Safety commands: accepted from the secondary always, also when its commands are taken away (director's decision).
+const SAFETY: &[&str] = &["pause", "blackout", "fadeToBlack", "emergency"];
 /// Requests refused while the primary holds the reservation.
 const RESERVABLE: &[&str] = &["go", "back", "standby"];
 /// Requests known to the primary.
@@ -1083,7 +1085,7 @@ pub fn decide_request(kind: &str, holder: Holder, commands_taken: bool, availabl
     if !REQUESTS.contains(&kind) {
         return Err("unknown");
     }
-    if commands_taken && !ALWAYS_ALLOWED.contains(&kind) {
+    if commands_taken && !ALWAYS_ALLOWED.contains(&kind) && !SAFETY.contains(&kind) {
         return Err("commandsTaken");
     }
     if !available && (RESERVABLE.contains(&kind) || kind == "reserve" || kind == "edit") {
@@ -1704,7 +1706,10 @@ mod tests {
         assert_eq!(decide_request("blackout", Holder::Primary, false, true), Ok(()), "safety commands work from both computers");
         assert_eq!(decide_request("emergency", Holder::Primary, false, true), Ok(()));
         assert_eq!(decide_request("go", Holder::None, true, true), Err("commandsTaken"));
-        assert_eq!(decide_request("blackout", Holder::None, true, true), Err("commandsTaken"));
+        for k in ["pause", "blackout", "fadeToBlack", "emergency"] {
+            assert_eq!(decide_request(k, Holder::None, true, true), Ok(()), "{k}: safety commands pass even when commands are taken");
+        }
+        assert_eq!(decide_request("stopAudio", Holder::None, true, true), Err("commandsTaken"));
         assert_eq!(decide_request("release", Holder::None, true, true), Ok(()));
         assert_eq!(decide_request("available", Holder::None, true, false), Ok(()));
         assert_eq!(decide_request("go", Holder::None, false, false), Err("unavailable"));

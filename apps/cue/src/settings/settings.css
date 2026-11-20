@@ -120,3 +120,47 @@
   color: var(--text-2);
   font-size: 12px;
 }
+
+/* Settings → Collegamento */
+.cue-firewall {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--pre-line);
+  border-radius: var(--r-lg);
+  background: var(--pre-bg);
+  font-size: 12.5px;
+}
+.cue-firewall p {
+  margin: 0;
+  line-height: 1.5;
+}
+.cue-firewall__actions {
+  display: flex;
+  gap: 8px;
+}
+.cue-pair {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+}
+.cue-pair__code {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+.cue-pair__entry {
+  display: flex;
+  gap: 8px;
+}
+.cue-pair__input {
+  width: 130px;
+}
+.cue-link-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}

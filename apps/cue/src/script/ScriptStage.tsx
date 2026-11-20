@@ -10,6 +10,8 @@ import { useScriptDoc } from "./store";
 import { useUi } from "../store/ui";
 import { Timeline } from "../timeline/Timeline";
 import { AutoScrollPill, usePeekTarget } from "../show/ShowParts";
+import { LinkPanel } from "../show/LinkPanel";
+import { RemotePointer } from "../show/RemotePointer";
 import { anchorAtPoint, anchorHere, anchorTop, scriptLive, useScriptView } from "./view";
 import { isItemDrag, readItemDrop } from "../prepare/drag";
 import { addItemAt } from "../prepare/actions";
@@ -131,6 +133,7 @@ export function ScriptStage({ mode, left, right }: { mode: "show" | "prepare"; l
               <NoScript mode={mode} />
             )}
             {status === "ready" && mode === "show" ? <AutoScrollPill /> : null}
+            {status === "ready" && mode === "show" ? <RemotePointer /> : null}
           </div>
           <div
             className={`cue-divider${drag !== null ? " cue-divider--drag" : ""}`}
@@ -146,7 +149,7 @@ export function ScriptStage({ mode, left, right }: { mode: "show" | "prepare"; l
         </div>
         <PeekBand target={peekTarget} />
       </div>
-      {right ?? (mode === "show" ? <LinkPanelPlaceholder /> : null)}
+      {right ?? (mode === "show" ? <LinkPanel /> : null)}
     </div>
   );
 }
@@ -185,19 +188,5 @@ function ScriptProblem() {
         </Button>
       </div>
     </div>
-  );
-}
-
-function LinkPanelPlaceholder() {
-  const t = useT();
-  return (
-    <aside className="cue-panel" aria-label={t("Link")}>
-      <div className="ts-label">{t("Second computer")}</div>
-      <div className="cue-panel__state">
-        <span className="ts-dot" />
-        {t("No secondary")}
-      </div>
-      <p className="ts-muted">{t("A second computer that leads the same show comes with Cue 0.4.")}</p>
-    </aside>
   );
 }

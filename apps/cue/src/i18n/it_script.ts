@@ -9,7 +9,6 @@ export const itScript: Dict = {
   "{sure} sure · {other} to check": "{sure} sicure · {other} da controllare",
   "1 note": "1 nota",
   "A note where the pointer is (or at the reading line)": "Una nota dove c'è il puntatore (o all'altezza di lettura)",
-  "A second computer that leads the same show comes with Cue 0.4.": "Un secondo computer che conduce lo stesso spettacolo arriva con Cue 0.4.",
   "Apply {n} anchors": "Applica {n} ancore",
   "Apply {n} sure anchors": "Applica {n} ancore sicure",
   "Audio": "Audio",

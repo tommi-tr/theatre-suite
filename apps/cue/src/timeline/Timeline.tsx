@@ -8,6 +8,8 @@ import type { Library } from "../model/sources";
 import type { ProjectionItem } from "../model/show";
 import { engineId } from "../lib/audio";
 import { useDoc } from "../store/doc";
+import { useLink } from "../store/link";
+import { reservationView } from "../model/link";
 import { useLibrary } from "../store/library";
 import { useOutputs } from "../store/outputs";
 import { anchorTop, scriptLive, useScriptView } from "../script/view";
@@ -69,7 +71,7 @@ export function Timeline({ mode, selectedGoId = null, onSelectGo }: TimelineProp
   const library = useLibrary((s) => s.library);
   const playback = useRun((s) => s.playback);
   const role = useRun((s) => s.role);
-  const reserved = useRun((s) => s.reserved);
+  const linkState = useLink((s) => s.info);
   const locked = useRun((s) => s.locked);
   const autoPending = useRun((s) => s.autoPending);
   // Only which sounds play (not their position): the boxes do not re-render ten times a second.
@@ -170,7 +172,8 @@ export function Timeline({ mode, selectedGoId = null, onSelectGo }: TimelineProp
 
   if (!geometry || !timeline) return <div ref={rootRef} className="cue-tl" />;
 
-  const reservedByMe = reserved && role !== "solo";
+  const resv = reservationView(linkState, t);
+  const reservedByMe = resv.mine;
   const boxState = (box: TimelineBox, go: Go, index: number): BoxState => {
     const action = go.actions.find((a) => a.id === box.actionId);
     if (!action) return "";
@@ -258,6 +261,7 @@ export function Timeline({ mode, selectedGoId = null, onSelectGo }: TimelineProp
             width={geo.btnW}
             selected={mode === "prepare" && selectedGoId === row.goId}
             mine={reservedByMe}
+            reservedByOther={resv.goLabel}
             autoWaiting={autoPending?.goId === row.goId}
             onPress={onButton}
             t={t}
@@ -312,18 +316,23 @@ interface GoButtonProps {
   width: number;
   selected: boolean;
   mine: boolean;
+  /** The other computer holds the reservation: the standby is grey with this label ("Prenotato dal secondario"). */
+  reservedByOther: string | null;
   autoWaiting: boolean;
   onPress: (goId: string) => void;
   t: TFunc;
 }
 
-const GoButton = memo(function GoButton({ row, go, number, view, width, selected, mine, autoWaiting, onPress, t }: GoButtonProps) {
+const GoButton = memo(function GoButton({ row, go, number, view, width, selected, mine, reservedByOther, autoWaiting, onPress, t }: GoButtonProps) {
   const n = number?.text ?? "";
   const status = view?.status ?? "future";
-  const other = view && !view.fireable;
+  const held = status === "standby" && !!reservedByOther;
+  const other = (view && !view.fireable) || held;
   let main: string;
   let sub: string | null = null;
-  if (other) {
+  if (held && view?.fireable) {
+    main = `${n} · ${reservedByOther}`;
+  } else if (other) {
     main = `${n} · ${view!.reason === "givenBySecondary" ? t("given by the secondary") : t("given by the primary")}`;
   } else if (status === "last") main = `GO ${n}`;
   else if (status === "standby") main = `STBY ${n}`;

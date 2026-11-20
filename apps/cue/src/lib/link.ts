@@ -145,7 +145,7 @@ export function simInfo(tokens: string[], now = Date.now()): LinkInfo {
     lostAt: status === "lost" ? now - 4000 : null,
     me: { id: "demo-me", name: role === "secondary" ? "Palco" : "Regia", paths: [] },
     peer,
-    pairedWith: status === "none" && !tokens.includes("pairing") ? null : other,
+    pairedWith: status === "none" ? null : other,
     pairingCode: role === "primary" && tokens.includes("pairing") ? "482913" : null,
     found: role === "secondary" && tokens.includes("pairing") ? { id: "demo-peer", name: other, address: "169.254.20.7", pairing: true, busy: false } : null,
     reservation,

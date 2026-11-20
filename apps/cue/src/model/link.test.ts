@@ -64,6 +64,9 @@ describe("routing", () => {
     expect(routeAction(info(["secondary", "lost"]), { kind: "blackout" })).toEqual({ kind: "refuse", reason: "notConnected" });
     expect(routeAction(info(["secondary", "stable", "taken"]), { kind: "go" })).toEqual({ kind: "refuse", reason: "commandsTaken" });
     expect(routeAction(info(["secondary", "stable", "taken"]), { kind: "release" })).toEqual({ kind: "remote" });
+    // Director's decision: the safety commands always go through, also with the commands taken away.
+    for (const kind of ["pause", "blackout", "fadeToBlack", "emergency"] as const) expect(routeAction(info(["secondary", "stable", "taken"]), { kind })).toEqual({ kind: "remote" });
+    expect(routeAction(info(["secondary", "stable", "taken"]), { kind: "stopAudio" })).toEqual({ kind: "refuse", reason: "commandsTaken" });
     expect(routeAction(info(["secondary", "stable", "reserved-other"]), { kind: "go" })).toEqual({ kind: "refuse", reason: "reservedByPrimary" });
     expect(routeAction(info(["secondary", "stable", "reserved-other"]), { kind: "emergency" })).toEqual({ kind: "remote" });
     expect(routeAction(info(["secondary", "unavailable"]), { kind: "go" })).toEqual({ kind: "refuse", reason: "unavailable" });

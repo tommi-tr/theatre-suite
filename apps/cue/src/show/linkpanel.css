@@ -1,0 +1,237 @@
+/* The link panel of the Show (200 px): its whole background is the colour of the link state (13_cue.md). */
+.cue-link {
+  --veil: var(--surface-2);
+  --ink: var(--text);
+  --ink-2: var(--text-2);
+  background: var(--bar);
+  gap: 8px;
+}
+.cue-link[data-tone="go"] {
+  background: var(--go-bg);
+}
+.cue-link[data-filled="1"] {
+  --veil: rgba(0, 0, 0, 0.16);
+  --ink: #14151a;
+  --ink-2: rgba(20, 21, 26, 0.78);
+  color: var(--ink);
+}
+.cue-link[data-tone="amber"] {
+  background: #ffb224;
+}
+.cue-link[data-tone="red"] {
+  background: #ff5f5f;
+}
+.cue-link[data-tone="blue"] {
+  background: #4fa8ff;
+}
+.cue-link[data-ink="white"] {
+  --ink: #fff;
+  --ink-2: rgba(255, 255, 255, 0.9);
+  color: #fff;
+}
+.cue-link__who {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.cue-link__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.cue-link__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.cue-link[data-tone="go"] .cue-link__dot {
+  background: var(--go);
+}
+.cue-link[data-filled="1"] .cue-link__dot {
+  background: var(--ink);
+}
+.cue-link__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.cue-link .cue-link__detail {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.cue-link .cue-link__detail--strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cue-link__btn {
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cue-link[data-filled="1"] .cue-link__btn {
+  background: var(--veil);
+  border-color: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+}
+.cue-link__fill {
+  flex: 1;
+}
+.cue-link__chathead {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-weight: 500;
+  margin-top: 4px;
+}
+.cue-link__msgs {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cue-link__msg {
+  align-self: flex-start;
+  max-width: 92%;
+  display: flex;
+  flex-direction: column;
+  padding: 5px 9px;
+  border-radius: 10px;
+  background: var(--veil);
+  font-size: 12px;
+  color: var(--ink);
+}
+.cue-link__msg--mine {
+  align-self: flex-end;
+}
+.cue-link__meta {
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+.cue-link__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cue-link__chip {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+.cue-link[data-tone="neutral"] .cue-link__chip,
+.cue-link[data-tone="go"] .cue-link__chip {
+  border-color: var(--border-2, var(--border));
+}
+.cue-link__input {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: var(--r-md);
+  background: var(--veil);
+  color: var(--ink);
+  font-size: 12.5px;
+  min-width: 0;
+}
+.cue-link__input::placeholder {
+  color: var(--ink-2);
+}
+
+/* 6 px border of the screen (only with a secondary connected). */
+.cue-linkborder {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  border: 6px solid transparent;
+  pointer-events: none;
+}
+
+/* Secondary "Non disponibile": veil and blue card. */
+.cue-unavail {
+  position: fixed;
+  inset: 6px;
+  z-index: 850;
+  display: grid;
+  place-items: center;
+  background: rgba(14, 15, 18, 0.55);
+  backdrop-filter: blur(5px);
+}
+.cue-unavail__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 380px;
+  padding: 22px 26px;
+  border-radius: var(--r-lg);
+  background: #4fa8ff;
+  color: #14151a;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.cue-unavail__card b {
+  font-size: 16px;
+}
+.cue-unavail__card span {
+  font-size: 12.5px;
+}
+.cue-unavail__hold {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 0, 0, 0.3);
+  color: #14151a;
+  font-weight: 600;
+}
+
+/* Reserved by this computer: blue band above the columns. */
+.cue-showband--pre {
+  background: var(--pre-bg);
+  color: var(--pre);
+  border-bottom-color: var(--pre-line);
+}
+.cue-showband--pre strong {
+  font-weight: 600;
+}
+
+/* The other computer's pointer on the script. */
+.cue-rptr {
+  position: absolute;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -5px 0 0 -5px;
+  will-change: transform;
+}
+.cue-rptr__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pre);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+.cue-rptr__name {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--pre);
+  color: #14151a;
+  font-size: 10px;
+  font-weight: 600;
+}

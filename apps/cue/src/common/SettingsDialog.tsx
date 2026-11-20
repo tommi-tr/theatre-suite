@@ -17,6 +17,7 @@ import { APP_NAME, APP_VERSION, LOGO } from "../lib/version";
 import { useSettings, type ArrowKeys, type Paper } from "../store/settings";
 import { useUi, type SettingsTab } from "../store/ui";
 import { KeysPane } from "../settings/KeysPane";
+import { LinkPane } from "../settings/LinkPane";
 import { OutputsPane } from "../settings/OutputsPane";
 import { SoonPill } from "./ComingSoon";
 
@@ -63,15 +64,7 @@ export function SettingsDialog() {
         ) : tab === "keys" ? (
           <KeysPane />
         ) : tab === "link" ? (
-          <LaterPane
-            version="0.4"
-            title={t("Primary and secondary")}
-            about={[
-              t("A second computer can lead the same show as an equal: every request goes through the primary."),
-              t("Direct Ethernet cable between the two computers, paired once with a 6-digit code."),
-              t("Link state always written in words and colours; optional Wi-Fi backup."),
-            ]}
-          />
+          <LinkPane />
         ) : tab === "outputs" ? (
           <OutputsPane />
         ) : tab === "projections" ? (

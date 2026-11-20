@@ -76,7 +76,7 @@ the sender's inbound loss count). On loss: the secondary's reservation ends at o
 ## Requests, reservation, commands
 - Requests: `go {standbyId}`, `back`, `pause`, `blackout {on?}`, `fadeToBlack`, `emergency`, `stopAudio`, `standby {goId}`,
   `edit {op}`, `reserve`, `release`, `available`, `unavailable`. The primary's link decides first
-  (`decide_request`): commands taken → everything refused except release/available; primary holds the reservation →
+  (`decide_request`): commands taken → everything refused except release/available and the safety commands (pause, blackout, fadeToBlack, emergency); primary holds the reservation →
   go/back/standby/reserve refused (safety commands still pass); unavailable → go/back/standby/reserve/edit refused.
   Accepted ones (except reserve/release/availability, handled natively) arrive as `cue-link-event {type:"request"}`;
   the UI applies them with role `"secondary"` and calls `reply(requestId, false, reason)` if playback refuses them.
@@ -116,17 +116,30 @@ Demo (`/?demo`): `&link=stable|unstable|backup|lost|unavailable|pairing`, add `s
 `reserved-other`, `taken` (e.g. `/?demo&link=secondary,unavailable`); `window.__cueLink.set({...})` at run time.
 
 ## Testing with two instances on one computer
-```sh
-pnpm --filter cue tauri dev                   # instance 1 (debug: accepts 127.0.0.1), choose Primario
-<target dir>/debug/cue --instance 2           # instance 2 on ports 47820/47821, choose Secondario, type the code
-```
-With two release builds run both with `--instance` (e.g. 2 and 3), since instance 1 of a release build accepts no
-loopback. Automated: `cargo test -p cue --test link` (pairing, wrong code, heartbeat, request → state, reservation,
-commands taken, chat, file transfer, bye and silent loss, remembered pairing, forget).
+Full steps in `README.md` ("Step by step"). In short: `pnpm --filter cue tauri dev` (instance 1, choose Primario, press
+"Ho capito, attiva"), then `<target dir>/debug/cue --instance 2` (choose Secondario, type the code shown by instance 1).
+With two release builds start both with `--instance` (2 and 3): instance 1 of a release build accepts no loopback.
+Automated: `cargo test -p cue --test link` (pairing, wrong code, heartbeat, request -> state, reservation, commands taken
+with safety commands still accepted, chat, file transfer, bye and silent loss, remembered pairing, forget) and
+`pnpm --filter cue exec vitest run` (`routeAction`, panel states, `handleRequest`, edits).
+
+## How the UI uses it (Cue 0.4.0)
+- `store/link.ts` holds `LinkInfo`, the chat and the remote pointer; `lib/linkRuntime.ts` (`startLink`, from the Shell)
+  wires events: `request` -> `handleRequest` (`show/run.ts`, same code as the keys, role "secondary"; a playback refusal ->
+  `reply(requestId, false, reason)`), `state` -> `applySharedRun`, `cue-link-file received` -> opens the show and shows the
+  banner. The primary publishes `sharedRun` (playback, running time, preset, autoPending) after every change and `fired`
+  events; the secondary never runs engines (`run()` returns at once for a real secondary).
+- Edits on the secondary: after 400 ms the changed top-level parts of `show.json` (`gos`, `notes`, `speedZones`, `layout`,
+  `projection`, `checklist`, `settings`) go as `{kind:"edit", op:{type:"patch", set}}`; the primary validates them with
+  `parseShow`, applies them and `sendShow`s the new `showJson` (600 ms debounce), which the secondary applies silently.
+  The whole show is never sent in a datagram (48 KB limit).
+- `emergency` from the secondary toggles (on, or back to the show). Preset (Q) is primary-only.
+- UI: `settings/LinkPane.tsx`, `show/LinkPanel.tsx` (panel, 6 px border, unavailable veil, reservation band, chat),
+  `show/RemotePointer.tsx`. Keys are off on a secondary "Non disponibile".
 
 ## Open points
 - `checkRemoteGo` refuses a secondary GO for a standby already started (prevents a double GO when both press at once):
   confirm with the director (13 says "no time-based safety net"; this check is not time-based).
-- Commands taken away also block the secondary's safety commands (blackout, emergency…): confirm.
+- (Decided) Safety commands (Pausa, Blackout, Fade to black, Emergenza) are accepted from the secondary even with the commands taken away.
 - PAKE instead of a plain code; encryption not planned.
 - Several primaries on one network: the secondary keeps the first found (a primary showing a code wins).

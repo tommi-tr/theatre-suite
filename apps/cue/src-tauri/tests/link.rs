@@ -89,6 +89,7 @@ fn primary_and_secondary_on_one_computer() {
     // Commands taken away.
     p.take_commands(true);
     assert_eq!(s.request(json!({ "kind": "go" })).reason.as_deref(), Some("commandsTaken"));
+    assert!(s.request(json!({ "kind": "emergency" })).ok, "safety commands pass even with the commands taken");
     assert_eq!(p.info().reservation, Holder::None);
     p.take_commands(false);
 
