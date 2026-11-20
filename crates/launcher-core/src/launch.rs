@@ -71,10 +71,13 @@ pub fn open_all(
 ) -> OpenAllReport {
     let mut report = OpenAllReport::default();
     let mut used: Vec<String> = vec![];
-    // With a Cue document in the show, Cue runs the evening (it drives sound and lights itself):
-    // only Cue is opened, the other documents are listed as not needed.
-    let cue_runs_it = project.documents.iter().any(|d| d.phase == Some(Phase::Show) && d.app == "cue");
-    for doc in project.documents.iter().filter(|d| d.phase == Some(Phase::Show)) {
+    // With a Cue document in the show, Cue runs the evening (it drives sound and lights itself): Cue documents are
+    // opened first and, only if one really opened, the other documents are listed as not needed. If Cue is not
+    // installed, its file is missing or it fails to start, the other apps open as usual.
+    let show_docs: Vec<_> = project.documents.iter().filter(|d| d.phase == Some(Phase::Show)).collect();
+    let (cue_docs, other_docs): (Vec<_>, Vec<_>) = show_docs.into_iter().partition(|d| d.app == "cue");
+    let mut cue_runs_it = false;
+    for doc in cue_docs.into_iter().chain(other_docs) {
         let skip = |reason: &str, detail: String| Skipped { doc_id: doc.id.clone(), title: doc.title.clone(), reason: reason.into(), detail };
         if cue_runs_it && doc.app != "cue" {
             let name = app_by_id(&doc.app).map_or(doc.app.as_str(), |a| a.name);
@@ -102,6 +105,9 @@ pub fn open_all(
             Ok(()) => {
                 used.push(app.id.to_string());
                 report.opened.push(doc.id.clone());
+                if app.id == "cue" {
+                    cue_runs_it = true;
+                }
             }
             Err(e) => report.skipped.push(skip("failed", e)),
         }
@@ -168,6 +174,30 @@ mod tests {
         assert_eq!(r.skipped.len(), 1);
         assert_eq!(r.skipped[0].reason, "notNeeded");
         assert_eq!(r.skipped[0].detail, "Diaframma");
+    }
+
+    #[test]
+    fn without_cue_installed_the_other_apps_open_as_usual() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("a.diaframma"), "{}").unwrap();
+        std::fs::write(d.path().join("s.tcue"), "x").unwrap();
+        let mut p = manifest::create(d.path(), "X", "").unwrap();
+        for doc in p.documents.iter_mut() {
+            doc.phase = Some(Phase::Show);
+        }
+        let log = RefCell::new(vec![]);
+        let r = open_all(
+            d.path(),
+            &p,
+            |a| (a.id != "cue").then(|| format!("C:/{}.exe", a.name)),
+            |prog, doc| {
+                log.borrow_mut().push((prog.to_string_lossy().to_string(), doc.file_name().unwrap().to_string_lossy().to_string()));
+                Ok(())
+            },
+        );
+        assert_eq!(log.borrow().as_slice(), &[("C:/Diaframma.exe".to_string(), "a.diaframma".to_string())]);
+        assert_eq!(r.skipped.len(), 1);
+        assert_eq!(r.skipped[0].reason, "notInstalled");
     }
 }
 
