@@ -30,7 +30,6 @@ export const it: Dict = {
   "Before the first save of this session": "Prima del primo salvataggio di questa sessione",
   "Blackout": "Blackout",
   "Blank image": "Tappo",
-  "Blank image (black or your own) and PowerPoint, imported or driven live.": "Immagine tappo (nera o scelta da te) e PowerPoint, importato o comandato dal vivo.",
   "Brightness of the dark paper": "Luminosità della carta scura",
   "Cancel": "Annulla",
   "Change page": "Cambio pagina",
@@ -76,9 +75,7 @@ export const it: Dict = {
   "Go back to this": "Torna a questa",
   "Go back to this version? The file as it is now is kept as an automatic version first.": "Tornare a questa versione? Il file com'è ora viene prima conservato come versione automatica.",
   "held down": "tenuto premuto",
-  "Images and videos (MP4 H.264) with transitions and colour.": "Immagini e video (MP4 H.264) con transizioni e colore.",
   "In Prepare": "In Prepara",
-  "In the centre the preview of what is on the output screen and of what comes next.": "Al centro l'anteprima di ciò che è sullo schermo di uscita e di ciò che viene dopo.",
   "In this preview files are not saved: install Cue to save.": "In questa anteprima i file non si salvano: installa Cue per salvare.",
   "In this preview files cannot be opened: try the demo show.": "In questa anteprima non si aprono file: prova lo spettacolo di prova.",
   "Instance {n}": "Istanza {n}",
@@ -94,8 +91,6 @@ export const it: Dict = {
   "Lock": "Lock",
   "Lower it if the script lights up the booth too much.": "Abbassala se il copione illumina troppo la regia.",
   "Maximize": "Ingrandisci",
-  "Meanwhile keep images and videos in the show folder: videos stay outside the file, linked by their path.":
-    "Intanto tieni immagini e video nella cartella dello spettacolo: i video restano fuori dal file, collegati dal loro percorso.",
   "Minimize": "Riduci a icona",
   "Mode": "Modalità",
   "New GO here": "Nuovo GO qui",
@@ -109,7 +104,6 @@ export const it: Dict = {
   "Note": "Nota",
   "On the right the checklist before the curtain, with suggested items and your own, saved in the file.":
     "A destra la lista di controllo prima del sipario, con voci proposte e voci tue, salvate nel file.",
-  "On the right the retouch: transition, brightness, contrast, temperature, saturation.": "A destra il ritocco: transizione, luminosità, contrasto, temperatura, saturazione.",
   "One card per output (audio, DMX lights, projector, secondary, PowerPoint, pedal) with its state in words and a test button.":
     "Una scheda per uscita (audio, luci DMX, proiettore, secondario, PowerPoint, pedale) con lo stato a parole e il comando di prova.",
   "One PDF: the script or the score. It goes inside the show file and Cue never changes it; underlines and comments already in the PDF stay visible.":
@@ -124,7 +118,6 @@ export const it: Dict = {
   "Pedal": "Pedale",
   "Peek at the script": "Sbirciata",
   "Please confirm": "Conferma",
-  "PowerPoint: slides imported as images, or PowerPoint itself driven live.": "PowerPoint: diapositive importate come immagini, oppure PowerPoint stesso comandato dal vivo.",
   "Prepare": "Prepara",
   "Preset (house lights)": "Piazzato",
   "Primary and secondary": "Primario e secondario",
@@ -158,11 +151,7 @@ export const it: Dict = {
   "Tests of the outputs and of the link, with a report you can keep.": "Prove delle uscite e del collegamento, con un rapporto da conservare.",
   "The file cannot be read or written here.": "Il file non si può leggere o scrivere qui.",
   "The file is damaged and cannot be opened.": "Il file è danneggiato e non si può aprire.",
-  "The output screen (the second screen of this computer) and the blank image: black or one of your choice.":
-    "Lo schermo di uscita (il secondo schermo di questo computer) e l'immagine tappo: nera o scelta da te.",
   "The script, the GOs and the rest come after, in Prepare.": "Copione, GO e tutto il resto vengono dopo, in Prepara.",
-  "The sequence of images and videos on the left, with the transition written between one and the next.":
-    "La sequenza di immagini e video a sinistra, con la transizione scritta fra un elemento e l'altro.",
   "The shows you open appear here.": "Qui compaiono gli spettacoli che apri.",
   "The stage manager's digital prompt book: the script with its GOs, and the command of lights, sound and images during the show. Part of the Theatre Suite.":
     "Il libro di scena digitale di chi chiama lo spettacolo: il copione con i suoi GO, e il comando di luci, audio e immagini durante lo spettacolo. Fa parte della Theatre Suite.",

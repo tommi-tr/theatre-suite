@@ -474,3 +474,22 @@
     width: 212px;
   }
 }
+
+/* Video tab: thumbnail of an image or video of the projections */
+.cue-vthumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 25px;
+  border-radius: 3px;
+  background: var(--surface-3) center / cover no-repeat;
+}
+.cue-vthumb--step {
+  color: var(--dept-video);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+.cue-item--video.cue-item--on {
+  outline-color: var(--dept-video);
+}

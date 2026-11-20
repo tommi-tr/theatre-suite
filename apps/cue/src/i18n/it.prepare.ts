@@ -51,7 +51,6 @@ export const itPrepare: Dict = {
   "How long the lights take to go dark with the Fade to black key, and to come back.": "Quanto ci mettono le luci a spegnersi con il tasto Fade to black, e a tornare.",
   "I checked it": "Ho controllato",
   "Image or video": "Immagine o video",
-  "Images and videos arrive with Cue 0.5": "Immagini e video arrivano con Cue 0.5",
   "In": "Entra",
   "In Show the script scrolls by itself to the next GO. Scrolling by hand pauses it until you press Follow.":
     "In Show il copione scorre da solo fino al prossimo GO. Scorrere a mano lo ferma finché non premi Segui.",

@@ -215,6 +215,23 @@ pub fn part_stage(app: AppHandle, from: String, name: String) -> Result<tcue::St
     Ok(tcue::stage_copy(Path::new(&from), &staging_dir(&app)?, &name)?)
 }
 
+/// Like `part_stage`, for bytes made by the interface (a thumbnail, a slide rendered from a PDF): the raw request
+/// body is the file, the header `name` is the part name.
+#[tauri::command(async)]
+pub fn part_stage_bytes(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<tcue::Staged, String> {
+    let name = request.headers().get("name").and_then(|v| v.to_str().ok()).ok_or("io: missing part name")?.to_string();
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("io: expected raw bytes".into());
+    };
+    let dir = staging_dir(&app)?;
+    fs::create_dir_all(&dir).map_err(|e| format!("io: Cannot create {}: {e}", dir.display()))?;
+    let tmp = dir.join(format!("{}.incoming", &tcue::new_id()[..16]));
+    fs::write(&tmp, bytes).map_err(|e| format!("io: Cannot write {}: {e}", tmp.display()))?;
+    let r = tcue::stage_copy(&tmp, &dir, &name);
+    let _ = fs::remove_file(&tmp);
+    Ok(r?)
+}
+
 /// The bytes of a staged part, as a binary response.
 #[tauri::command(async)]
 pub fn staged_read(app: AppHandle, path: String) -> Result<tauri::ipc::Response, String> {

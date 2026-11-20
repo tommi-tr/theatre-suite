@@ -5,6 +5,9 @@ import { anchorAtPoint, scriptLive } from "../script/view";
 import { useScriptDoc } from "../script/store";
 import { usable, type AudioItem, type LightItem, type LoadedSource } from "../model/sources";
 import { useLibrary } from "../store/library";
+import { useDoc } from "../store/doc";
+import { useItemThumb } from "../projection/usePicture";
+import type { ProjectionItem } from "../model/show";
 import { addItemAt, newGoHere } from "./actions";
 import { endItemDrag, startItemDrag, type DragPayload } from "./drag";
 import { fmtDuration } from "./format";
@@ -82,10 +85,7 @@ export function LibraryPanel() {
       ) : null}
       <div className="cue-lib__scroll" role="tabpanel">
         {tab === "video" ? (
-          <p className="cue-lib__note">
-            <Icon name="image" size={16} />
-            {t("Images and videos arrive with Cue 0.5")}
-          </p>
+          <VideoList selected={selected} />
         ) : !linked ? (
           <p className="cue-lib__note">{tab === "lights" ? t("Link a Granvelo file to see its light memories here.") : t("Link a Diaframma file to see its sound tracks here.")}</p>
         ) : groups.length === 0 ? (
@@ -108,6 +108,52 @@ export function LibraryPanel() {
       </div>
     </aside>
   );
+}
+
+/** The Video tab: the steps of the sequence, then its images and videos (made in Proiezioni). */
+function VideoList({ selected }: { selected: DragPayload | null }) {
+  const t = useT();
+  const items = useDoc((s) => s.show?.projection.items ?? []);
+  const rows: { payload: DragPayload; name: string; sub?: string; thumb?: ProjectionItem; step?: boolean }[] = [
+    { payload: { kind: "projection", sourceId: "", itemId: "@next" }, name: t("Next step"), sub: t("The next image of the sequence"), step: true },
+    { payload: { kind: "projection", sourceId: "", itemId: "@previous" }, name: t("Previous step"), sub: t("The image before"), step: true },
+    ...items.map((i) => ({ payload: { kind: "projection" as const, sourceId: "", itemId: i.id }, name: i.name, sub: i.kind === "video" ? `${t("video")}${i.durationSec ? ` · ${fmtDuration(i.durationSec)}` : ""}` : i.kind === "slide" ? t("slide") : undefined, thumb: i })),
+  ];
+  return (
+    <section>
+      {rows.map((r) => (
+        <div
+          key={r.payload.itemId}
+          className={`cue-item cue-item--video${same(selected, r.payload) ? " cue-item--on" : ""}`}
+          draggable
+          role="option"
+          aria-selected={same(selected, r.payload)}
+          tabIndex={0}
+          onDragStart={(e) => startItemDrag(e, r.payload)}
+          onDragEnd={endItemDrag}
+          onClick={() => useLibraryUi.getState().select(same(selected, r.payload) ? null : r.payload)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              useLibraryUi.getState().select(same(selected, r.payload) ? null : r.payload);
+            }
+          }}
+        >
+          {r.thumb ? <VideoThumb item={r.thumb} /> : <span className="cue-vthumb cue-vthumb--step"><Icon name="nextF" size={11} /></span>}
+          <span className="cue-item__body">
+            <span className="cue-item__name ts-ellipsis">{r.name}</span>
+            {r.sub ? <span className="cue-item__sub ts-ellipsis">{r.sub}</span> : null}
+          </span>
+        </div>
+      ))}
+      {items.length === 0 ? <p className="cue-lib__note">{t("No images yet: add them in Projections.")}</p> : null}
+    </section>
+  );
+}
+
+function VideoThumb({ item }: { item: ProjectionItem }) {
+  const url = useItemThumb(item);
+  return <span className="cue-vthumb" style={url ? { backgroundImage: `url(${url})` } : undefined} aria-hidden="true" />;
 }
 
 const same = (a: DragPayload | null, b: DragPayload) => !!a && a.kind === b.kind && a.sourceId === b.sourceId && a.itemId === b.itemId;

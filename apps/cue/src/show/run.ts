@@ -28,6 +28,8 @@ import {
 import { doublePress } from "./keys";
 import { audioApi, engineId } from "../lib/audio";
 import { dmxApi } from "../lib/dmx";
+import { pptErrorText } from "../lib/ppt";
+import { projErrorText, runProjection, setBlank, useProj } from "../lib/projection";
 import { runCommands } from "../lib/showRunner";
 import { useDoc } from "../store/doc";
 import { useLibrary } from "../store/library";
@@ -51,8 +53,6 @@ export interface RunStore {
   emergencyArmedAt: number | null;
   /** Piazzato rapido (Q) is on stage. */
   preset: boolean;
-  /** Tappo (T): projections blanked (phase 4). */
-  blank: boolean;
   /** Running time: the first GO starts it; Pausa stops it. */
   startedAt: number | null;
   pausedAt: number | null;
@@ -68,7 +68,6 @@ const initial = (gos: readonly Go[] = []): RunStore => ({
   reserved: false,
   emergencyArmedAt: null,
   preset: false,
-  blank: false,
   startedAt: null,
   pausedAt: null,
   pausedMs: 0,
@@ -112,14 +111,14 @@ async function run(commands: readonly EngineCommand[]) {
     dmx,
     audio,
     library: useLibrary.getState().library,
-    // Projections arrive with Cue 0.5: the commands are accepted and nothing is shown.
-    projection: () => {},
+    projection: (cmd) => runProjection(cmd.action),
     onError: (cmd, e) => {
       console.error("engine command failed", cmd, e);
       const t = toastT;
       if (!t) return;
       if (cmd.kind === "light" || cmd.kind.startsWith("dmx")) say(t("The lights did not answer: check the DMX output (status bar)."), "error");
       else if (cmd.kind.startsWith("audio")) say(t("The sound did not answer: check the audio output (status bar)."), "error");
+      else if (cmd.kind === "projection") say(cmd.action?.kind === "powerpoint" ? pptErrorText(t, e) : projErrorText(t, e), "error");
     },
   });
 }
@@ -317,9 +316,11 @@ export function runPreset(t: TFunc) {
   ]);
 }
 
-/** T: Tappo (blank image on the projections) — arrives with the projections (Cue 0.5). */
+/** T: Tappo, the blank image on the output and back (Emergenza and Back also blank it). */
 export function runBlank(t: TFunc) {
-  say(t("The blank image of the projections arrives with Cue 0.5."));
+  toastT = t;
+  const on = !useProj.getState().blank;
+  void setBlank(on).catch((e) => say(projErrorText(t, e), "error"));
 }
 
 export function setLocked(locked: boolean) {

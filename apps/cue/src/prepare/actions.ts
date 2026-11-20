@@ -65,12 +65,22 @@ export function addItemAt(anchor: GoAnchor, item: DragPayload, opts: AddItemOpti
   const show = useDoc.getState().show;
   if (!show) return null;
   const { library } = useLibrary.getState();
-  const ref: ItemRef = { sourceId: item.sourceId, itemId: item.itemId };
-  const found = item.kind === "light" ? library.light(ref) : library.track(ref);
-  if (!found) return null;
   const makeId = opts.makeId ?? newId;
-  const action: Action = { id: makeId(), kind: item.kind, ref };
-  const r = dropAction(gosOf(show), anchor, action, { toY: opts.toY, thresholdPx: opts.thresholdPx, makeId, auto: found.startsByItself });
+  let action: Action;
+  let auto = false;
+  if (item.kind === "projection") {
+    // A picture or video of the sequence, or a step of it ("Passo successivo / precedente").
+    const step = item.itemId === "@next" ? "next" : item.itemId === "@previous" ? "previous" : null;
+    if (!step && !show.projection.items.some((i) => i.id === item.itemId)) return null;
+    action = step ? { id: makeId(), kind: "projection", step } : { id: makeId(), kind: "projection", projectionItemId: item.itemId };
+  } else {
+    const ref: ItemRef = { sourceId: item.sourceId, itemId: item.itemId };
+    const found = item.kind === "light" ? library.light(ref) : library.track(ref);
+    if (!found) return null;
+    action = { id: makeId(), kind: item.kind, ref };
+    auto = found.startsByItself;
+  }
+  const r = dropAction(gosOf(show), anchor, action, { toY: opts.toY, thresholdPx: opts.thresholdPx, makeId, auto });
   if (r.result !== "duplicate") useDoc.getState().change((s) => withGos(s, r.gos));
   useUi.getState().selectGo(r.goId);
   return r;

@@ -13,6 +13,7 @@ import { NewShowDialog } from "../common/NewShowDialog";
 import { AppToast } from "../common/AppToast";
 import { StartScreen } from "./StartScreen";
 import { PrepareMode } from "../modes/PrepareMode";
+import { startProjectionSync } from "../lib/projection";
 import { ProjectionsMode } from "../modes/ProjectionsMode";
 import { ControlsMode } from "../modes/ControlsMode";
 import { ShowMode } from "../modes/ShowMode";
@@ -44,7 +45,7 @@ export function Shell() {
   // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
   useEffect(() => {
     void applySavedOutputs();
-    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow()];
+    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startProjectionSync()];
     return () => stops.forEach((f) => f());
   }, []);
 

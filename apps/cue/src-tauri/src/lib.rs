@@ -11,12 +11,19 @@ mod audio;
 mod dmx;
 mod files;
 mod power;
+mod ppt;
+mod projection;
 mod storage;
 mod tcue;
 
 use std::sync::OnceLock;
 
 use tauri::{Emitter, Manager};
+
+/// WebView2 options. Same for every window of the app (they share one browser process): the output window plays
+/// videos by itself, without a click, so autoplay must be allowed. These are Tauri's defaults plus the autoplay switch.
+#[cfg(windows)]
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
 
 static INSTANCE: OnceLock<u32> = OnceLock::new();
 
@@ -85,6 +92,13 @@ pub fn run() {
         // Sound and lights engines: started at their first command, stopped at exit.
         .manage(audio::CueAudio::default())
         .manage(dmx::CueDmx::default())
+        .manage(projection::Videos::default())
+        .manage(ppt::Live::default())
+        .register_uri_scheme_protocol("cuevideo", |ctx, request| {
+            let r = projection::serve_video(ctx.app_handle(), request);
+            let (parts, body) = r.into_parts();
+            tauri::http::Response::from_parts(parts, std::borrow::Cow::Owned(body))
+        })
         .setup(move |app| {
             // The window is created here (not from the config) so that an extra instance gets its own
             // webview data folder: two WebView2 processes must not share one.
@@ -97,6 +111,10 @@ pub fn run() {
                 .cloned()
                 .ok_or("missing main window config")?;
             let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &cfg)?;
+            #[cfg(windows)]
+            {
+                win = win.additional_browser_args(BROWSER_ARGS);
+            }
             if n >= 2 {
                 let base = app.path().app_local_data_dir()?;
                 win = win.data_directory(storage::instance_dir(&base, n).join("webview")).title(format!("Cue · {n}"));
@@ -115,6 +133,7 @@ pub fn run() {
             storage::autosave_write,
             storage::autosave_clear,
             storage::part_stage,
+            storage::part_stage_bytes,
             storage::staged_read,
             storage::staged_drop,
             storage::part_export,
@@ -131,8 +150,22 @@ pub fn run() {
             storage::version_delete,
             files::files_read_text,
             files::files_sha256,
+            files::files_read_bytes,
             files::files_resolve_relative,
             files::files_relative_to,
+            projection::proj_monitors,
+            projection::proj_open,
+            projection::proj_close,
+            projection::proj_is_open,
+            projection::proj_video_url,
+            projection::proj_copy_video,
+            ppt::ppt_available,
+            ppt::ppt_connect,
+            ppt::ppt_command,
+            ppt::ppt_disconnect,
+            ppt::ppt_export,
+            ppt::ppt_temp_dir,
+            ppt::ppt_cleanup,
             audio::audio_list_devices,
             audio::audio_set_device,
             audio::audio_sync,
@@ -161,6 +194,7 @@ pub fn run() {
 
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
+            ppt::shutdown(&handle.state::<ppt::Live>());
             audio::shutdown(handle);
             dmx::shutdown(handle);
             power::keep_awake(false);

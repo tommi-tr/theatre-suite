@@ -1,3 +1,4 @@
+import { useItemThumb } from "../projection/usePicture";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT, type TFunc } from "@theatre-suite/core";
 import { Icon } from "@theatre-suite/ui";
@@ -373,6 +374,16 @@ interface BoxViewProps {
   t: TFunc;
 }
 
+/** The picture of an image or video in its box on the timeline (a frame), or its icon while it loads / when it has none. */
+function ProjThumb({ item }: { item: ProjectionItem | undefined }) {
+  const url = useItemThumb(item);
+  return (
+    <span className="cue-box__proj" data-kind={item?.kind ?? "image"} style={url ? { backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+      {url ? null : <Icon name={item?.kind === "video" ? "video" : "image"} size={14} />}
+    </span>
+  );
+}
+
 const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state, library, projItems, selected, onSelect, onResize, t }: BoxViewProps) {
   const h = box.bottom - box.top;
   // A squeezed box keeps its colour and its name; the words IN SCENA / STANDBY need room.
@@ -427,9 +438,7 @@ const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state
       body = (
         <>
           {roomy ? (
-            <span className="cue-box__proj" data-kind={item?.kind ?? "image"}>
-              <Icon name={item?.kind === "video" ? "video" : "image"} size={14} />
-            </span>
+            <ProjThumb item={item} />
           ) : null}
           <span className="cue-box__name">{item ? item.name : action.step === "next" ? t("Next image") : action.step === "previous" ? t("Previous image") : t("Image")}</span>
         </>

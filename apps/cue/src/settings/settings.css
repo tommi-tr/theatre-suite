@@ -120,3 +120,34 @@
   color: var(--text-2);
   font-size: 12px;
 }
+
+/* Settings → Proiezioni */
+.cue-proj-set__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cue-proj-set__mon {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  cursor: pointer;
+}
+.cue-proj-set__mon[data-on] {
+  border-color: var(--dept-video);
+}
+.cue-proj-set__mon small {
+  display: block;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.cue-out__tip {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
