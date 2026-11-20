@@ -26,6 +26,9 @@ serde_json = "1.0.154"
 zip = { version = "9.8.0", default-features = false, features = ["deflate"] }
 sha2 = "0.11.1"
 base64 = "0.22.1"
+# The engines shared with Diaframma and Granvelo (src/audio.rs, src/dmx.rs).
+audio-engine = { path = "../../../crates/audio-engine" }
+dmx-engine = { path = "../../../crates/dmx-engine" }
 
 [dev-dependencies]
 tempfile = "3.27.0"
