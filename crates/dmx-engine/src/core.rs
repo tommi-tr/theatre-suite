@@ -610,11 +610,14 @@ mod tests {
         out
     }
 
-    /// The vectors shared with the browser simulator (src/lib/dmxSim.test.ts runs the same file).
+    /// The vectors shared with the browser simulator (apps/granvelo/src/lib/dmxSim.test.ts runs the same file).
     #[test]
     fn shared_vectors_agree_with_the_browser_simulator() {
-        let v: serde_json::Value =
-            serde_json::from_str(include_str!("../../../src/model/engineVectors.json")).unwrap();
+        let v: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/granvelo/src/model/engineVectors.json"
+        )))
+        .unwrap();
         let cases = v["cases"].as_array().unwrap();
         assert!(cases.len() >= 10);
         for case in cases {

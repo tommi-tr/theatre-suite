@@ -94,7 +94,11 @@ impl Ctx<'_> {
             exit,
             seconds,
         });
-        (self.progress)(Progress { run: self.run, runs: self.runs, step: self.step });
+        (self.progress)(Progress {
+            run: self.run,
+            runs: self.runs,
+            step: self.step,
+        });
     }
     fn too_slow(&self) -> bool {
         self.started.elapsed() > WALL_LIMIT
@@ -135,7 +139,12 @@ impl Ctx<'_> {
         self.st.voices.iter().any(|v| v.track_id == id && v.alive())
     }
     fn position(&self, id: &str) -> Option<f64> {
-        self.st.voices.iter().rev().find(|v| v.track_id == id && v.alive()).map(|v| v.pos)
+        self.st
+            .voices
+            .iter()
+            .rev()
+            .find(|v| v.track_id == id && v.alive())
+            .map(|v| v.pos)
     }
 }
 
@@ -144,16 +153,33 @@ fn release(st: &mut State) {
     all.extend(st.prepared.drain(..));
     all.extend(st.graveyard.drain(..));
     for v in all {
-        v.h.ctl.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        v.h.ctl
+            .stop
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
-fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: &mut Vec<StepReport>, progress: &dyn Fn(Progress)) {
+fn run_once(
+    run: u32,
+    runs: u32,
+    tracks: &[TrackParams],
+    config: Config,
+    steps: &mut Vec<StepReport>,
+    progress: &dyn Fn(Progress),
+) {
     let mut st = State::new();
     st.rate = 48000;
     st.tracks = tracks.to_vec();
-    st.config = Config { steps: true, ..config };
-    st.status = EngineStatus { ready: true, device: "test".into(), sample_rate: 48000, error: None };
+    st.config = Config {
+        steps: true,
+        ..config
+    };
+    st.status = EngineStatus {
+        ready: true,
+        device: "test".into(),
+        sample_rate: 48000,
+        error: None,
+    };
     let mut numbers = HashMap::new();
     let mut names = HashMap::new();
     let mut n = config.number_from;
@@ -161,10 +187,23 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
         numbers.insert(t.id.clone(), n);
         n += 1;
         if let Some(p) = &t.path {
-            names.insert(t.id.clone(), p.rsplit(['\\', '/']).next().unwrap_or(p).to_string());
+            names.insert(
+                t.id.clone(),
+                p.rsplit(['\\', '/']).next().unwrap_or(p).to_string(),
+            );
         }
     }
-    let mut cx = Ctx { st, run, step: 0, steps, numbers, names, started: Instant::now(), progress, runs };
+    let mut cx = Ctx {
+        st,
+        run,
+        step: 0,
+        steps,
+        numbers,
+        names,
+        started: Instant::now(),
+        progress,
+        runs,
+    };
 
     // 1) Every file is there and can be opened.
     let playable: Vec<TrackParams> = tracks.iter().filter(|t| t.playable()).cloned().collect();
@@ -173,18 +212,26 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
         return;
     }
     for tp in &playable {
-        let exists = tp.path.as_deref().map(|p| std::path::Path::new(p).is_file()).unwrap_or(false);
+        let exists = tp
+            .path
+            .as_deref()
+            .map(|p| std::path::Path::new(p).is_file())
+            .unwrap_or(false);
         if !exists {
             cx.report("file_missing", false, Some(&tp.id), None);
             continue;
         }
         match headless_voice(&cx.st, tp, tp.eff_in()) {
             Ok(v) if !v.h.ctl.failed.load(std::sync::atomic::Ordering::Relaxed) => {
-                v.h.ctl.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                v.h.ctl
+                    .stop
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
                 cx.report("file_ok", true, Some(&tp.id), None);
             }
             Ok(v) => {
-                v.h.ctl.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                v.h.ctl
+                    .stop
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
                 cx.report("file_broken", false, Some(&tp.id), None);
             }
             Err(_) => cx.report("file_broken", false, Some(&tp.id), None),
@@ -197,17 +244,36 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
     let mut need_go = true;
     for _ in 0..(playable.len() * 2 + 4) {
         if cx.too_slow() {
-            cx.report("slow", false, None, Some(cx.started.elapsed().as_secs_f64()));
+            cx.report(
+                "slow",
+                false,
+                None,
+                Some(cx.started.elapsed().as_secs_f64()),
+            );
             break;
         }
         if need_go {
-            let Some(expected) = cx.st.standby.clone() else { break };
+            let Some(expected) = cx.st.standby.clone() else {
+                break;
+            };
             let before = cx.st.main.clone().filter(|m| cx.alive(m));
-            let before_exit = before.as_deref().and_then(|b| cx.st.track(b).map(|t| t.exit));
-            let before_loop = before.as_deref().and_then(|b| cx.st.track(b).map(|t| t.loop_on)).unwrap_or(false);
+            let before_exit = before
+                .as_deref()
+                .and_then(|b| cx.st.track(b).map(|t| t.exit));
+            let before_loop = before
+                .as_deref()
+                .and_then(|b| cx.st.track(b).map(|t| t.loop_on))
+                .unwrap_or(false);
             let plan = go_headless(&mut cx.st);
-            let started = matches!(&plan, Ok(GoPlan::Start(tp)) if tp.id == expected) && cx.alive(&expected) && cx.st.main.as_deref() == Some(expected.as_str());
-            cx.report(if started { "go_ok" } else { "go_wrong" }, started, Some(&expected), None);
+            let started = matches!(&plan, Ok(GoPlan::Start(tp)) if tp.id == expected)
+                && cx.alive(&expected)
+                && cx.st.main.as_deref() == Some(expected.as_str());
+            cx.report(
+                if started { "go_ok" } else { "go_wrong" },
+                started,
+                Some(&expected),
+                None,
+            );
             if !started {
                 break;
             }
@@ -215,10 +281,23 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
             if let Some(prev) = before {
                 if prev != expected {
                     cx.run_for(0.2);
-                    let still = cx.st.voices.iter().find(|v| v.track_id == prev && !v.ended).map(|v| !v.stopping()).unwrap_or(false);
-                    let should_stay = matches!(before_exit, Some(None)) && !before_loop && cx.st.config.others_on_go == OthersOnGo::Keep;
+                    let still = cx
+                        .st
+                        .voices
+                        .iter()
+                        .find(|v| v.track_id == prev && !v.ended)
+                        .map(|v| !v.stopping())
+                        .unwrap_or(false);
+                    let should_stay = matches!(before_exit, Some(None))
+                        && !before_loop
+                        && cx.st.config.others_on_go == OthersOnGo::Keep;
                     let left = !still || should_stay;
-                    cx.report(if left { "left_ok" } else { "left_wrong" }, left, Some(&prev), None);
+                    cx.report(
+                        if left { "left_ok" } else { "left_wrong" },
+                        left,
+                        Some(&prev),
+                        None,
+                    );
                 }
             }
         }
@@ -229,7 +308,10 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
             let tp = cx.st.track(&cur).cloned();
             let (dur, exit_len) = match (&tp, cx.st.voices.iter().find(|v| v.track_id == cur)) {
                 (Some(tp), Some(v)) => {
-                    let out = tp.eff_out().map(|o| o.min(v.duration)).unwrap_or(v.duration);
+                    let out = tp
+                        .eff_out()
+                        .map(|o| o.min(v.duration))
+                        .unwrap_or(v.duration);
                     ((out - v.pos).max(0.0), tp.exit_len(&cx.st.config))
                 }
                 _ => (1.0, 0.0),
@@ -254,7 +336,12 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
                 // It may have ended on its own within the second.
                 None => !cx.alive(&cur),
             };
-            cx.report(if moving { "alive_ok" } else { "alive_stuck" }, moving, Some(&cur), None);
+            cx.report(
+                if moving { "alive_ok" } else { "alive_stuck" },
+                moving,
+                Some(&cur),
+                None,
+            );
             if cx.st.standby.is_none() || cx.st.standby.as_deref() == Some(cur.as_str()) {
                 // Last track: it ends by itself, or (looping) it keeps going past its end.
                 let (dur, out) = cx
@@ -262,18 +349,41 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
                     .voices
                     .iter()
                     .find(|v| v.track_id == cur)
-                    .map(|v| (v.duration, cx.st.track(&cur).and_then(|t| t.eff_out()).map(|o| o.min(v.duration)).unwrap_or(v.duration)))
+                    .map(|v| {
+                        (
+                            v.duration,
+                            cx.st
+                                .track(&cur)
+                                .and_then(|t| t.eff_out())
+                                .map(|o| o.min(v.duration))
+                                .unwrap_or(v.duration),
+                        )
+                    })
                     .unwrap_or((0.0, 0.0));
                 let _ = dur;
                 if looping {
                     let left = (out - cx.position(&cur).unwrap_or(0.0)).max(0.0);
                     cx.run_for(left + 1.0);
                     let ok = cx.alive(&cur);
-                    cx.report(if ok { "loop_ok" } else { "loop_stuck" }, ok, Some(&cur), None);
+                    cx.report(
+                        if ok { "loop_ok" } else { "loop_stuck" },
+                        ok,
+                        Some(&cur),
+                        None,
+                    );
                 } else {
                     let cur2 = cur.clone();
-                    let gone = cx.run_until(out + 4.0, move |s| !s.voices.iter().any(|v| v.track_id == cur2 && !v.ended)).is_some();
-                    cx.report(if gone { "ended_ok" } else { "ended_stuck" }, gone, Some(&cur), None);
+                    let gone = cx
+                        .run_until(out + 4.0, move |s| {
+                            !s.voices.iter().any(|v| v.track_id == cur2 && !v.ended)
+                        })
+                        .is_some();
+                    cx.report(
+                        if gone { "ended_ok" } else { "ended_stuck" },
+                        gone,
+                        Some(&cur),
+                        None,
+                    );
                 }
                 break;
             }
@@ -284,12 +394,22 @@ fn run_once(run: u32, runs: u32, tracks: &[TrackParams], config: Config, steps: 
     stop_all(&mut cx.st, true);
     cx.run_for(0.2);
     let quiet = cx.st.voices.is_empty();
-    cx.report(if quiet { "stop_ok" } else { "stop_wrong" }, quiet, None, None);
+    cx.report(
+        if quiet { "stop_ok" } else { "stop_wrong" },
+        quiet,
+        None,
+        None,
+    );
     release(&mut cx.st);
 }
 
 /// Runs the whole test: `runs` times in a row.
-pub fn run(tracks: Vec<TrackParams>, config: Config, runs: u32, progress: &dyn Fn(Progress)) -> TestReport {
+pub fn run(
+    tracks: Vec<TrackParams>,
+    config: Config,
+    runs: u32,
+    progress: &dyn Fn(Progress),
+) -> TestReport {
     let t0 = Instant::now();
     let runs = runs.clamp(1, 10);
     let mut steps: Vec<StepReport> = Vec::new();
@@ -297,11 +417,23 @@ pub fn run(tracks: Vec<TrackParams>, config: Config, runs: u32, progress: &dyn F
         run_once(r, runs, &tracks, config, &mut steps, progress);
     }
     // Every run must behave like the first (same checks, same results).
-    let shape = |r: u32| -> Vec<(String, bool, Option<u32>)> { steps.iter().filter(|s| s.run == r).map(|s| (s.code.clone(), s.ok, s.number)).collect() };
+    let shape = |r: u32| -> Vec<(String, bool, Option<u32>)> {
+        steps
+            .iter()
+            .filter(|s| s.run == r)
+            .map(|s| (s.code.clone(), s.ok, s.number))
+            .collect()
+    };
     let first = shape(1);
     let identical = (2..=runs).all(|r| shape(r) == first);
     let errors = steps.iter().filter(|s| !s.ok).count() as u32;
-    TestReport { runs, steps, errors, identical, seconds: t0.elapsed().as_secs_f64() }
+    TestReport {
+        runs,
+        steps,
+        errors,
+        identical,
+        seconds: t0.elapsed().as_secs_f64(),
+    }
 }
 
 #[cfg(test)]
@@ -316,7 +448,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let wav = dir.join(name);
         if !wav.exists() {
-            crate::audio::decode::tests::write_wav(&wav, 44100, secs);
+            crate::decode::tests::write_wav(&wav, 44100, secs);
         }
         wav.to_string_lossy().to_string()
     }
@@ -330,17 +462,44 @@ mod tests {
         let mut b = track("B", &p);
         b.exit = Some(Exit::FadeOut);
         let c = track("C", &p);
-        let rep = run(vec![a.clone(), b.clone(), c.clone()], Config { crossfade_sec: 0.3, fade_out_sec: 0.3, fade_in_sec: 0.2, ..Default::default() }, 2, &|_| {});
-        assert_eq!(rep.errors, 0, "{:#?}", rep.steps.iter().filter(|s| !s.ok).collect::<Vec<_>>());
+        let rep = run(
+            vec![a.clone(), b.clone(), c.clone()],
+            Config {
+                crossfade_sec: 0.3,
+                fade_out_sec: 0.3,
+                fade_in_sec: 0.2,
+                ..Default::default()
+            },
+            2,
+            &|_| {},
+        );
+        assert_eq!(
+            rep.errors,
+            0,
+            "{:#?}",
+            rep.steps.iter().filter(|s| !s.ok).collect::<Vec<_>>()
+        );
         assert!(rep.identical);
-        assert!(rep.steps.iter().any(|s| s.code == "auto_ok"), "A crossfades into B by itself");
+        assert!(
+            rep.steps.iter().any(|s| s.code == "auto_ok"),
+            "A crossfades into B by itself"
+        );
         assert!(rep.steps.iter().any(|s| s.code == "ended_ok"));
-        assert!(rep.steps.last().map(|s| s.code == "stop_ok").unwrap_or(false));
+        assert!(
+            rep.steps
+                .last()
+                .map(|s| s.code == "stop_ok")
+                .unwrap_or(false)
+        );
 
         let mut gone = c.clone();
         gone.path = Some("/definitely/not/here.wav".into());
         let rep = run(vec![a, b, gone], Config::default(), 1, &|_| {});
         assert!(rep.errors > 0);
-        assert!(rep.steps.iter().any(|s| s.code == "file_missing" && s.number == Some(3)));
+        assert!(
+            rep.steps
+                .iter()
+                .any(|s| s.code == "file_missing" && s.number == Some(3))
+        );
     }
 }

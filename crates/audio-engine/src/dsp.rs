@@ -5,7 +5,11 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use super::model::EnvPoint;
 
 pub fn db_to_gain(db: f32) -> f32 {
-    if db <= -60.0 { 0.0 } else { 10f32.powf(db / 20.0) }
+    if db <= -60.0 {
+        0.0
+    } else {
+        10f32.powf(db / 20.0)
+    }
 }
 
 /// Biquad filter (RBJ cookbook), transposed direct form II, stereo.
@@ -23,7 +27,16 @@ pub struct Biquad {
 
 impl Default for Biquad {
     fn default() -> Self {
-        Self { b0: 1.0, b1: 0.0, b2: 0.0, a1: 0.0, a2: 0.0, z1: [0.0; 2], z2: [0.0; 2], bypass: true }
+        Self {
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1: 0.0,
+            a2: 0.0,
+            z1: [0.0; 2],
+            z2: [0.0; 2],
+            bypass: true,
+        }
     }
 }
 
@@ -45,7 +58,14 @@ impl Biquad {
         let (sin, cos) = w0.sin_cos();
         let alpha = sin / (2.0 * q);
         let (b0, b1, b2, a0, a1, a2) = match kind {
-            BandKind::Peak => (1.0 + alpha * a, -2.0 * cos, 1.0 - alpha * a, 1.0 + alpha / a, -2.0 * cos, 1.0 - alpha / a),
+            BandKind::Peak => (
+                1.0 + alpha * a,
+                -2.0 * cos,
+                1.0 - alpha * a,
+                1.0 + alpha / a,
+                -2.0 * cos,
+                1.0 - alpha / a,
+            ),
             BandKind::LowShelf => {
                 let sq = 2.0 * a.sqrt() * alpha;
                 (
@@ -214,7 +234,10 @@ pub fn pan_at(points: &[EnvPoint], t: f64) -> Option<f32> {
 /// a centred track keeps exactly the sound it had before pan existed.
 pub fn pan_gains(p: f32) -> (f32, f32) {
     let theta = (p.clamp(-1.0, 1.0) + 1.0) * std::f32::consts::FRAC_PI_4;
-    ((std::f32::consts::SQRT_2 * theta.cos()).min(1.0), (std::f32::consts::SQRT_2 * theta.sin()).min(1.0))
+    (
+        (std::f32::consts::SQRT_2 * theta.cos()).min(1.0),
+        (std::f32::consts::SQRT_2 * theta.sin()).min(1.0),
+    )
 }
 
 /// A gain ramp with an equal-power shape, counted in frames.
@@ -228,10 +251,20 @@ pub struct Fade {
 
 impl Fade {
     pub fn steady(g: f32) -> Self {
-        Self { from: g, to: g, pos: 0, len: 0 }
+        Self {
+            from: g,
+            to: g,
+            pos: 0,
+            len: 0,
+        }
     }
     pub fn to(current: f32, target: f32, frames: u64) -> Self {
-        Self { from: current, to: target, pos: 0, len: frames.max(1) }
+        Self {
+            from: current,
+            to: target,
+            pos: 0,
+            len: frames.max(1),
+        }
     }
     #[inline]
     pub fn value(&self) -> f32 {
@@ -239,7 +272,11 @@ impl Fade {
             return self.to;
         }
         let p = self.pos as f32 / self.len as f32;
-        let s = if self.to >= self.from { (p * FRAC_PI_2).sin() } else { 1.0 - (p * FRAC_PI_2).cos() };
+        let s = if self.to >= self.from {
+            (p * FRAC_PI_2).sin()
+        } else {
+            1.0 - (p * FRAC_PI_2).cos()
+        };
         self.from + (self.to - self.from) * s
     }
     #[inline]

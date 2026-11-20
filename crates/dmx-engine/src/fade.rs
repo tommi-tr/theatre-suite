@@ -1,5 +1,5 @@
 //! Crossfade between two states of the universe: an exact mirror of
-//! `src/model/crossfade.ts` (same rules, same rounding, same vectors in the tests).
+//! Granvelo's `apps/granvelo/src/model/crossfade.ts` (same rules, same rounding, same vectors in the tests).
 //!
 //! Rules, channel by channel:
 //! 1. Before `delay` nothing moves.
@@ -86,7 +86,6 @@ pub struct Layout {
 
 impl Layout {
     /// Every channel is intensity, no moving heads.
-    #[cfg(test)]
     pub fn all_intensity(n: usize) -> Self {
         Layout {
             intensity: vec![1; n],
