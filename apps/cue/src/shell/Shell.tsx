@@ -19,6 +19,8 @@ import { ShowMode } from "../modes/ShowMode";
 import { ReplaceScriptDialog } from "../script/ReplaceScriptDialog";
 import { addNoteHere } from "../script/ScriptStage";
 import { startScriptSync, useScriptDoc } from "../script/store";
+import { applySavedOutputs } from "../settings/outputStatus";
+import { startLibrarySync } from "../store/library";
 
 export function Shell() {
   const t = useT();
@@ -34,6 +36,11 @@ export function Shell() {
 
   // The PDF of the script follows the open show.
   useEffect(() => startScriptSync(), []);
+  // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
+  useEffect(() => {
+    void applySavedOutputs();
+    return startLibrarySync();
+  }, []);
 
   // Startup: file passed on the command line, crash recovery offered ("Recupera"); the demo show with /?demo.
   useEffect(() => {

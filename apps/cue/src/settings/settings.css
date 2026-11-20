@@ -1,0 +1,122 @@
+/* Settings → Uscite and Tasti. */
+.cue-out__ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cue-out__ctl .ts-select {
+  max-width: 250px;
+}
+.cue-out__band {
+  margin-top: 6px;
+  border-radius: var(--r-md);
+}
+
+.cue-keyedit {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.cue-keyedit__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cue-keyedit__row--bad {
+  background: var(--stop-soft);
+  box-shadow: -8px 0 0 var(--stop-soft), 8px 0 0 var(--stop-soft);
+}
+.cue-keyedit__name {
+  flex: 1;
+  min-width: 0;
+}
+.cue-keyedit__row--danger .cue-keyedit__name {
+  color: var(--stop);
+  font-weight: 600;
+}
+.cue-keyedit__msg {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--stop);
+}
+.cue-keyedit__keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.cue-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.cue-chip:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.cue-chip--bad {
+  border-color: var(--stop);
+}
+.cue-chip--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-2);
+}
+.cue-chip__x {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.cue-chip__x:hover {
+  color: var(--stop);
+}
+.cue-chip__add {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.cue-chip__add:hover {
+  color: var(--text);
+}
+.cue-keyedit__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 4px 0 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.cue-keyedit__fixed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 30px;
+  color: var(--text-2);
+  font-size: 12px;
+}
