@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue · design fase D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* VOICE: tavolo di regia, sobrio, da studio tecnico
+   IDEA: il libro di scena di chi chiama lo spettacolo
+   PICTURE: la schermata Show di Cue, viva e commutabile
+   COLOUR and TYPE: palette Grafite della suite, Geist / Geist Mono
+   LAYOUT: scelte in alto, schermate a tutta larghezza sotto */
+:root{color-scheme:light dark;--pg:light-dark(#ECEEF2,#0B0C0F);--pink:light-dark(#14151A,#ECEDF0);--pmut:light-dark(#4A4E58,#A7AAB3);--pcard:light-dark(#fff,#15161a);--pline:light-dark(#DCDFE5,#272A31)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--pg);color:var(--pink);font:15px/1.5 Geist,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,14px)}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0 0 6px;text-wrap:balance}
+h2{font-size:22px;margin:0 0 4px}
+p.lead{color:var(--pmut);max-width:72ch;margin:0 0 14px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.ch{background:var(--pcard);border:1px solid var(--pline);border-radius:14px;padding:14px}
+.ch h3{margin:0 0 8px;font-size:15px}
+.opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:1.5px solid var(--pline);border-radius:10px;padding:9px 10px;margin:0 0 7px;color:inherit;font:inherit;cursor:pointer;min-height:44px}
+.opt[aria-pressed=true]{border-color:var(--pink)}
+.opt b{display:block;font-size:14px}.opt small{color:var(--pmut);font-size:13px;line-height:1.35;display:block}
+.sw{flex:none;width:34px;height:34px;border-radius:8px;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border:1px solid var(--pline)}
+.rec{font-size:11px;font-weight:600;border:1px solid currentColor;border-radius:99px;padding:0 6px;margin-left:4px;color:var(--pmut)}
+.tile{flex:none;background:#F6F6F8;border:1px solid #E1E2E7;border-radius:9px;display:grid;place-items:center}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.ctl span{color:var(--pmut);font-size:13px;margin-right:4px}
+.ctl button{font:inherit;font-size:13px;border:1px solid var(--pline);background:var(--pcard);color:inherit;border-radius:7px;padding:6px 10px;cursor:pointer;min-height:34px}
+.ctl button[aria-pressed=true]{background:var(--pink);color:var(--pg)}
+.scroll{overflow-x:auto;padding-bottom:6px}
+.note{color:var(--pmut);font-size:13px;max-width:80ch}
+
+/* ---------- mockup (Grafite) ---------- */
+.app{--bg:#0E0F12;--bar:#131418;--s1:#18191E;--s2:#202228;--s3:#2A2D35;--b1:#272A31;--b2:#383C46;--t1:#ECEDF0;--t2:#A7AAB3;--t3:#878B95;
+ --go:#34D17B;--sb:#FFB224;--stop:#FF5F5F;--pre:#4FA8FF;--go-bg:#15301F;--sb-bg:#3A2C0D;--stop-bg:#3A1A1C;--pre-bg:#172638;--nb:#2A2D35;
+ --lux:#F06FCF;--aud:#8E80FF}
+.app.light{--bg:#ECEEF2;--bar:#F7F8FA;--s1:#FFFFFF;--s2:#F2F3F6;--s3:#E5E7EC;--b1:#DCDFE5;--b2:#C3C8D1;--t1:#14151A;--t2:#4A4E58;--t3:#5F6470;
+ --go:#0B7D3E;--sb:#955700;--stop:#C42B2B;--pre:#1463C4;--go-bg:#DDF3E6;--sb-bg:#FFF0D1;--stop-bg:#FBE1E1;--pre-bg:#E7F0FB;--nb:#F2F3F6;
+ --lux:#A3218A;--aud:#5442E0}
+.app{--paper:#fff;--pline2:#c9ccd3;--pwho:#7d818b}.app.pdark{--paper:#1c1d21;--pline2:#3a3c44;--pwho:#6b6f78}
+.app{width:1040px;background:var(--bg);color:var(--t1);border-radius:14px;overflow:hidden;font-size:13px;position:relative;border:6px solid transparent;transition:border-color .3s}
+.app.c-ok{border-color:color-mix(in srgb,var(--go) 55%,transparent)}
+.app.c-warn{border-color:var(--sb)}.app.c-stop{border-color:var(--stop)}.app.c-solo{border-color:var(--pre)}
+.tb{height:40px;background:var(--bar);border-bottom:1px solid var(--b1);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;position:relative}
+.tb::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:#C24B6A}
+.tb .home{display:flex;gap:8px;align-items:center;font-size:13px}.tb .home i{color:var(--t2);font-style:normal}
+.seg{display:flex;background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:2px}
+.seg button{border:0;background:none;color:var(--t2);font:inherit;font-size:12.5px;padding:4px 11px;border-radius:5px;cursor:pointer;display:flex;gap:5px;align-items:center}
+.seg button.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+.tb .right{justify-self:end;display:flex;gap:12px;align-items:center;color:var(--t2)}
+.mono{font-family:"Geist Mono",monospace}
+.kbd{font-family:"Geist Mono",monospace;font-size:11px;border:1px solid var(--b2);border-bottom-width:2px;border-radius:4px;padding:0 4px;margin-left:5px;color:var(--t1)}
+.sbar{height:34px;background:var(--bar);border-top:1px solid var(--b1);display:flex;align-items:center;padding:0 12px;gap:16px;color:var(--t2)}
+.sbar .cmds{margin-left:auto;display:flex;gap:14px}.sbar .em{color:var(--stop)}
+.body{display:flex;height:470px;position:relative}
+.panel{width:200px;flex:none;background:var(--s1);border-left:1px solid var(--b1);padding:12px;display:flex;flex-direction:column;gap:8px}
+.panel.p-ok{background:var(--go-bg)}.panel.p-warn{background:var(--sb);color:#1a1200}.panel.p-stop{background:var(--stop);color:#fff}.panel.p-solo{background:var(--pre);color:#06182b}
+.panel.p-warn *,.panel.p-stop *,.panel.p-solo *{color:inherit!important}.panel.p-warn .msg,.panel.p-stop .msg,.panel.p-solo .msg,.panel.p-warn .pbtn,.panel.p-stop .pbtn,.panel.p-solo .pbtn,.panel.p-warn .inp,.panel.p-stop .inp,.panel.p-solo .inp,.panel.p-warn .quick span,.panel.p-stop .quick span,.panel.p-solo .quick span{background:rgba(0,0,0,.14);border-color:rgba(0,0,0,.25)}
+.panel .big{font-size:15px;font-weight:700}
+.panel h5{margin:0;font-size:11.5px;color:var(--t3);font-weight:500}
+.lt{display:flex;gap:6px;align-items:center;font-weight:600}.lt::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.pbtn{border:1px solid var(--b2);background:var(--s2);color:var(--t1);border-radius:7px;padding:6px 8px;font:inherit;font-size:12.5px;text-align:center}
+.chat{flex:1;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.msg{background:var(--s3);border-radius:8px;padding:4px 8px;font-size:12px;max-width:85%}.msg.me{align-self:flex-end;background:var(--s2);border:1px solid var(--b1)}
+.msg small{display:block;color:var(--t3);font-size:10.5px}
+.quick{display:flex;flex-wrap:wrap;gap:4px}.quick span{border:1px solid var(--b2);border-radius:99px;padding:1px 7px;font-size:11px;color:var(--t2)}
+.inp{border:1px solid var(--b2);border-radius:7px;padding:6px 8px;color:var(--t3);font-size:12px}
+/* timeline */
+.tl{position:relative;flex:1;overflow:hidden;background:var(--bg)}
+.roll{position:absolute;inset:0;transition:transform .55s cubic-bezier(.3,.7,.2,1)}
+.script{position:absolute;left:0;top:-40px;width:290px;height:900px;background:var(--paper);border-right:1px solid var(--b1)}
+.script .ln{position:absolute;left:26px;height:6px;border-radius:3px;background:var(--pline2)}
+.script .who{position:absolute;left:26px;height:6px;width:44px;border-radius:3px;background:var(--pwho)}
+.hdr{position:absolute;top:0;height:26px;font-size:12px;color:var(--t2);display:flex;align-items:center;gap:6px;z-index:3;background:var(--bg);padding-left:6px}
+.hdr i{width:9px;height:3px;border-radius:2px;display:inline-block}
+.gob{position:absolute;left:316px;width:100px;height:34px;border-radius:7px;border:1.5px solid var(--b2);background:var(--s1);display:grid;place-items:center;font-weight:600;font-size:12.5px;z-index:2;line-height:1.05;text-align:center}
+.gob.past{background:var(--nb);color:var(--t3);border-color:var(--b1)}
+.gob.go{background:var(--go-bg);border-color:var(--go);color:var(--go)}
+.gob.sb{background:var(--sb-bg);border-color:var(--sb);color:var(--sb)}
+.gob.mine{box-shadow:0 0 0 3px var(--pre);}
+.gob.lock{background:var(--nb);border-color:var(--b2);color:var(--t2);font-weight:500;font-size:10.5px}
+.gob.sel{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
+.box{position:absolute;border-radius:8px;border:1.5px solid var(--b2);background:var(--s1);padding:26px 8px 6px;font-size:12px;overflow:hidden;z-index:1}
+.box::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--ty)}
+.box .th{height:26px;border-radius:5px;margin-bottom:5px}
+.box.past{background:var(--nb);color:var(--t3);border-color:var(--b1)}.box.past::before{opacity:.4}
+.box.on{background:var(--go-bg);border:2px solid var(--go);color:var(--go)}
+.box.sb{background:var(--sb-bg);border:2px solid var(--sb);color:var(--sb)}
+.box .lab{font-size:10px;font-weight:700;letter-spacing:.02em;display:flex;gap:4px;align-items:center}
+.grip{position:absolute;bottom:4px;left:50%;width:18px;margin-left:-9px;height:3px;border-radius:2px;background:currentColor;opacity:.6}
+.tl svg{position:absolute;left:0;top:0;z-index:1;overflow:visible;pointer-events:none}.tl svg.front{z-index:4}
+.ribbon{position:absolute;left:10px;right:10px;top:34px;z-index:5;border-radius:8px;padding:6px 10px;font-size:12px;display:none;align-items:center;gap:8px;background:var(--s3);border:1px solid var(--b2)}
+.ribbon.show{display:flex}
+.here{position:absolute;left:0;width:290px;border-top:2px dashed var(--t2);z-index:4;display:none}
+.here span{position:absolute;right:6px;top:-18px;font-size:11px;background:var(--s3);padding:0 6px;border-radius:4px;color:var(--t1)}
+.cover{position:absolute;inset:0;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(2px);z-index:9;display:grid;place-items:center;text-align:center}
+.cover .card{background:var(--s1);border:2px solid var(--pre);border-radius:14px;padding:22px 28px;max-width:380px}
+.hold{margin-top:12px;display:inline-block;border:1.5px solid var(--pre);color:var(--pre);border-radius:9px;padding:9px 16px;font-weight:600;position:relative;overflow:hidden}
+.hold::before{content:"";position:absolute;inset:0;width:38%;background:color-mix(in srgb,var(--pre) 25%,transparent)}
+.hold span{position:relative}
+/* other screens */
+.lib{width:210px;flex:none;background:var(--s1);border-right:1px solid var(--b1);padding:10px;display:flex;flex-direction:column;gap:6px}
+.tabs{display:flex;gap:4px}.tabs span{flex:1;text-align:center;padding:4px;border-radius:6px;background:var(--s2);font-size:12px;color:var(--t2)}.tabs span.on{color:var(--t1);border-bottom:2px solid var(--lux)}
+.li{display:flex;gap:7px;align-items:center;padding:5px 6px;border-radius:7px;background:var(--s2);font-size:12px;cursor:grab}
+.li .th{width:34px;height:20px;border-radius:4px;flex:none}
+.li .n{font-family:"Geist Mono";color:var(--t3);font-size:11px;width:22px}
+.insp{width:230px;flex:none;background:var(--s1);border-left:1px solid var(--b1);padding:12px;display:flex;flex-direction:column;gap:9px}
+.insp .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.mseg{display:flex;border:1px solid var(--b2);border-radius:7px;overflow:hidden}.mseg span{flex:1;text-align:center;padding:4px 2px;font-size:11.5px;color:var(--t2)}.mseg span.on{background:var(--acc-soft);color:var(--t1);box-shadow:inset 0 0 0 1.5px var(--acc)}
+.act{display:flex;gap:6px;align-items:center;background:var(--s2);border-radius:7px;padding:5px 7px;font-size:12px}.act i{width:4px;align-self:stretch;border-radius:2px}
+.field{border:1px solid var(--b2);border-radius:6px;padding:3px 7px;font-family:"Geist Mono";font-size:12px;background:var(--s2)}
+.field.mod{color:var(--sb);border-color:var(--sb)}
+.zone{position:absolute;left:4px;width:8px;border-radius:4px;z-index:2}
+.ghost{position:absolute;z-index:6;padding:5px 8px;border-radius:7px;border:1.5px dashed var(--acc);background:var(--acc-soft);font-size:12px;color:var(--t1)}
+.seq{width:270px;flex:none;background:var(--s1);border-right:1px solid var(--b1);padding:10px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.sq{display:flex;gap:8px;align-items:center;padding:5px;border-radius:8px;background:var(--s2);font-size:12px;border:1.5px solid transparent}
+.sq .th{width:56px;height:32px;border-radius:5px;flex:none;position:relative}
+.sq.on{border-color:var(--go);background:var(--go-bg)}.sq.sb{border-color:var(--sb);background:var(--sb-bg)}.sq.sel{box-shadow:0 0 0 2px var(--acc)}
+.tr{font-size:11px;color:var(--t3);padding-left:64px}
+.stagepv{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px}
+.screen{flex:1;border-radius:10px;border:2px solid var(--proj);position:relative;overflow:hidden;background:#000}
+.cards{flex:1;padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:start}
+.oc{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:5px}
+.oc b{font-size:13px}.oc small{color:var(--t2);font-size:11.5px}
+.chk{width:300px;flex:none;background:var(--s1);border-left:1px solid var(--b1);padding:12px;display:flex;flex-direction:column;gap:6px}
+.ck{display:flex;gap:8px;align-items:center;font-size:12.5px;padding:4px 2px}
+.ck i{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--b2);flex:none;display:grid;place-items:center;font-style:normal;font-size:11px}
+.ck.y i{background:var(--go);border-color:var(--go);color:#0E0F12}
+.ck em{margin-left:auto;font-style:normal;font-size:10.5px;color:var(--t3)}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:6px}
+.st{border-radius:12px;padding:12px;background:#0E0F12;color:#ECEDF0;border:6px solid;font-size:12.5px}
+.st b{display:block;font-size:13.5px;margin-bottom:2px}.st small{color:#A7AAB3}
+@media (prefers-reduced-motion:reduce){.roll,.app{transition:none}}
+</style>
+</head>
+<body>
+<div class="band">
+  <h1>Cue · design della fase D (approvato)</h1>
+  <p class="lead">Show fedele alla tua bozza, poi Prepara, Proiezioni e Controlli. Scelti: accento <b>Gesso</b> e icona <b>Filo</b>. Proiezioni in <b>Ciano “fascio”</b> (colonna Video, librerie, azioni). Tema dell’app e colore del copione sono due scelte separate.</p>
+  <div class="choices">
+    <div class="ch"><h3>Accento di Cue</h3><div id="accOpts"></div></div>
+    <div class="ch"><h3>Icona</h3><div id="icoOpts"></div></div>
+  </div>
+</div>
+
+<div class="band" style="padding-top:0">
+  <h2>Show</h2>
+  <p class="lead">La bozza: copione a sinistra, puntino → linea → GO, colonne Luci · Audio · Video che scorrono con il copione, collegamento e chat a destra, comandi a scritta in basso. Il GO 16 è vicino al 15: il pulsante si scosta e la linea si curva.</p>
+  <div class="ctl" id="cView"><span>Computer</span></div>
+  <div class="ctl" id="cConn"><span>Collegamento</span></div>
+  <div class="ctl" id="cAct"><span>Situazione</span></div>
+  <div class="ctl" id="cTheme"><span>Tema dell’app</span></div>
+  <div class="ctl" id="cPaper"><span>Copione</span></div>
+  <div class="scroll"><div class="app" id="show"></div></div>
+  <p class="note" id="actNote"></p>
+</div>
+
+<div class="band" style="padding-top:0">
+  <h2>Bordo e pannello di collegamento</h2>
+  <p class="lead">Il bordo compare solo con un secondario collegato. Sempre con una scritta nel pannello, mai un suono.</p>
+  <div class="states" id="states"></div>
+</div>
+
+<div class="band" style="padding-top:0">
+  <h2>Prepara</h2>
+  <p class="lead">Stessa disposizione dello Show. A sinistra le librerie: si trascina una memoria, una traccia o un’immagine sul copione; sullo stesso punto diventano un GO unico. A destra, al posto della chat, il GO selezionato con “Chi lo dà”. Le strisce sul margine del copione sono le zone di velocità.</p>
+  <div class="scroll"><div class="app" id="prep"></div></div>
+</div>
+
+<div class="band" style="padding-top:0">
+  <h2>Proiezioni</h2>
+  <p class="lead">Sequenza a sinistra con le transizioni fra un elemento e l’altro, anteprima dell’uscita al centro (bordo nel colore delle proiezioni), ritocco a destra.</p>
+  <div class="scroll"><div class="app" id="proj"></div></div>
+</div>
+
+<div class="band" style="padding-top:0">
+  <h2>Controlli</h2>
+  <p class="lead">Una scheda per uscita con lo stato in parole, e a destra la lista di controllo prima del sipario: voci proposte da Cue più voci tue.</p>
+  <div class="scroll"><div class="app" id="ctrl"></div></div>
+  <p class="note" style="margin-top:14px">Anteprima di design con dati di esempio (“La locandiera”). Pagina Theatre Suite del launcher con 5 app: la disegno dopo la tua scelta, con l’icona e l’accento definitivi.</p>
+</div>
+
+<script>
+{
+const ACC={
+ gesso:{n:'Gesso',rec:1,d:'#E2DED4',l:'#4B4840',logo:'#77726A',sd:'#2B2A26',sl:'#ECEAE4',ink:'#0E0F12',inkl:'#fff',t:'Quasi neutro, come il launcher: Cue dirige, i colori sono delle altre app. Lascia libero un colore pieno per le proiezioni. L’icona si riconosce dalla forma.'},
+ tabacco:{n:'Tabacco',d:'#D3A97C',l:'#7A5230',logo:'#94653B',sd:'#33271B',sl:'#F4EADF',ink:'#0E0F12',inkl:'#fff',t:'Caldo, legno di palcoscenico. Attenzione: parente del rame di Bardo e non lontano dall’ambra dello standby, che in Cue è ovunque.'},
+ malva:{n:'Malva',d:'#C9A3C2',l:'#7C4C74',logo:'#8E5A86',sd:'#2E2230',sl:'#F2E8F0',ink:'#0E0F12',inkl:'#fff',t:'Elegante, ma sta fra il magenta delle luci e l’indaco dell’audio: nelle colonne si confonde più delle altre.'}};
+const PROJ={
+ ciano:{n:'Ciano “fascio”',rec:1,d:'#4CD6E6',l:'#0A7886',t:'Il colore della luce di un proiettore. È vicino al blu, ma in Cue il blu compare solo come contorno (prenotazione) e bordo (“sei solo”); il ciano solo come filetto e titolo della colonna Video. Più chiaro e verde del petrolio scartato.'},
+ limone:{n:'Limone',d:'#E3DA4E',l:'#6B6300',t:'Lontanissimo da blu, indaco e magenta; ma sta fra l’ambra dello standby e il verde “in scena”, proprio i due stati più frequenti nelle scatole.'},
+ bianco:{n:'Bianco luce',d:'#EDEBE4',l:'#3E3D3A',t:'Luce bianca del proiettore, il più sobrio. Funziona solo se l’accento di Cue non è Gesso (sarebbero lo stesso colore).'}};
+const ICO={
+ filo:{n:'Filo',rec:1,t:'Il puntino sul copione e la linea che porta al GO: il gesto di Cue. Due forme grosse, leggibile a 16 px.',
+  svg:(a,w)=>`<circle cx="22" cy="50" r="10" fill="${a}"/><path d="M33 50H50" stroke="#1B1C21" stroke-width="${w}" stroke-linecap="round"/><rect x="50" y="35" width="32" height="30" rx="9" fill="none" stroke="#1B1C21" stroke-width="${w}"/>`},
+ rami:{n:'Rami',t:'Un GO che si dirama verso tre reparti (luci, audio, video). Racconta “comando di tutto”; a 16 px i tre rami si toccano un po’.',
+  svg:(a,w)=>`<rect x="14" y="38" width="28" height="24" rx="7" fill="none" stroke="#1B1C21" stroke-width="${w}"/><path d="M42 50L58 26H86M42 50H86M42 50L58 74H86" fill="none" stroke="${a}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`},
+ libro:{n:'Libro di scena',t:'Righe di copione con il puntino del GO a margine. Si lega bene al “libro”, ma è parente stretta delle righe di Bardo.',
+  svg:(a,w)=>`<path d="M42 26H82M42 40H74M42 54H82M42 68H66" stroke="#1B1C21" stroke-width="${w}" stroke-linecap="round"/><circle cx="24" cy="40" r="9" fill="${a}"/>`}};
+const S={acc:'gesso',proj:'ciano',ico:'filo',view:'pri',conn:'ok',act:'none',theme:'dark',paper:'white'};
+const $=id=>document.getElementById(id);
+const dark=()=>S.theme==='dark';
+const acc=()=>ACC[S.acc],pj=()=>PROJ[S.proj];
+function vars(){const a=acc(),p=pj();return `--acc:${dark()?a.d:a.l};--acc-ink:${dark()?a.ink:a.inkl};--acc-soft:${dark()?a.sd:a.sl};--proj:${dark()?p.d:p.l}`}
+function icon(sz,key=S.ico){const w=sz<=20?11:sz<=32?8.5:6;return `<span class="tile" style="width:${sz+8}px;height:${sz+8}px;border-radius:${sz>30?9:4}px"><svg width="${sz}" height="${sz}" viewBox="0 0 100 100">${ICO[key].svg(acc().logo,w)}</svg></span>`}
+function opts(el,set,key,sw){$(el).innerHTML=Object.entries(set).map(([k,o])=>`<button class="opt" aria-pressed="${S[key]===k}" data-k="${key}" data-v="${k}">${sw(k,o)}<span><b>${o.n}${o.rec?'<span class="rec">consigliata</span>':''}</b><small>${o.t}</small></span></button>`).join('')}
+function tb(mode){return `<div class="tb"><div class="home">${icon(18).replace('class="tile"','class="tile" style="width:24px;height:24px;border-radius:5px"')}<span><b>La locandiera</b> <i>/ Serata.tcue</i></span></div>
+<div class="seg">${['Prepara','Proiezioni','Controlli','Show'].map(m=>`<button class="${m===mode?'on':''}">${m}</button>`).join('')}</div>
+<div class="right"><span title="Lock · Ctrl L">🔒︎</span><span>⚙︎</span><span class="mono">0.1.0</span></div></div>`}
+const cmds=`<div class="cmds"><span>Pausa<span class="kbd">P</span></span><span>Piazzato<span class="kbd">Q</span></span><span>Tappo<span class="kbd">T</span></span><span>Blackout<span class="kbd">B</span></span><span>Fade to black<span class="kbd">F</span></span><span class="em">Emergenza<span class="kbd">E</span><span class="kbd">E</span></span></div>`;
+function scriptLines(){let h='',y=30;const r=[230,200,240,150,215,180,235,120,210,190,245,160];for(let i=0;i<44;i++){if(i%5===0)h+=`<div class="who" style="top:${y+40}px"></div>`,y+=14;h+=`<div class="ln" style="top:${y+40}px;width:${r[i%12]}px;left:${i%5===0?26:40}px"></div>`;y+=17}return h}
+// timeline data: y = button centre; dy = dot y
+const GOS=[{n:'12',y:40,dy:40,c:'past'},{n:'GO 13',y:115,dy:115,c:'go'},{n:'STBY 14',y:215,dy:205,c:'sb'},{n:'15',y:330,dy:330,c:''},{n:'16',y:385,dy:352,c:''}];
+const COLS=[{k:'Luci',ty:'var(--lux)',x:440},{k:'Audio',ty:'var(--aud)',x:566},{k:'Video',ty:'var(--proj)',x:692}];
+const BOX=[[0,23,98,'past','M6 Alba','lux'],[0,98,313,'on','M7 Notte','lux'],[0,313,474,'','M8 Interno','lux'],
+ [1,198,274,'sb','Campane 0:42','aud'],[1,368,430,'','Pioggia','aud'],
+ [2,98,313,'on','Img 3 Lettera','img'],[2,313,474,'','Video 2 Tempesta','img']];
+function thumb(kind,c){if(kind==='lux')return `<div class="th" style="background:linear-gradient(90deg,#3b1f4a,#d9824a 45%,#2a3e7a)${c==='past'?';opacity:.4':''}"></div>`;if(kind==='img')return `<div class="th" style="background:linear-gradient(135deg,#d8d0bf,#8b7a5e)${c==='past'?';opacity:.4':''}"></div>`;return ''}
+function timeline(opt={}){const W=810;let svg=`<svg width="${W}" height="900">`;
+ GOS.forEach(g=>{const st=g.c==='past'?'var(--b2)':'var(--t3)';const p=g.dy===g.y?`M290 ${g.dy}H316`:`M290 ${g.dy}C303 ${g.dy} 303 ${g.y} 316 ${g.y}`;
+ svg+=`<path d="${p}" stroke="${st}" stroke-width="1.5" fill="none"/><path d="M416 ${g.y}H805" stroke="${st}" stroke-width="1" stroke-opacity=".6"/><circle cx="290" cy="${g.dy}" r="4.5" fill="${g.c==='go'?'var(--go)':g.c==='sb'?'var(--sb)':st}"/>`});
+ svg+='</svg><svg class="front" width="'+W+'" height="900">';
+ GOS.filter(g=>g.c==='go'||g.c==='sb').forEach(g=>{if(g.c==='sb'&&opt.lockby)return;const col=g.c==='go'?'var(--go)':(opt.mine?'var(--pre)':'var(--sb)');const p=g.dy===g.y?`M290 ${g.dy}H316`:`M290 ${g.dy}C303 ${g.dy} 303 ${g.y} 316 ${g.y}`;
+ const ends=BOX.filter(b=>b[1]===g.y-17).map(b=>COLS[b[0]].x+120);const xe=Math.max(...ends,416);
+ svg+=`<path d="${p}" stroke="${col}" stroke-width="2.5" fill="none"/><path d="M416 ${g.y}H${xe-6}" stroke="${col}" stroke-width="2.5"/><circle cx="290" cy="${g.dy}" r="5.5" fill="${col}"/>`});
+ svg+='</svg>';
+ let gos=GOS.map(g=>{let c=g.c,t=g.n;if(g.c==='sb'){if(opt.mine)c+=' mine';if(opt.lockby)c='lock',t=opt.lockby;}
+  if(opt.sel&&g.n==='STBY 14')c+=' sel';const h=34;return `<div class="gob ${c}" style="top:${g.y-h/2}px">${t}</div>`}).join('');
+ let boxes=BOX.map(([ci,a,b,c,t,k])=>{const col=COLS[ci];return `<div class="box ${c}" style="--ty:${col.ty};left:${col.x}px;width:120px;top:${a}px;height:${b-a-4}px">${c==='on'?'<div class="lab">● IN SCENA</div>':c==='sb'?'<div class="lab">● STANDBY</div>':''}${b-a>90?thumb(k,c):''}${t}${k==='aud'?'<div class="grip"></div>':''}</div>`}).join('');
+ return svg+gos+boxes}
+function hdrs(){return COLS.map(c=>`<div class="hdr" style="left:${c.x}px;width:120px"><i style="background:${c.ty}"></i>${c.k}</div>`).join('')}
+function panel(){const other=S.view==='pri'?'Secondario':'Primario';const L={
+ ok:['var(--go)','Connesso · <span class="mono">0,4&nbsp;ms</span>','Via cavo · disponibile'],
+ warn:['var(--sb)','Instabile · <span class="mono">38 ms</span>, 3 battiti persi','Ora su Wi-Fi di riserva'],
+ stop:['var(--stop)','Scollegato da <span class="mono">0:04</span>',S.view==='pri'?'Il secondario non può dare GO. Tu continui normalmente.':'Il primario non risponde. Non puoi continuare da qui.'],
+ solo:['var(--pre)','Connesso · <span class="mono">0,5 ms</span>',S.view==='pri'?'<b>Non disponibile · sei solo</b>':'Non disponibile'],
+ none:['var(--t3)','Nessun secondario','Controlli → Collegamento per abbinarne uno']}[S.conn];
+ const btn=S.conn==='none'?'':S.view==='pri'?'<div class="pbtn">Togli i comandi</div>':'<div class="pbtn">Non disponibile</div>';
+ const pc={ok:'p-ok',warn:'p-warn',stop:'p-stop',solo:'p-solo',none:''}[S.conn];
+ return `<div class="panel ${pc}"><h5>${S.view==='pri'?'Sei il primario':'Sei il secondario'} · ${other}</h5><div class="lt big" style="color:${S.conn==='ok'?L[0]:'inherit'}">${L[1]}</div><div style="color:var(--t2);font-size:12px">${L[2]}</div>${btn}
+ <h5 style="margin-top:6px">Chat</h5><div class="chat"><div class="msg"><small>Secondario · 21:47</small>Attori pronti</div><div class="msg me">Ok</div><div class="msg"><small>Secondario · 21:49</small>Porta bloccata, aspetta</div></div>
+ <div class="quick"><span>Standby</span><span>Aspetta</span><span>Ok</span><span>Ritardo 5 min</span></div><div class="inp">Scrivi…</div></div>`}
+const ACTS={none:['Normale',''],mine:['Prenoti tu (C)','Tieni premuto C: lo standby ha il contorno blu “solo tu”; finché lo tieni l’altro computer non può dare GO. Lasciando C la prenotazione finisce; se la connessione cade, quella del secondario decade subito.'],
+ other:['Prenotato dall’altro','L’altro computer tiene premuto C: qui lo standby diventa grigio con la scritta di chi l’ha prenotato. Spazio non fa nulla finché non lascia.'],
+ assigned:['GO assegnato','In Prepara il GO 14 è “solo secondario”: sul primario si vede grigio con “lo dà il secondario”. Gli altri GO restano di entrambi.'],
+ peek:['Sbirciata (Ctrl)','Tenendo Ctrl si scorre liberamente avanti: una riga “qui eri” segna il punto. Lasciando Ctrl il copione torna con uno scorrimento visibile, le colonne lo seguono. Prova il pulsante due volte.']};
+function renderShow(){const el=$('show');el.className='app '+(dark()?'':'light ')+(S.paper==='dark'?'pdark ':'')+(S.conn==='none'?'':'c-'+S.conn);el.style.cssText=vars();
+ const otherName=S.view==='pri'?'secondario':'primario';
+ const opt={mine:S.act==='mine',lockby:S.act==='other'?`14 · Prenotato dal ${otherName}`:S.act==='assigned'?`14 · lo dà il ${otherName}`:null};
+ const peek=S.act==='peek';
+ const rib=S.act==='mine'?`<div class="ribbon show" style="border-color:var(--pre);color:var(--pre);background:var(--pre-bg)">● Prenotato da te · solo tu puoi dare il GO <span class="kbd" style="color:inherit">C</span></div>`:peek?`<div class="ribbon show">Sbirciata · lascia <span class="kbd">Ctrl</span> per tornare al GO 14</div>`:'';
+ const cover=(S.view==='sec'&&S.conn==='solo')?`<div class="cover"><div class="card"><b style="font-size:16px;color:var(--pre)">Non disponibile</b><p style="color:var(--t2);margin:6px 0 0">Il primario sa che sei solo lui. Le tue scorciatoie sono spente.</p><div class="hold"><span>Tieni premuto per tornare disponibile</span></div></div></div>`:'';
+ el.innerHTML=tb('Show')+`<div class="body"><div class="tl"><div class="roll" style="transform:translateY(${peek?-260:0}px)"><div class="script">${scriptLines()}</div>${timeline(opt)}${peek?'':''}</div>${hdrs()}${rib}<div class="here" style="display:${peek?'block':'none'};top:215px"><span>qui eri · STBY 14</span></div></div>${panel()}${cover}</div>
+ <div class="sbar"><span>Running time <span class="mono">1:12:40</span> · GO <span class="mono">13</span> di <span class="mono">62</span></span>${cmds}</div>`;
+ $('actNote').textContent=ACTS[S.act][1];
+ if(peek){const r=el.querySelector('.roll');r.style.transform='translateY(0)';requestAnimationFrame(()=>requestAnimationFrame(()=>{r.style.transform='translateY(-260px)'}))}}
+function renderPrep(){const el=$('prep');el.className='app'+(dark()?'':' light')+(S.paper==='dark'?' pdark':'');el.style.cssText=vars()+';width:1270px';
+ const lib=[['1','M1 Preset sala'],['6','M6 Alba'],['7','M7 Notte'],['8','M8 Interno'],['9','M9 Tramonto'],['12','M12 Ballo']].map(([n,t])=>`<div class="li"><span class="n">${n}</span><span class="th" style="background:linear-gradient(90deg,#3b1f4a,#d9824a,#2a3e7a)"></span>${t}</div>`).join('');
+ el.innerHTML=tb('Prepara')+`<div class="body"><div class="lib"><div class="tabs"><span class="on">Luci</span><span>Audio</span><span>Video</span></div><div style="font-size:11px;color:var(--t3)">Locandiera.granvelo</div>${lib}<div style="margin-top:auto;font-size:11.5px;color:var(--t3)">Trascina sul copione per creare un GO</div></div>
+ <div class="tl" style="flex:1"><div class="roll"><div class="script">${scriptLines()}</div>${timeline({sel:1})}<div class="zone" style="top:60px;height:140px;left:6px;background:var(--acc)"></div><div class="zone" style="top:205px;height:180px;left:6px;background:color-mix(in srgb,var(--acc) 45%,transparent)"></div></div>
+ ${hdrs()}<div class="ghost" style="left:520px;top:300px">⋮ M9 Tramonto → GO 15</div></div>
+ <div class="insp"><b style="font-size:14px">GO 14</b><div style="color:var(--t2);font-size:12px">Pagina 23 · “…e poi le campane di San…”</div>
+ <h5 style="margin:4px 0 0;font-size:11.5px;color:var(--t3);font-weight:500">Azioni</h5><div class="act"><i style="background:var(--aud)"></i>Campane · Diaframma<span class="field" style="margin-left:auto">-3 dB</span></div><div class="act"><i style="background:var(--proj)"></i>Dissolvenza a nero<span class="field" style="margin-left:auto">2,0 s</span></div>
+ <h5 style="margin:4px 0 0;font-size:11.5px;color:var(--t3);font-weight:500">Chi lo dà</h5><div class="mseg"><span>Entrambi</span><span>Primario</span><span class="on">Secondario</span></div>
+ <h5 style="margin:4px 0 0;font-size:11.5px;color:var(--t3);font-weight:500">Zona di velocità</h5><div class="row">Parte da questo GO<span class="field">0,6×</span></div>
+ <div class="row">Note<span style="color:var(--t3)">nessuna</span></div><div class="pbtn" style="margin-top:auto;color:var(--stop)">Elimina il GO</div></div></div>
+ <div class="sbar"><span>62 GO · 3 colonne · copione 48 pagine</span><div class="cmds"><span>Nuovo GO qui<span class="kbd">N</span></span><span>Nota<span class="kbd">K</span></span><span>Prova a secco</span></div></div>`}
+function renderProj(){const el=$('proj');el.className='app'+(dark()?'':' light')+(S.paper==='dark'?' pdark':'');el.style.cssText=vars();
+ const items=[['Tappo · nero','#000','',''],['Img 1 Locanda','linear-gradient(135deg,#d8c7a0,#6d5636)','','Taglio'],['Img 3 Lettera','linear-gradient(135deg,#efe6d2,#a08a62)','on','Dissolvenza 2,0 s'],['Video 2 Tempesta.mp4','linear-gradient(135deg,#2a3448,#7a8aa8)','sb sel','Attraverso il nero 1,5 s'],['Diapositive 1–6 (PowerPoint)','linear-gradient(135deg,#fff,#cfd6e4)','','Taglio'],['Img 4 Ritratto','linear-gradient(135deg,#caa184,#5a3a28)','','Dissolvenza 3,0 s']];
+ el.innerHTML=tb('Proiezioni')+`<div class="body"><div class="seq"><b>Sequenza</b>${items.map(([t,bg,c,tr])=>(tr?`<div class="tr">↓ ${tr}</div>`:'')+`<div class="sq ${c}"><span class="th" style="background:${bg}">${t.includes('mp4')?'<span style="position:absolute;right:3px;bottom:2px;color:#fff;font-size:10px">▶ 1:24</span>':''}</span>${t}</div>`).join('')}<div class="pbtn" style="margin-top:6px">+ Immagini, video o PowerPoint</div></div>
+ <div class="stagepv"><div style="display:flex;justify-content:space-between;color:var(--t2)"><span><b style="color:var(--proj)">Uscita</b> · Schermo 2 · 1920 × 1080 · a schermo intero</span><span>Tappo<span class="kbd">T</span></span></div>
+ <div class="screen"><div style="position:absolute;inset:0;background:linear-gradient(135deg,#efe6d2,#a08a62)"></div><span style="position:absolute;left:10px;bottom:8px;color:#fff;font-size:12px;background:#0008;padding:2px 7px;border-radius:5px">In uscita: Img 3 Lettera · prossimo: Video 2 Tempesta.mp4 (trovato nella cartella dello spettacolo)</span></div></div>
+ <div class="insp"><b>Video 2 Tempesta</b><h5 style="margin:0;font-size:11.5px;color:var(--t3);font-weight:500">Transizione in entrata</h5><div class="mseg"><span>Taglio</span><span>Dissolv.</span><span class="on">Nero</span></div><div class="row">Durata<span class="field">1,5 s</span></div>
+ <h5 style="margin:4px 0 0;font-size:11.5px;color:var(--t3);font-weight:500">Colore · solo questo elemento</h5>${['Luminosità','Contrasto','Temperatura','Saturazione'].map((t,i)=>`<div class="row">${t}<span class="field${i===3?' mod':''}">${['0','+5','0','-15'][i]}</span></div>`).join('')}<div class="mseg"><span class="on">Questo</span><span>Tutti</span></div><div class="row">A fine video<span class="field">resta fermo</span></div></div></div>
+ <div class="sbar"><span>6 elementi · 1 video fuori dal file</span><div class="cmds"><span>Schema di prova sul proiettore</span></div></div>`}
+function renderCtrl(){const el=$('ctrl');el.className='app'+(dark()?'':' light')+(S.paper==='dark'?' pdark':'');el.style.cssText=vars();
+ const oc=[['Audio','ok','Pronto','Scheda USB · uscite 1–2 → mixer','Test uscita'],['Luci (DMX)','ok','Cavo collegato','Enttec Open DMX · 30 al secondo','Controllo luci'],['Proiettore','ok','Schermo 2 attivo','1920 × 1080 · finestra a schermo intero','Schema di prova'],['Secondario','warn','Instabile · 38 ms','Cavo Ethernet diretto · Wi-Fi di riserva acceso','Abbina'],['PowerPoint','info','Diapositive importate','Comando dal vivo: non serve','Importa'],['Pedale','ok','F13 ricevuto','Arduino Micro · ultimo colpo 21:02','Premi il pedale']];
+ const col={ok:'var(--go)',warn:'var(--sb)',stop:'var(--stop)',info:'var(--pre)'};
+ const ck=[['Test uscita audio',1,'Cue'],['Controllo luci',1,'Cue'],['Schema di prova sul proiettore',1,'Cue'],['Secondario connesso',1,'Cue'],['File verificati (3 su 3)',1,'Cue'],['Windows: Non disturbare',0,'Cue'],['Alimentazione collegata',0,'Cue'],['Scaramanzie fatte',1,'tua'],['Effetti speciali resettati',0,'tua']];
+ el.innerHTML=tb('Controlli')+`<div class="body"><div class="cards">${oc.map(([t,s,w,d,b])=>`<div class="oc"><b>${t}</b><span class="lt" style="color:${col[s]};font-size:12.5px">${w}</span><small>${d}</small><div class="pbtn" style="margin-top:4px">${b}</div></div>`).join('')}</div>
+ <div class="chk"><b style="font-size:14px">Prima del sipario</b><div style="color:var(--t2);font-size:12px">6 di 9 · finisce nel registro della serata</div>${ck.map(([t,y,o])=>`<div class="ck ${y?'y':''}"><i>${y?'✓':''}</i>${t}<em>${o==='tua'?'tua':''}</em></div>`).join('')}<div class="pbtn" style="margin-top:auto">+ Aggiungi una voce</div></div></div>
+ <div class="sbar"><span>Tutto pronto tranne 3 voci</span><div class="cmds"><span>Prova a secco</span></div></div>`}
+function renderStates(){const d=[['#34D17B88','Stabile','Verde tenue · “Connesso · cavo · 0,4 ms”'],['#FFB224','Instabile o Wi-Fi','Ambra · ritardo alto, battiti persi, o in viaggio sul Wi-Fi di riserva'],['#FF5F5F','Scollegato','Rosso · “Scollegato da 0:04”. La prenotazione del secondario decade subito'],['#4FA8FF','Secondario non disponibile','Blu · “sei solo”. Sul secondario la schermata si blocca, si torna tenendo premuto']];
+ $('states').innerHTML=d.map(([c,t,s])=>`<div class="st" style="border-color:${c}"><b>${t}</b><small>${s}</small></div>`).join('')}
+function choices(){
+ opts('accOpts',ACC,'acc',(k,o)=>`<span class="sw"><i style="background:${o.d}"></i><i style="background:${o.l}"></i></span>`);
+ $('icoOpts').innerHTML=Object.entries(ICO).map(([k,o])=>`<button class="opt" aria-pressed="${S.ico===k}" data-k="ico" data-v="${k}"><span style="display:flex;gap:6px;align-items:center">${icon(48,k)}${icon(24,k).replace(/border-radius:\d+px/,'border-radius:5px')}${icon(16,k)}</span><span><b>${o.n}${o.rec?'<span class="rec">consigliata</span>':''}</b><small>${o.t}</small></span></button>`).join('')}
+function ctl(id,key,list){$(id).innerHTML=$(id).querySelector('span').outerHTML+list.map(([v,t])=>`<button aria-pressed="${S[key]===v}" data-k="${key}" data-v="${v}">${t}</button>`).join('')}
+function all(){choices();ctl('cView','view',[['pri','Primario'],['sec','Secondario']]);ctl('cConn','conn',[['ok','Stabile'],['warn','Instabile'],['stop','Scollegato'],['solo','Non disponibile'],['none','Nessun secondario']]);
+ ctl('cAct','act',Object.entries(ACTS).map(([k,v])=>[k,v[0]]));ctl('cTheme','theme',[['dark','Scuro (predefinito)'],['light','Chiaro']]);ctl('cPaper','paper',[['white','Carta bianca'],['dark','Carta scura']]);
+ renderShow();renderPrep();renderProj();renderCtrl();renderStates()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;S[b.dataset.k]=b.dataset.v;all()});
+all();
+}
+</script>
+</body>
+</html>

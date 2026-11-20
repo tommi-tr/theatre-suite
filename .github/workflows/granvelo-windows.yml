@@ -2,7 +2,7 @@ name: Granvelo · Windows installer
 
 on:
   push:
-    branches: [main, granvelo-dev]
+    branches: [main, granvelo-dev, cue-dev]
     tags: ["granvelo-v*"]
   pull_request:
   workflow_dispatch:

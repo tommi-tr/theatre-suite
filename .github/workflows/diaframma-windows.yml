@@ -2,7 +2,7 @@ name: Diaframma · Windows installer
 
 on:
   push:
-    branches: [main, diaframma-dev]
+    branches: [main, diaframma-dev, cue-dev]
     tags: ["diaframma-v*"]
   pull_request:
   workflow_dispatch:

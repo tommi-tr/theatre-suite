@@ -229,16 +229,19 @@ export interface AppLogoProps {
   label: string;
   /** Line width on the 100×100 grid; by default it grows as the tile gets smaller. */
   strokeWidth?: number;
+  /** Filled dots in the accent colour (Cue: the dot on the script). */
+  accentDots?: readonly { cx: number; cy: number; r: number }[];
 }
 
 /** App icon tile: light tile, accent + ink line marks (see 02_design.md). */
-export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth }: AppLogoProps) {
+export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth, accentDots }: AppLogoProps) {
   const stroke = strokeWidth ?? (size < 24 ? 4.5 : size <= 64 ? 3.4 : 3);
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={label} style={{ flex: "none" }}>
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />
       <path d={inkPath} fill="none" stroke="var(--logo-ink)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={accentPath} fill="none" stroke="var(--logo-a)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
+      {accentPath && <path d={accentPath} fill="none" stroke="var(--logo-a)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />}
+      {accentDots?.map((d, i) => <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="var(--logo-a)" />)}
     </svg>
   );
 }
@@ -253,4 +256,18 @@ export const GRANVELO_LOGO = {
   ink: "M28 18V82M50 18V82M72 18V82",
   /** 6 on the 100×100 grid (6.4 at 64 px, 8.5 at 32 px, 9.5 at 24 px, 11 at 16–20 px). */
   stroke: (size: number): number => (size <= 20 ? 11 : size <= 24 ? 9.5 : size <= 32 ? 8.5 : size <= 64 ? 6.4 : 6),
+} as const;
+
+/**
+ * Cue icon "Filo" (100×100, 02_design.md): the dot on the script (filled, logo colour #77726A), the line and the
+ * GO button (ink, outline only). Use with `AppLogo accentPath="" accentDots={CUE_LOGO.dots}
+ * inkPath={CUE_LOGO.ink} strokeWidth={CUE_LOGO.stroke(size)}`; `apps/cue/tools/make_icons.mjs` draws the same.
+ */
+export const CUE_LOGO = {
+  accent: "",
+  dots: [{ cx: 22, cy: 50, r: 10 }],
+  /** Line M33 50H50 and the button rect x50 y35 w32 h30 rx9 (outline). */
+  ink: "M33 50H50M59 35H73A9 9 0 0 1 82 44V56A9 9 0 0 1 73 65H59A9 9 0 0 1 50 56V44A9 9 0 0 1 59 35Z",
+  /** 6 on the 100×100 grid (8.5 up to 32 px, 11 at 16–20 px). */
+  stroke: (size: number): number => (size <= 20 ? 11 : size <= 32 ? 8.5 : 6),
 } as const;
