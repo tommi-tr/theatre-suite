@@ -5,7 +5,7 @@ import { loadScript, replaceScript } from "../lib/script";
 import { SCRIPT_WIDTH_MAX, SCRIPT_WIDTH_MIN } from "../model/show";
 import { useDoc } from "../store/doc";
 import { NotesColumn, addNote } from "./NotesColumn";
-import { ScriptView } from "./ScriptView";
+import { PeekBand, ScriptView } from "./ScriptView";
 import { useScriptDoc } from "./store";
 import { anchorHere } from "./view";
 
@@ -117,6 +117,8 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
           />
           <ColumnsPlaceholder />
         </div>
+        {/* Later: the next GO after the saved position ("al GO 14"). */}
+        <PeekBand />
       </div>
       {mode === "show" ? <LinkPanelPlaceholder /> : <SelectedGoPlaceholder />}
     </div>

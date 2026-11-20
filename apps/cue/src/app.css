@@ -1034,6 +1034,9 @@
 }
 .cue-library .ts-seg__btn {
   flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  justify-content: center;
 }
 .cue-library__empty {
   flex: 1;

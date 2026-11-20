@@ -23,8 +23,11 @@ Format 1 has no backward-compatibility promise until the first public release: l
 
 ## Writing rules
 
-- **Atomic**: the new zip is written to `<file>.tcue.tmp` next to the file, flushed (`fsync`) and renamed over
-  the old file. If anything fails, the temporary file is removed and the old file is untouched.
+- **Atomic**: the new zip is written to a temporary file next to the file with a name no other save uses
+  (`<file>.tcue.<pid>-<n>.tmp`), flushed (`fsync`) and renamed over the old file (on Windows the rename is retried
+  a few times if an antivirus holds the file). Saves of the same file inside Cue take turns (one lock per path),
+  and the interface runs one save at a time (a held Ctrl+S saves once). If anything fails, the temporary file is
+  removed and the old file is untouched.
 - **Raw copy**: entries that do not change are copied with their compressed bytes (`raw_copy_file`): never
   recompressed, byte-identical across saves.
 - `tcue_save(path, sourcePath, showJson, addParts, removeParts)`: `sourcePath` is the file unchanged parts come
@@ -40,8 +43,12 @@ Format 1 has no backward-compatibility promise until the first public release: l
   `YYYY-MM-DD_HHMMSS[_auto].tcue`. Their `show.json` carries two extra fields, `versionKind` (`"named"` |
   `"auto"`) and `versionNote`, removed when a version is restored. Automatic versions: before the first save of
   a session over an existing file and before going back to a version; the newest 30 are kept.
-- Autosave (Cue's data folder, `autosave/session.json`): `{ savedAt, filePath, dirty, showJson }` within ~1.5 s
-  of a change. A `session.lock` marks a running session; if it is still there at the next start, Cue offers
+- Autosave (Cue's data folder, `autosave/session.json`): `{ savedAt, filePath, dirty, showJson, pendingParts }`
+  within ~1.5 s of a change. **Pending parts**: a part added since the last save (a new script PDF) is copied at
+  once into `autosave/parts/<random>-<part>` and listed in `pendingParts` (`{ "script.pdf": "<staged path>" }`);
+  the next save copies it into the zip (`fromPath`) and removes the staged copy. Recovery takes the staged copies
+  back, so a script loaded and not yet saved survives a crash. The autosave and its staged parts are removed on a
+  clean exit or when the show is closed. A `session.lock` marks a running session; if it is still there at the next start, Cue offers
   "Recupera". With `--instance <n>` (n ≥ 2) the data folder is `<data folder>-<n>`.
 
 ## `show.json`
@@ -60,15 +67,15 @@ Known fields (status: **used** = read/written by the current version, otherwise 
 |---|---|---|---|
 | `format` | `"theatre.cue"` | — | used (required) |
 | `formatVersion` | `1` | — | used (required; higher = "newer Cue", refused) |
-| `id` | string (32 hex) | generated if missing | used |
+| `id` | string (any non-empty string: Cue writes 32 hex digits, the launcher a 36-character UUID) | generated if missing | used |
 | `title` | string | `""` | used |
 | `savedWith` | `{ app, version }` | — | used (written at each save) |
-| `script` | `Script` \| `null` | `null` | planned, phase 1 (Bardo: phase 5) |
+| `script` | `Script` \| `null` | `null` | used (PDF; Bardo: phase 5) |
 | `sources` | `Source[]` | `[]` | planned, phase 2 |
 | `gos` | `Go[]` | `[]` | planned, phase 2 |
-| `notes` | `Note[]` | `[]` | planned, phase 1 |
+| `notes` | `Note[]` | `[]` | used |
 | `speedZones` | `SpeedZone[]` | `[]` | planned, phase 2 |
-| `layout` | `Layout` | `{ scriptWidth: null, audioBoxHeights: {} }` | planned, phases 1–2 |
+| `layout` | `Layout` | `{ scriptWidth: null, audioBoxHeights: {} }` | `scriptWidth` used; `audioBoxHeights` phase 2 |
 | `projection` | `Projection` | `{ blank: { kind: "black" }, screen: null, items: [] }` | planned, phase 4 |
 | `checklist` | `ChecklistItem[]` | `[]` | planned, phase 5 |
 | `settings` | `ShowSettings` | `{ autoScrollSpeed: 1, ftbSeconds: 5 }` | planned, phase 2 |
@@ -76,12 +83,14 @@ Known fields (status: **used** = read/written by the current version, otherwise 
 ### Shapes
 
 ```ts
-// A point of the script.
-Anchor = { page: number /* from 1 */, y: number /* 0 top … 1 bottom */,
-           text?: { before: string, exact: string, after: string } /* to relocate on "Sostituisci copione" */,
-           lineId?: string /* Bardo line id */ }
+// A point of the script (apps/cue/src/model/anchor.ts).
+Anchor = { page: number /* from 1 */, y: number /* 0 top … 1 bottom */, x?: number /* 0 left … 1 right */,
+           quote: string /* the line nearest to the point; "" on a page without text */,
+           before: string, after: string /* ~80 characters of text before and after the quote */,
+           lineId?: string /* Bardo line id, phase 5 */ }
 
-Script = { kind: "pdf", part: "script.pdf", name: string /* original file name */, pages: number, sha256: string }
+Script = { kind: "pdf", part: "script.pdf", fileName: string /* original file name */,
+           sha256: string /* of the PDF */, pageCount: number }
        | { kind: "bardo", sourceId: string }
 
 // A file of another app, path relative to the .tcue.
@@ -98,7 +107,8 @@ Action = { id: string, kind: "light" | "audio" | "projection" | "powerpoint",
 
 Note = { id: string, anchor: Anchor, text: string }
 SpeedZone = { id: string, from: Anchor, fromGoId?: string, speed: number /* × general speed, 0.05–20 */ }
-Layout = { scriptWidth: number | null /* px */, audioBoxHeights: { [actionId]: number /* px */ } }
+Layout = { scriptWidth: number | null /* fraction 0.2–0.8 of script + columns; null = default 0.46 */,
+           audioBoxHeights: { [actionId]: number /* px */ } }
 
 Projection = { blank: { kind: "black" } | { kind: "image", part: string }, screen: string | null, items: ProjectionItem[] }
 ProjectionItem = { id: string, kind: "image" | "video" | "slide", name: string,
@@ -112,3 +122,15 @@ ShowSettings = { autoScrollSpeed: number /* lines per second */, ftbSeconds: num
 
 GO order is the order of the script (page, then `y`). How GOs are numbered (derived from the order, or a
 stored label such as `14.5`) is decided in phase 2; until then no number is stored.
+
+### The script (phase 1)
+
+- One PDF per show, the part `script.pdf` (stored, never recompressed, never modified by Cue). `script.sha256` is the
+  SHA-256 of the PDF, `pageCount` its pages. "Esporta il PDF" writes it out unchanged.
+- **Anchors** tie notes (and GOs, speed zones) to the script: page and height place them; `quote`, `before`,
+  `after` find them again. "Sostituisci copione" looks for every anchor in the new PDF (words normalised: case,
+  accents, punctuation, typographic quotes, words broken at line ends), scores quote (60%) and context (20% + 20%)
+  and gives each a confidence: **sure** (applied by default), **uncertain** (amber, unticked, other places to pick
+  from) or **not found** (keeps page and height). Nothing changes until the user applies the preview.
+- `notes`: `{ id, anchor, text }`, shown in the Notes column left of the script (only when there are notes).
+

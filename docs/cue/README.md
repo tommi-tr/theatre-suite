@@ -24,8 +24,8 @@ npx vite build && npx vite preview --port 1425
 
 ```sh
 pnpm -r typecheck
-pnpm --filter cue exec vitest run    # show.json model, dictionary (also: pnpm cue:test)
-cargo test -p cue --lib              # .tcue zip, atomic save, raw copy, versions, --instance
+pnpm --filter cue exec vitest run    # show.json model, anchors, open show, dictionary (also: pnpm cue:test)
+cargo test -p cue --lib              # .tcue zip, atomic and concurrent saves, staged parts, export, versions
 ```
 
 On Linux set `CARGO_TARGET_DIR` to a shared folder to avoid rebuilding Tauri for every app.
@@ -49,4 +49,9 @@ pnpm --filter cue tauri dev                     # first terminal: instance 1 and
 - While Cue is open Windows does not sleep and the screen stays on (`src-tauri/src/power.rs`,
   `SetThreadExecutionState`); the request ends with the process.
 - Icons: `pnpm --filter cue icons` (geometry of `CUE_LOGO` in `packages/ui`).
+- Script rendering: `pdfjs-dist` (worker bundled with `?url`; CMaps, standard fonts, wasm decoders and ICC profiles
+  are served from the app under `/pdfjs/…`, see `vite.config.ts`: no network). Code in `src/script/`.
+- Demo script: `pnpm --filter cue demo-pdf` regenerates `public/demo/locandiera.pdf` (Goldoni, public domain;
+  `pdf-lib`). `node tools/make_demo_pdf.mjs --edition 2 /tmp/ed2.pdf` makes a revised edition to try
+  "Sostituisci copione" (one note is not found, the others are).
 - CI: `.github/workflows/cue-windows.yml` (installer artifact `Cue-Windows-installer`, release on `cue-v*` tags).

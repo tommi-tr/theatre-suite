@@ -69,7 +69,7 @@ function ReplaceDialog({ plan }: { plan: ReplacePlan }) {
                 <span className="mono">{t("p. {n}", { n: r.old.page })}</span>
                 <span className="cue-replace__arrow">→</span>
                 {cand ? (
-                  r.relocation.candidates.length > 1 ? (
+                  r.relocation.candidates.length > 1 && state !== "sure" ? (
                     <select className="ts-select cue-replace__pick" value={r.choice} onChange={(e) => update(i, { choice: Number(e.target.value), checked: true })} onClick={(e) => e.stopPropagation()}>
                       {r.relocation.candidates.map((c, k) => (
                         <option key={k} value={k}>

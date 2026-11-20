@@ -1,13 +1,12 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd } from "@theatre-suite/ui";
-import { useDoc } from "../store/doc";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
 import type { PageSize, PdfComment, PDFDocumentProxy } from "./pdf";
 import { commentsOf, dropCache, renderPage } from "./render";
 import { useScriptDoc } from "./store";
-import { anchorTop, clampZoom, READING_LINE, scriptLive, useScriptView, type Geometry } from "./view";
+import { clampZoom, READING_LINE, scriptLive, useScriptView, type Geometry } from "./view";
 
 /** Space around and between pages (px). */
 const PAD = 12;
@@ -58,15 +57,13 @@ const isTyping = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest
 export interface ScriptViewProps {
   /** Prepara: K adds a note. */
   onNoteKey?: () => void;
-  /** Words after "lascia Ctrl per tornare" (later: "al GO 14"). */
-  peekTarget?: string;
 }
 
 /**
  * The script: pages of the PDF one under the other, scrolled continuously. Only the visible pages (± 1) are in
  * the page; zoom keeps the point under focus; Ctrl held = peek (13_cue.md, "Il copione").
  */
-export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
+export function ScriptView({ onNoteKey }: ScriptViewProps) {
   const t = useT();
   const doc = useScriptDoc((s) => s.doc);
   const docKey = useScriptDoc((s) => s.key) ?? "";
@@ -75,7 +72,6 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
   const peek = useScriptView((s) => s.peek);
   const paper = useSettings((s) => s.settings.paper);
   const brightness = useSettings((s) => s.settings.paperBrightness);
-  const notes = useDoc((s) => s.show?.notes);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ w: 0, h: 0 });
   const [range, setRange] = useState<[number, number]>([0, 2]);
@@ -111,11 +107,19 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
     return i;
   }, []);
 
+  const anim = useRef<{ raf: number | null; target: number; expect: number; tween: { from: number; to: number; start: number; done?: () => void } | null }>({ raf: null, target: 0, expect: 0, tween: null });
+
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     const g = geoRef.current;
     if (!el || !g) return;
     const top = el.scrollTop;
+    // Moved by something else (scroll bar, a jump) while a key step was gliding: the step gives way.
+    const an = anim.current;
+    if (an.raf !== null && !an.tween && Math.abs(top - an.expect) > 3) {
+      cancelAnimationFrame(an.raf);
+      an.raf = null;
+    }
     const [a, b] = rangeOf(g, top, el.clientHeight);
     setRange((r) => (r[0] === a && r[1] === b ? r : [a, b]));
     const i = pageAt(g, top);
@@ -144,7 +148,6 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
 
   /* ---------------- Movement ---------------- */
 
-  const anim = useRef<{ raf: number | null; target: number; tween: { from: number; to: number; start: number; done?: () => void } | null }>({ raf: null, target: 0, tween: null });
   const stopAnim = useCallback(() => {
     const a = anim.current;
     if (a.raf !== null) cancelAnimationFrame(a.raf);
@@ -172,8 +175,9 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
         a.raf = null;
         return;
       }
-      el.scrollTop += d * 0.24;
+      el.scrollTop += d * 0.3;
     }
+    a.expect = el.scrollTop;
     a.raf = requestAnimationFrame(tick);
   }, []);
   const scrollStep = useCallback(
@@ -394,10 +398,6 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
                 />
               );
             })}
-            {notes?.map((n) => {
-              const y = anchorTop(geometry, n.anchor);
-              return y === null ? null : <span key={n.id} className="cue-script__mark" style={{ top: y - 4, left: Math.max(2, geometry.lefts[n.anchor.page - 1] - 9) }} title={n.text} />;
-            })}
             {peek?.visible ? (
               <div className="cue-script__here" style={{ top: peekLineTop }}>
                 <span>{t("you were here")}</span>
@@ -406,14 +406,6 @@ export function ScriptView({ onNoteKey, peekTarget }: ScriptViewProps) {
           </div>
         ) : null}
       </div>
-      {peek?.visible ? (
-        <div className="cue-peekband" role="status">
-          <Icon name="eye" size={15} />
-          <span>
-            {t("Peek")} · {t("release")} <Kbd>Ctrl</Kbd> {peekTarget ? t("to go back {target}", { target: peekTarget }) : t("to go back")}
-          </span>
-        </div>
-      ) : null}
       {geometry ? <ZoomPill zoom={zoom} onZoom={(f) => zoomBy(f)} /> : null}
     </div>
   );
@@ -502,3 +494,21 @@ const PageSlot = memo(function PageSlot({ doc, docKey, page, pages, top, left, w
     </div>
   );
 });
+
+/**
+ * The peek band, over the script and the columns: "Sbirciata · lascia Ctrl per tornare" (+ "al GO n" once GOs
+ * exist: `target`).
+ */
+export function PeekBand({ target }: { target?: string }) {
+  const t = useT();
+  const visible = useScriptView((s) => !!s.peek?.visible);
+  if (!visible) return null;
+  return (
+    <div className="cue-peekband" role="status">
+      <Icon name="eye" size={15} />
+      <span>
+        {t("Peek")} · {t("release")} <Kbd>Ctrl</Kbd> {target ? t("to go back {target}", { target }) : t("to go back")}
+      </span>
+    </div>
+  );
+}
