@@ -1,8 +1,9 @@
 import { addressProblems } from "../model/addresses";
 import { COLOR_FUNCTIONS, fixtureType, type SymbolKind } from "../model/fixtureTypes";
 import { visibleLight } from "../model/universe";
-import { UNIVERSE_SIZE, type Fixture, type GranveloDoc, type Id, type Scenery, type SceneryPlacement, type Vec3 } from "../model/types";
+import type { Fixture, GranveloDoc, Id, Vec3 } from "../model/types";
 import { beamPool, lightPosition, type Pool } from "./geometry";
+import { lightValues, sceneryOnStage } from "@theatre-suite/show-files/granvelo/stage";
 
 /**
  * What the stage views draw, computed once from the document and the light state (pure: shared by the 2D and the 3D
@@ -28,11 +29,7 @@ export interface StageLight {
   pool: Pool;
 }
 
-/** The values of one light read from the 512 channels of the universe (0 past 512 or without address). */
-export function lightValues(f: Pick<Fixture, "address" | "channels">, values: ArrayLike<number>): number[] {
-  if (f.address === null) return f.channels.map(() => 0);
-  return f.channels.map((_, i) => (f.address! + i <= UNIVERSE_SIZE ? (values[f.address! + i - 1] ?? 0) : 0));
-}
+export { lightValues };
 
 /** Does the light have colour channels (red, green, blue, white, amber, UV)? A halogen or a spot has none. */
 export const hasColourChannels = (f: Pick<Fixture, "channels">) => f.channels.some((c) => COLOR_FUNCTIONS.includes(c.function));
@@ -75,16 +72,7 @@ export function stageLights(doc: StageDoc, values: ArrayLike<number> | undefined
   });
 }
 
-/** The scenery on stage: every piece where it was built ("all"), or the pieces of a memory where they stand then. */
-export function sceneryOnStage(doc: Pick<GranveloDoc, "scenery">, placements: readonly SceneryPlacement[] | "all" = "all"): Scenery[] {
-  if (placements === "all") return doc.scenery;
-  const out: Scenery[] = [];
-  for (const p of placements) {
-    const s = doc.scenery.find((x) => x.id === p.sceneryId);
-    if (s) out.push({ ...s, position: p.position, rotation: p.rotation });
-  }
-  return out;
-}
+export { sceneryOnStage };
 
 /** "N · nome · 001": the label of a selected light on the stage. */
 export function lightLabel(f: Pick<Fixture, "number" | "name" | "address">, typeName: string): string {

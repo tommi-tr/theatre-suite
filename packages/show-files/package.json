@@ -1,0 +1,24 @@
+{
+  "name": "@theatre-suite/show-files",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./granvelo": "./src/granvelo/index.ts",
+    "./granvelo/*": "./src/granvelo/*.ts",
+    "./diaframma": "./src/diaframma/index.ts",
+    "./diaframma/*": "./src/diaframma/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@theatre-suite/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

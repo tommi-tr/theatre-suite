@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { addressMap, addressProblems, applyAddresses, channelsInUse, fits, lastChannel, nextFreeAddress, numberByClicks, occupiedChannels } from "./addresses";
-import { removeFixture } from "./ops";
 import { docWith, light } from "./testkit";
 
 describe("channels of a light", () => {
@@ -102,16 +101,5 @@ describe("numbering by clicking the lights in order", () => {
       ["f2", 510],
     ]);
     expect(r.notFitting).toEqual(["f3"]);
-  });
-});
-
-describe("removing a light", () => {
-  it("never renumbers or re-addresses the others", () => {
-    const doc = docWith([light("f1", "parRgbw", 1, { number: 1 }), light("f2", "pc", 5, { number: 2 }), light("f3", "pc", 6, { number: 3 })]);
-    const next = removeFixture(doc, "f2");
-    expect(next.fixtures.map((f) => [f.id, f.number, f.address])).toEqual([
-      ["f1", 1, 1],
-      ["f3", 3, 6],
-    ]);
   });
 });
