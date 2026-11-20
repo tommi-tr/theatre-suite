@@ -1,11 +1,8 @@
-import { Fragment } from "react";
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
 import {
   AppLogo,
   Button,
   Dialog,
-  Icon,
-  Kbd,
   Range,
   Segmented,
   SettingsFooter,
@@ -17,9 +14,10 @@ import {
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "../lib/api";
 import { APP_NAME, APP_VERSION, LOGO } from "../lib/version";
-import { KEYS, type KeyGroup } from "../model/keys";
 import { useSettings, type ArrowKeys, type Paper } from "../store/settings";
 import { useUi, type SettingsTab } from "../store/ui";
+import { KeysPane } from "../settings/KeysPane";
+import { OutputsPane } from "../settings/OutputsPane";
 import { SoonPill } from "./ComingSoon";
 
 /** Stable reference: Dialog refocuses its first button whenever `onClose` changes. */
@@ -56,7 +54,7 @@ export function SettingsDialog() {
         active={tab}
         onSelect={(id) => useUi.getState().setSettingsTab(id)}
         label={t("Settings")}
-        height={430}
+        height={480}
       >
         {tab === "general" ? (
           <GeneralPane />
@@ -75,15 +73,7 @@ export function SettingsDialog() {
             ]}
           />
         ) : tab === "outputs" ? (
-          <LaterPane
-            version="0.3"
-            title={t("Lights and sound")}
-            about={[
-              t("The sound card for the Diaframma tracks and the USB-DMX cable for the Granvelo memories."),
-              t("Cue uses the same engines as Diaframma and Granvelo: what you hear and see in rehearsal is what the show does."),
-              t("Only one program at a time can use the DMX cable: if Granvelo has it, Cue says so plainly."),
-            ]}
-          />
+          <OutputsPane />
         ) : tab === "projections" ? (
           <LaterPane
             version="0.5"
@@ -207,63 +197,6 @@ function PaperSample({ paper, brightness, active, label }: { paper: Paper; brigh
       </div>
       <span className="cue-paper__label">{label}</span>
     </div>
-  );
-}
-
-const GROUPS: { id: KeyGroup; label: string }[] = [
-  { id: "show", label: "During the show" },
-  { id: "script", label: "Script" },
-  { id: "prepare", label: "In Prepare" },
-];
-
-/** Settings → Tasti: the list of keys (read only in 0.1) and the pedal, coming later. */
-function KeysPane() {
-  const t = useT();
-  return (
-    <>
-      <div className="cue-set-intro">
-        <span>{t("The keys of Cue. With Cue 0.3 they work and can be changed, with a check for conflicts.")}</span>
-        <SoonPill version="0.3" />
-      </div>
-      <div className="cue-keys">
-        {GROUPS.map((g) => (
-          <Fragment key={g.id}>
-            <div className="ts-label cue-keys__group">{t(g.label)}</div>
-            {KEYS.filter((k) => k.group === g.id).map((k) => (
-              <div key={k.id} className={`cue-keys__row${k.danger ? " cue-keys__row--danger" : ""}`}>
-                <span className="cue-keys__name">{t(k.label)}</span>
-                <span className="cue-keys__keys">
-                  {k.keys.map((combo, i) => (
-                    <Fragment key={i}>
-                      {i > 0 ? <span className="ts-muted">{t("or")}</span> : null}
-                      <span className="cue-keys__combo">
-                        {combo.map((key, j) => (
-                          <Kbd key={j}>{key === "Space" ? t("Space") : key}</Kbd>
-                        ))}
-                      </span>
-                    </Fragment>
-                  ))}
-                  {k.held ? <span className="ts-muted">{t("held down")}</span> : null}
-                </span>
-              </div>
-            ))}
-          </Fragment>
-        ))}
-      </div>
-      <div className="cue-pedal">
-        <span className="cue-pedal__icon">
-          <Icon name="flag" size={18} />
-        </span>
-        <div>
-          <div className="ts-set-row__label">
-            {t("Pedal")} · <span className="ts-muted">{t("Coming soon")}</span>
-          </div>
-          <div className="ts-field__hint">
-            {t("A foot pedal that types F13 gives the GO, even while the chat is open. F13 is already a GO key; how to build the pedal comes later.")}
-          </div>
-        </div>
-      </div>
-    </>
   );
 }
 

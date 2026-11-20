@@ -1,4 +1,5 @@
 import type { ShowInfo } from "@theatre-suite/core";
+import { demoCueFields, DEMO_SPEED_ZONES, putDemoSources } from "../lib/demoShow";
 import { memFs } from "../lib/memFs";
 
 /**
@@ -17,7 +18,7 @@ const show = (extra: Record<string, unknown> = {}) =>
       formatVersion: 1,
       id: "6c6f63616e64696572612d7365726174",
       title: "La locandiera",
-      savedWith: { app: "Cue", version: "0.2.0" },
+      savedWith: { app: "Cue", version: "0.3.0" },
       ...extra,
     },
     null,
@@ -66,7 +67,11 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 /** Puts the demo file (with its script) and two versions of it in memory, once. */
 export async function putDemoFile(): Promise<void> {
+  // The two linked files (Luci.granvelo, Suoni.diaframma) the preview reads, and the GOs that use them.
+  putDemoSources();
   if (memFs.exists(DEMO_PATH)) return;
+  const many = typeof location !== "undefined" && new URLSearchParams(location.search).has("many");
+  const cue = { ...demoCueFields(many), speedZones: many ? [] : structuredClone(DEMO_SPEED_ZONES) };
   let pdf: Uint8Array | null = null;
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}demo/locandiera.pdf`);
@@ -77,7 +82,7 @@ export async function putDemoFile(): Promise<void> {
   const versions = `${DEMO_DIR}\\Serata.versions`;
   memFs.put(`${versions}\\2026-11-18_221500_auto.tcue`, show({ versionKind: "auto", versionNote: "Prima del primo salvataggio di questa sessione" }), {}, new Date(2026, 10, 18, 22, 15).getTime());
   memFs.put(`${versions}\\2026-11-19_183000.tcue`, show({ versionKind: "named", versionNote: "Dopo la prova tecnica" }), {}, new Date(2026, 10, 19, 18, 30).getTime());
-  if (!pdf) return memFs.put(DEMO_PATH, show());
+  if (!pdf) return memFs.put(DEMO_PATH, show({ ...cue }));
   const script = { kind: "pdf", part: "script.pdf", fileName: "La locandiera - Atto primo.pdf", sha256: await sha256Hex(pdf), pageCount: 6 };
-  memFs.put(DEMO_PATH, show({ script, notes: DEMO_NOTES, layout: { scriptWidth: 0.46 } }), { "script.pdf": pdf });
+  memFs.put(DEMO_PATH, show({ ...cue, script, notes: DEMO_NOTES, layout: { ...cue.layout, scriptWidth: 0.46 } }), { "script.pdf": pdf });
 }

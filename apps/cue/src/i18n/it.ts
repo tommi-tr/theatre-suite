@@ -9,8 +9,6 @@ export const it: Dict = {
   "{n} GO": "{n} GO",
   "{name} is no longer there: removed from the list.": "{name} non c'è più: tolto dall'elenco.",
   "1 GO": "1 GO",
-  "A foot pedal that types F13 gives the GO, even while the chat is open. F13 is already a GO key; how to build the pedal comes later.":
-    "Un pedale che manda F13 dà il GO, anche con la chat aperta. F13 è già un tasto del GO; come costruire il pedale arriva più avanti.",
   "A note for this version": "Una nota per questa versione",
   "A note for this version (for example: after the technical rehearsal)": "Una nota per questa versione (per esempio: dopo la prova tecnica)",
   "A second computer can lead the same show as an equal: every request goes through the primary.":
@@ -49,8 +47,6 @@ export const it: Dict = {
   "Create the show": "Crea lo spettacolo",
   "Cue is the digital prompt book of the show: the script with its GOs, and the command of lights, sound and images during the performance.":
     "Cue è il libro di scena digitale: il copione con i suoi GO, e il comando di luci, audio e immagini durante lo spettacolo.",
-  "Cue uses the same engines as Diaframma and Granvelo: what you hear and see in rehearsal is what the show does.":
-    "Cue usa gli stessi motori di Diaframma e Granvelo: quello che senti e vedi in prova è quello che fa lo spettacolo.",
   "Cue was closed unexpectedly. The show as it was a moment before can be recovered.": "Cue si è chiuso in modo inatteso. Lo spettacolo com'era un attimo prima si può recuperare.",
   "Cue was closed unexpectedly. Your work has been recovered: nothing was sent to lights, sound or screens.":
     "Cue si è chiuso in modo inatteso. Il lavoro è stato recuperato: niente è stato mandato a luci, audio o schermi.",
@@ -90,7 +86,6 @@ export const it: Dict = {
   "La locandiera / Serata: to look around without touching anything of yours.": "La locandiera / Serata: per guardarsi intorno senza toccare niente di tuo.",
   "Language": "Lingua",
   "Light": "Chiaro",
-  "Lights and sound": "Luci e audio",
   "Like the system": "Come il sistema",
   "Link": "Collegamento",
   "Link state always written in words and colours; optional Wi-Fi backup.": "Lo stato del collegamento sempre scritto, a parole e a colori; Wi-Fi di riserva a scelta.",
@@ -119,12 +114,10 @@ export const it: Dict = {
     "Una scheda per uscita (audio, luci DMX, proiettore, secondario, PowerPoint, pedale) con lo stato a parole e il comando di prova.",
   "One PDF: the script or the score. It goes inside the show file and Cue never changes it; underlines and comments already in the PDF stay visible.":
     "Un solo PDF: il copione o la partitura. Entra nel file dello spettacolo e Cue non lo modifica mai; sottolineature e commenti già nel PDF restano visibili.",
-  "Only one program at a time can use the DMX cable: if Granvelo has it, Cue says so plainly.": "Il cavo DMX lo usa un programma alla volta: se lo tiene Granvelo, Cue lo dice in chiaro.",
   "Open a .tcue file": "Apri un file .tcue",
   "Open a show": "Apri uno spettacolo",
   "Open the demo show": "Apri lo spettacolo di prova",
   "Open…": "Apri…",
-  "or": "o",
   "Outputs": "Uscite",
   "Paper of the script": "Carta del copione",
   "Pause": "Pausa",
@@ -155,7 +148,6 @@ export const it: Dict = {
   "Screen always on": "Schermo sempre acceso",
   "Script": "Copione",
   "Script: {name} · {n} pages": "Copione: {name} · {n} pagine",
-  "Scroll the script": "Scorri il copione",
   "Separate from the appearance of Cue: dark paper inverts the page, for a dark booth.": "Separata dall'aspetto di Cue: la carta scura inverte la pagina, per una regia al buio.",
   "Settings": "Impostazioni",
   "Show (mode)": "Show",
@@ -166,14 +158,12 @@ export const it: Dict = {
   "Tests of the outputs and of the link, with a report you can keep.": "Prove delle uscite e del collegamento, con un rapporto da conservare.",
   "The file cannot be read or written here.": "Il file non si può leggere o scrivere qui.",
   "The file is damaged and cannot be opened.": "Il file è danneggiato e non si può aprire.",
-  "The keys of Cue. With Cue 0.3 they work and can be changed, with a check for conflicts.": "I tasti di Cue. Con Cue 0.3 funzionano e si possono cambiare, con il controllo dei conflitti.",
   "The output screen (the second screen of this computer) and the blank image: black or one of your choice.":
     "Lo schermo di uscita (il secondo schermo di questo computer) e l'immagine tappo: nera o scelta da te.",
   "The script, the GOs and the rest come after, in Prepare.": "Copione, GO e tutto il resto vengono dopo, in Prepara.",
   "The sequence of images and videos on the left, with the transition written between one and the next.":
     "La sequenza di immagini e video a sinistra, con la transizione scritta fra un elemento e l'altro.",
   "The shows you open appear here.": "Qui compaiono gli spettacoli che apri.",
-  "The sound card for the Diaframma tracks and the USB-DMX cable for the Granvelo memories.": "La scheda audio per le tracce di Diaframma e il cavo USB-DMX per le memorie di Granvelo.",
   "The stage manager's digital prompt book: the script with its GOs, and the command of lights, sound and images during the show. Part of the Theatre Suite.":
     "Il libro di scena digitale di chi chiama lo spettacolo: il copione con i suoi GO, e il comando di luci, audio e immagini durante lo spettacolo. Fa parte della Theatre Suite.",
   "There are unsaved changes. Save them first?": "Ci sono modifiche non salvate. Vuoi salvarle prima?",
@@ -192,5 +182,4 @@ export const it: Dict = {
   "Whole copies of this file, script included, kept next to it. Going back to one never loses what you have now.":
     "Copie intere di questo file, copione compreso, conservate accanto a lui. Tornare a una di esse non fa mai perdere quello che hai ora.",
   "Zoom": "Zoom",
-  "Zoom or change page": "Zoom o cambio pagina",
 };

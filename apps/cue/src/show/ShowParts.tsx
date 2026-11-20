@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { AlertBand, Button, HoldButton, Icon, Kbd, KeyCommand, KeyCommandBar, OutputPill, type OutputPillState } from "@theatre-suite/ui";
 import { mainGoCount, numberGos, sortGos } from "../model/gos";
-import { commandKeyText, resolveKeymap, type CommandId } from "../model/keys";
+import type { KeyAction } from "../model/keys";
+import { actionKeyText } from "./keys";
 import { dmxLinkText } from "../lib/dmx";
 import { useDoc } from "../store/doc";
 import { useOutputs } from "../store/outputs";
@@ -30,8 +31,7 @@ import "./show.css";
 const noFocus = (e: React.MouseEvent) => e.preventDefault();
 
 function useKeymap() {
-  const keys = useSettings((s) => s.settings.keys);
-  return resolveKeymap(keys);
+  return useSettings((s) => s.settings.keymap);
 }
 
 function useNow(ms: number): number {
@@ -55,7 +55,7 @@ export function ShowStatusLine() {
   const pb = run.playback;
   const total = mainGoCount(gos);
   const last = pb.lastGoId ? numberGos(gos).find((n) => n.id === pb.lastGoId) : null;
-  const k = (id: CommandId) => commandKeyText(keymap, id) || undefined;
+  const k = (id: KeyAction) => actionKeyText(keymap, id, t("Space")) || undefined;
   const em = pb.emergency;
   return (
     <>
@@ -95,7 +95,7 @@ export function ShowStatusLine() {
           {pb.blackout ? t("Blackout on") : "Blackout"}
         </KeyCommand>
         <KeyCommand
-          keys={k("ftb")}
+          keys={k("fadeToBlack")}
           active={pb.ftb}
           disabled={em}
           onMouseDown={noFocus}
@@ -179,7 +179,7 @@ export function LockVeil() {
   const locked = useRun((s) => s.locked);
   const keymap = useKeymap();
   if (!locked) return null;
-  const ids: CommandId[] = ["go", "back", "pause", "preset", "blackout", "ftb", "emergency", "stopAudio"];
+  const ids: KeyAction[] = ["go", "back", "pause", "preset", "blackout", "fadeToBlack", "emergency", "stopAudio"];
   return (
     <div
       className="cue-lockveil"
@@ -195,10 +195,10 @@ export function LockVeil() {
           <span>
             {t("Only the keys of the show work:")}{" "}
             {ids
-              .map((id) => commandKeyText(keymap, id))
+              .map((id) => actionKeyText(keymap, id, t("Space")))
               .filter(Boolean)
               .map((k, i) => (
-                <Kbd key={i}>{k === "Space" ? t("Space") : k}</Kbd>
+                <Kbd key={i}>{k}</Kbd>
               ))}
           </span>
         </div>
@@ -215,7 +215,7 @@ export function LockVeil() {
 export function LockButton() {
   const t = useT();
   const keymap = useKeymap();
-  const key = commandKeyText(keymap, "lock");
+  const key = actionKeyText(keymap, "lock");
   return (
     <Button
       variant="ghost"

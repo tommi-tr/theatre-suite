@@ -71,14 +71,14 @@ Known fields (status: **used** = read/written by the current version, otherwise 
 | `title` | string | `""` | used |
 | `savedWith` | `{ app, version }` | — | used (written at each save) |
 | `script` | `Script` \| `null` | `null` | used (PDF; Bardo: phase 5) |
-| `sources` | `Source[]` | `[]` | planned, phase 2 |
-| `gos` | `Go[]` | `[]` | planned, phase 2 |
+| `sources` | `Source[]` | `[]` | used |
+| `gos` | `Go[]` | `[]` | used |
 | `notes` | `Note[]` | `[]` | used |
-| `speedZones` | `SpeedZone[]` | `[]` | planned, phase 2 |
-| `layout` | `Layout` | `{ scriptWidth: null, audioBoxHeights: {} }` | `scriptWidth` used; `audioBoxHeights` phase 2 |
+| `speedZones` | `SpeedZone[]` | `[]` | used (auto scroll) |
+| `layout` | `Layout` | `{ scriptWidth: null, audioBoxHeights: {} }` | used |
 | `projection` | `Projection` | `{ blank: { kind: "black" }, screen: null, items: [] }` | planned, phase 4 |
 | `checklist` | `ChecklistItem[]` | `[]` | planned, phase 5 |
-| `settings` | `ShowSettings` | `{ autoScrollSpeed: 1, ftbSeconds: 5 }` | planned, phase 2 |
+| `settings` | `ShowSettings` | `{ autoScrollSpeed: 1, ftbSeconds: 3 }` | used |
 
 ### Shapes
 
@@ -94,16 +94,20 @@ Script = { kind: "pdf", part: "script.pdf", fileName: string /* original file na
        | { kind: "bardo", sourceId: string }
 
 // A file of another app, path relative to the .tcue.
-Source = { id: string, app: "granvelo" | "diaframma" | "bardo", path: string, docId?: string, name?: string }
+Source = { id: string, app: "granvelo" | "diaframma" | "bardo", path: string, docId?: string, name?: string,
+           sha256?: string /* fingerprint at the last load: a different one = "changed since" */ }
 ItemRef = { sourceId: string, itemId: string }   // stable id of the memory / track
 
 Go = { id: string, anchor: Anchor, actions: Action[],
        givenBy: "both" | "primary" | "secondary" /* default "both" */,
-       auto?: boolean /* starts by itself after the previous one */, note?: string }
-Action = { id: string, kind: "light" | "audio" | "projection" | "powerpoint",
-           ref?: ItemRef /* light, audio */, projectionItemId?: string,
-           powerpoint?: "next" | "previous" | number,
-           times?: { fade?: number, delay?: number } /* seconds, override the source file */, levelDb?: number }
+       auto?: boolean /* starts by itself after the previous one */, note?: string,
+       label?: string /* shown instead of the derived number ("14.5"); shifts nothing */ }
+Action = { id, kind: "light", ref: ItemRef, times?: Times }
+       | { id, kind: "audio", ref: ItemRef, times?: Times, levelDb?: number /* added to the track's volume */ }
+       | { id, kind: "audioStop", ref?: ItemRef /* none = every sound */, times?: Times /* fade = fade out */ }
+       | { id, kind: "projection", projectionItemId?: string, step?: "next" | "previous" }   // phase 4
+       | { id, kind: "powerpoint", powerpoint: "next" | "previous" | number }               // phase 4
+Times = { fade?: number, fadeIn?: number, fadeOut?: number, delay?: number } /* seconds; unset = the source file's */
 
 Note = { id: string, anchor: Anchor, text: string }
 SpeedZone = { id: string, from: Anchor, fromGoId?: string, speed: number /* × general speed, 0.05–20 */ }
@@ -117,11 +121,21 @@ ProjectionItem = { id: string, kind: "image" | "video" | "slide", name: string,
                    color?: { brightness, contrast, temperature, saturation }, atEnd?: "hold" | "black" | "next" }
 
 ChecklistItem = { id: string, text: string, done: boolean, origin: "suggested" | "user" }
-ShowSettings = { autoScrollSpeed: number /* lines per second */, ftbSeconds: number }
+ShowSettings = { autoScrollSpeed: number /* lines per second (14 pt) */, ftbSeconds: number /* default 3 */,
+                 presetRef?: ItemRef /* the memory of Piazzato (Q) */ }
 ```
 
-GO order is the order of the script (page, then `y`). How GOs are numbered (derived from the order, or a
-stored label such as `14.5`) is decided in phase 2; until then no number is stored.
+GO order is the order of the script (page, then `y`). Numbers are derived, never stored: GOs given by hand are
+1…N, a GO that starts by itself takes the number before it plus a point (4, 4.1, 5); `label` replaces the number.
+A speed zone lasts until the next one; `fromGoId` makes it start at that GO's point (it follows the GO).
+`layout.audioBoxHeights` keeps the heights of the audio boxes dragged by their handle (only a visual reminder).
+
+### Settings of the computer (not in the file)
+
+Cue's data folder, `settings.json`: language, theme, paper, `keymap` (`{ action: ["Space", "Ctrl+L", …] }`, see
+`apps/cue/src/model/keys.ts`; F13 is always GO), `followStandby` (the script glides to the standby after a GO,
+default on), outputs (`audioDevice`, `dmxPort`). The autosave also keeps `playback: { standbyId, lastGoId,
+history }` and the mode: after a crash Cue restarts on that standby without firing anything.
 
 ### The script (phase 1)
 

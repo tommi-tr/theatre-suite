@@ -17,7 +17,7 @@ describe("show.json", () => {
     expect(s.checklist).toEqual([]);
     expect(s.layout).toEqual({ scriptWidth: null, audioBoxHeights: {} });
     expect(s.projection).toEqual({ blank: { kind: "black" }, screen: null, items: [] });
-    expect(s.settings).toEqual({ autoScrollSpeed: 1, ftbSeconds: 3, presetRef: null });
+    expect(s.settings).toEqual({ autoScrollSpeed: 1, ftbSeconds: 3 });
   });
 
   it("gives an id to a show without one", () => {
@@ -45,7 +45,7 @@ describe("show.json", () => {
     expect(again.gos[0].givenBy).toBe("secondary");
     expect(again.layout).toEqual({ scriptWidth: 0.42, panes: { left: 1 }, audioBoxHeights: {} });
     expect(again.projection.wallpaper).toBe("x");
-    expect(again.settings).toEqual({ autoScrollSpeed: 1.5, secret: true, ftbSeconds: 3, presetRef: null });
+    expect(again.settings).toEqual({ autoScrollSpeed: 1.5, secret: true, ftbSeconds: 3 });
     // An edit made by copying keeps them too.
     const edited: CueShow = { ...s, title: "Nuovo titolo", gos: s.gos.map((g) => ({ ...g, givenBy: "both" as const })) };
     const after = JSON.parse(serializeShow(edited));

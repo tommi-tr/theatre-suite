@@ -22,6 +22,8 @@ interface UiStore {
   settingsTab: SettingsTab;
   toast: Toast | null;
   banner: { kind: BannerKind; data?: string } | null;
+  /** The GO selected in Prepara (its panel on the right, its dot highlighted on the script); null = none. */
+  selectedGoId: string | null;
   /** 1 normally; n with `--instance n` (shown next to the version). */
   instance: number;
   setMode: (m: Mode) => void;
@@ -33,6 +35,7 @@ interface UiStore {
   clearToast: () => void;
   setBanner: (kind: BannerKind | null, data?: string) => void;
   setInstance: (n: number) => void;
+  selectGo: (id: string | null) => void;
 }
 
 export const useUi = create<UiStore>((set) => ({
@@ -41,6 +44,7 @@ export const useUi = create<UiStore>((set) => ({
   settingsTab: "general",
   toast: null,
   banner: null,
+  selectedGoId: null,
   instance: 1,
   setMode: (mode) => set({ mode }),
   openDialog: (dialog) => set({ dialog }),
@@ -51,4 +55,5 @@ export const useUi = create<UiStore>((set) => ({
   clearToast: () => set({ toast: null }),
   setBanner: (kind, data) => set({ banner: kind ? { kind, data } : null }),
   setInstance: (instance) => set({ instance }),
+  selectGo: (selectedGoId) => set((s) => (s.selectedGoId === selectedGoId ? s : { selectedGoId })),
 }));

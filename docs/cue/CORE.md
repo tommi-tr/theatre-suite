@@ -112,7 +112,6 @@ Errors of `files_*` are `missing: …`, `too-big: …`, `not-text: …`, `io: �
    `goViews` and `columns` (green in scene, amber standby). Resize: `draggedAudioHeight` → `layout.audioBoxHeights`.
 
 ## Open points
-- `show.ts` still declares its own `Go`/`GoAction` (FORMAT.md shapes, `kind: "audio"` etc.): at merge make it
-  re-export `Go`, `Action`, `GivenBy`, `ItemRef` from `gos.ts`, and `GoAnchor` from phase 1's anchor; document
-  `audioStop`, `label`, `times.fadeIn/fadeOut`, `step` and `Source.sha256` in FORMAT.md.
+- Done in 0.3.0: `show.ts` re-exports the GO types of `gos.ts`; FORMAT.md documents them. The Show UI is in
+  `src/show/` (run store, keys, bottom bar, Lock), `src/timeline/` (overlay) and `src/script/follow.ts` (follow + auto scroll).
 - Phase 3: the primary runs the engines; a secondary's GO request is applied with `go(…, { role: "secondary" })`.

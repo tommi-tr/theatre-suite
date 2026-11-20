@@ -23,7 +23,7 @@ export const itCore: Dict = {
   "The DMX cable is used by another program (maybe Granvelo): close it and try again": "Il cavo DMX è usato da un altro programma (forse Granvelo): chiudilo e riprova",
   "The DMX output stopped after an internal error": "L'uscita DMX si è fermata per un errore interno",
   "The file cannot be read.": "Il file non si può leggere.",
-  "The file is not there: {path}": "Il file non c'è: {path}",
+  "The file is not there: {path}": "File non trovato: {path}",
   "The lights keep their last state. Cue restarted the output without sending anything: press Connect to go on.":
     "Le luci restano come erano. Cue ha fatto ripartire l'uscita senza mandare nulla: premi Connetti per continuare.",
   "This file now holds another show: check the GOs that use it.": "In questo file ora c'è un altro spettacolo: controlla i GO che lo usano.",

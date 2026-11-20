@@ -347,3 +347,12 @@
     transition: none;
   }
 }
+
+/* The timeline's dots reach a few px over the script: the work area clips (without becoming a scroll box). */
+.cue-stage__work {
+  overflow: clip;
+}
+/* Squeezed between two GOs: the name right under the line. */
+.cue-box.cue-box--tight {
+  padding-top: 20px;
+}

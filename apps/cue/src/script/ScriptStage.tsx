@@ -1,13 +1,18 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "@theatre-suite/core";
-import { Button, Icon, Segmented } from "@theatre-suite/ui";
+import { Button, Icon } from "@theatre-suite/ui";
 import { loadScript, replaceScript } from "../lib/script";
 import { SCRIPT_WIDTH_MAX, SCRIPT_WIDTH_MIN } from "../model/show";
 import { useDoc } from "../store/doc";
 import { NotesColumn, addNote } from "./NotesColumn";
 import { PeekBand, ScriptView } from "./ScriptView";
 import { useScriptDoc } from "./store";
-import { anchorHere } from "./view";
+import { useUi } from "../store/ui";
+import { Timeline } from "../timeline/Timeline";
+import { AutoScrollPill, usePeekTarget } from "../show/ShowParts";
+import { anchorAtPoint, anchorHere, anchorTop, scriptLive, useScriptView } from "./view";
+import { isItemDrag, readItemDrop } from "../prepare/drag";
+import { addItemAt } from "../prepare/actions";
 
 /** Script width when the file says nothing (fraction of script + columns), as in the design. */
 export const DEFAULT_SCRIPT_WIDTH = 0.46;
@@ -25,7 +30,7 @@ export async function addNoteHere(): Promise<void> {
  * The layout shared by Show and Prepara (13_cue.md, design images):
  * [library (Prepara)] [notes?] [script] [divider] [columns] [right panel 200 px].
  */
-export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
+export function ScriptStage({ mode, left, right }: { mode: "show" | "prepare"; left?: React.ReactNode; right?: React.ReactNode }) {
   const t = useT();
   const hasNotes = useDoc((s) => (s.show?.notes.length ?? 0) > 0);
   const status = useScriptDoc((s) => s.status);
@@ -34,6 +39,9 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
   const [workW, setWorkW] = useState(0);
   const [drag, setDrag] = useState<number | null>(null);
   const frac = drag ?? saved ?? DEFAULT_SCRIPT_WIDTH;
+  const selectedGoId = useUi((s) => s.selectedGoId);
+  const selectGo = useUi((s) => s.selectGo);
+  const peekTarget = usePeekTarget();
 
   useLayoutEffect(() => {
     const el = workRef.current;
@@ -78,6 +86,24 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+  // Prepara: a library item dropped on the script or on the columns makes (or joins) a GO at that height.
+  const onDragOver = (e: React.DragEvent) => {
+    if (mode !== "prepare" || !isItemDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDrop = async (e: React.DragEvent) => {
+    if (mode !== "prepare") return;
+    const item = readItemDrop(e);
+    const work = workRef.current;
+    if (!item || !work) return;
+    e.preventDefault();
+    const r = work.getBoundingClientRect();
+    const x = Math.min(Math.max(0, e.clientX - r.left), (scriptPx ?? r.width) - 1);
+    const anchor = await anchorAtPoint(x, e.clientY - r.top + scriptLive.scrollTop());
+    const g = useScriptView.getState().geometry;
+    if (anchor) addItemAt(anchor, item, { toY: g ? (a) => anchorTop(g, a) ?? 0 : undefined });
+  };
   const onDividerKey = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
@@ -88,10 +114,10 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
 
   return (
     <div className="cue-stage" data-mode={mode}>
-      {mode === "prepare" ? <LibraryPanel /> : null}
+      {left}
       <div className="cue-stage__main">
         {hasNotes && status === "ready" ? <NotesColumn editable={mode === "prepare"} /> : null}
-        <div ref={workRef} className="cue-stage__work">
+        <div ref={workRef} className="cue-stage__work" onDragOver={onDragOver} onDrop={(e) => void onDrop(e)}>
           <div className="cue-stage__script" style={{ width: scriptPx }}>
             {status === "ready" ? (
               <ScriptView onNoteKey={mode === "prepare" ? () => void addNoteHere() : undefined} />
@@ -104,6 +130,7 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
             ) : (
               <NoScript mode={mode} />
             )}
+            {status === "ready" && mode === "show" ? <AutoScrollPill /> : null}
           </div>
           <div
             className={`cue-divider${drag !== null ? " cue-divider--drag" : ""}`}
@@ -115,12 +142,11 @@ export function ScriptStage({ mode }: { mode: "show" | "prepare" }) {
             onPointerDown={onDividerDown}
             onKeyDown={onDividerKey}
           />
-          <ColumnsPlaceholder />
+          <Timeline mode={mode} selectedGoId={mode === "prepare" ? selectedGoId : null} onSelectGo={mode === "prepare" ? selectGo : undefined} />
         </div>
-        {/* Later: the next GO after the saved position ("al GO 14"). */}
-        <PeekBand />
+        <PeekBand target={peekTarget} />
       </div>
-      {mode === "show" ? <LinkPanelPlaceholder /> : <SelectedGoPlaceholder />}
+      {right ?? (mode === "show" ? <LinkPanelPlaceholder /> : null)}
     </div>
   );
 }
@@ -162,24 +188,6 @@ function ScriptProblem() {
   );
 }
 
-/** The GO columns (Cue 0.3): for now only their titles and what they will hold. */
-function ColumnsPlaceholder() {
-  const t = useT();
-  return (
-    <div className="cue-columns">
-      <div className="cue-columns__heads">
-        <span className="cue-colhead cue-colhead--lights">{t("Lights")}</span>
-        <span className="cue-colhead cue-colhead--audio">{t("Audio")}</span>
-        <span className="cue-colhead cue-colhead--video">{t("Video")}</span>
-      </div>
-      <div className="cue-columns__empty">
-        <p>{t("The Lights · Audio · Video columns come with Cue 0.3")}</p>
-        <p className="ts-muted">{t("Each GO will sit on the script with a line to its memories, tracks and images, scrolling with the pages.")}</p>
-      </div>
-    </div>
-  );
-}
-
 function LinkPanelPlaceholder() {
   const t = useT();
   return (
@@ -190,46 +198,6 @@ function LinkPanelPlaceholder() {
         {t("No secondary")}
       </div>
       <p className="ts-muted">{t("A second computer that leads the same show comes with Cue 0.4.")}</p>
-    </aside>
-  );
-}
-
-function SelectedGoPlaceholder() {
-  const t = useT();
-  return (
-    <aside className="cue-panel" aria-label={t("Selected GO")}>
-      <div className="cue-panel__head">{t("Selected GO")}</div>
-      <p className="ts-muted">{t("No GO selected.")}</p>
-      <p className="ts-muted">{t("GOs come with Cue 0.3: drag a memory, a track or an image onto the script.")}</p>
-      <div className="cue-panel__spacer" />
-      <p className="cue-panel__hint">
-        {t("Meanwhile: K adds a note where the pointer is.")}
-      </p>
-    </aside>
-  );
-}
-
-type LibTab = "lights" | "audio" | "video";
-
-function LibraryPanel() {
-  const t = useT();
-  const [tab, setTab] = useState<LibTab>("lights");
-  return (
-    <aside className="cue-library" aria-label={t("Libraries")}>
-      <Segmented<LibTab>
-        ariaLabel={t("Libraries")}
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: "lights", label: t("Lights") },
-          { value: "audio", label: t("Audio") },
-          { value: "video", label: t("Video") },
-        ]}
-      />
-      <div className="cue-library__empty">
-        <p>{tab === "lights" ? t("Granvelo memories come with Cue 0.3.") : tab === "audio" ? t("Diaframma tracks come with Cue 0.3.") : t("Images and videos come with Cue 0.3.")}</p>
-      </div>
-      <p className="cue-library__hint">{t("Drag onto the script to create a GO")}</p>
     </aside>
   );
 }

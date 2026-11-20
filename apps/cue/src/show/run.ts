@@ -25,7 +25,7 @@ import {
   type Schedule,
   type StepResult,
 } from "../model/playback";
-import { doublePress } from "../model/keys";
+import { doublePress } from "./keys";
 import { audioApi, engineId } from "../lib/audio";
 import { dmxApi } from "../lib/dmx";
 import { runCommands } from "../lib/showRunner";

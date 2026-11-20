@@ -7,6 +7,8 @@ import { APP_VERSION } from "./version";
 import { useDoc } from "../store/doc";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
+import type { PlaybackSnapshot } from "../model/playback";
+import { goName, resetRun, runSnapshot, useRun } from "../show/run";
 
 const EXT = /\.tcue$/i;
 const FILTER = [{ name: "Cue", extensions: ["tcue"] }];
@@ -183,8 +185,15 @@ export async function openDemo(): Promise<void> {
   const { DEMO_PATH, putDemoFile } = await import("../model/demo");
   await putDemoFile();
   const opened = await api.tcueOpen(DEMO_PATH);
-  useDoc.getState().load(parseShow(opened.showJson), { filePath: DEMO_PATH, dirty: false, parts: opened.parts, sha256: opened.sha256 });
+  const show = parseShow(opened.showJson);
+  useDoc.getState().load(show, { filePath: DEMO_PATH, dirty: false, parts: opened.parts, sha256: opened.sha256 });
   afterLoad();
+  // A moment of the evening: GO 6 given, GO 7 in standby, twelve minutes in.
+  if (!new URLSearchParams(location.search).has("many")) {
+    const { DEMO_PLAYBACK } = await import("./demoShow");
+    resetRun(show.gos, DEMO_PLAYBACK);
+    useRun.setState({ startedAt: Date.now() - 12 * 60_000 - 40_000 });
+  }
   await detectShow(DEMO_PATH);
 }
 
@@ -275,11 +284,15 @@ interface AutosaveData {
   showJson: string;
   /** Part name → staged copy (see store/doc `pending`). */
   pendingParts?: Record<string, string>;
+  /** Where the evening was (standby, last GO given): recovery restarts there without firing anything. */
+  playback?: PlaybackSnapshot;
+  /** The mode on screen. */
+  mode?: string;
 }
 
 function snapshot(show: CueShow): string {
   const st = useDoc.getState();
-  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP), pendingParts: st.pending };
+  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP), pendingParts: st.pending, playback: runSnapshot(), mode: useUi.getState().mode };
   return JSON.stringify(data);
 }
 
@@ -303,9 +316,17 @@ function autosaveSoon() {
 
 /** Every change is copied to Cue's data folder within ~1.5 s. */
 export function startAutosave(): () => void {
-  return useDoc.subscribe((s, prev) => {
+  const a = useDoc.subscribe((s, prev) => {
     if (s.show !== prev.show || s.filePath !== prev.filePath || s.dirty !== prev.dirty || s.pending !== prev.pending) autosaveSoon();
   });
+  // Every GO, click or Indietro changes where the evening is: kept at once (a crash restarts from there).
+  const b = useRun.subscribe((s, prev) => {
+    if (s.playback.standbyId !== prev.playback.standbyId || s.playback.lastGoId !== prev.playback.lastGoId) writeAutosaveNow();
+  });
+  return () => {
+    a();
+    b();
+  };
 }
 
 /** Drops a planned autosave and waits for one being written: after this, clearing the autosave is final. */
@@ -315,7 +336,7 @@ export async function cancelAutosave(): Promise<void> {
   await autosaveWriting;
 }
 
-export async function restoreAutosave(text: string): Promise<boolean> {
+export async function restoreAutosave(text: string, t?: TFunc): Promise<boolean> {
   try {
     const a = JSON.parse(text) as AutosaveData;
     const show = parseShow(a.showJson);
@@ -331,6 +352,13 @@ export async function restoreAutosave(text: string): Promise<boolean> {
     for (const [name, path] of Object.entries(a.pendingParts ?? {})) if (typeof path === "string" && (await api.stagedExists(path))) pending[name] = path;
     useDoc.getState().load(show, { filePath: a.filePath, dirty: a.dirty || Object.keys(pending).length > 0, parts, sha256, pending });
     afterLoad();
+    if (a.playback && (a.playback.lastGoId || a.playback.standbyId)) {
+      // Back on the same standby, nothing fired: the operator gives the next GO when ready.
+      resetRun(show.gos, a.playback);
+      if (a.mode === "show") useUi.getState().setMode("show");
+      const name = goName(show.gos, useRun.getState().playback.standbyId);
+      if (name && t) useUi.getState().showToast(t("Back on the standby GO {n}: nothing was fired. Give the next GO when ready.", { n: name }));
+    }
     void detectShow(a.filePath);
     return true;
   } catch {

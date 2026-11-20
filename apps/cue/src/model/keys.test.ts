@@ -1,144 +1,126 @@
 import { describe, expect, it } from "vitest";
 import {
-  bindingCaps,
-  COMMAND_IDS,
-  commandKeyText,
-  conflictsOf,
+  chordFromEvent,
+  chordParts,
+  cloneKeymap,
   DEFAULT_KEYMAP,
-  doublePress,
-  DOUBLE_PRESS_MS,
-  KEYS,
-  keymapConflicts,
-  matchCommand,
+  findConflicts,
+  keymapIsValid,
+  KEY_ACTIONS,
+  matchAction,
   normalizeKeymap,
-  resolveKeymap,
-  type CommandId,
-  type KeyPress,
+  scopesOf,
+  type Keymap,
 } from "./keys";
 
-const SHOW: CommandId[] = ["go", "back", "pause", "preset", "blank", "blackout", "ftb", "emergency", "stopAudio", "reserve", "lock"];
-const press = (code: string, mods: Partial<KeyPress> = {}): KeyPress => ({ code, key: "", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...mods });
-const km = DEFAULT_KEYMAP;
+const key = (k: string, mods: Partial<{ ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey: boolean }> = {}) => ({ key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
 
-describe("matching keys", () => {
-  it("finds the show commands of the default keymap", () => {
-    expect(matchCommand(press("Space"), km, SHOW)?.id).toBe("go");
-    expect(matchCommand(press("F13"), km, SHOW)?.id).toBe("go");
-    expect(matchCommand(press("Backspace"), km, SHOW)?.id).toBe("back");
-    expect(matchCommand(press("KeyB"), km, SHOW)?.id).toBe("blackout");
-    expect(matchCommand(press("Escape"), km, SHOW)?.id).toBe("stopAudio");
-    expect(matchCommand(press("KeyE"), km, SHOW)?.binding.double).toBe(true);
+describe("chords", () => {
+  it("writes a key press the same way whatever the case", () => {
+    expect(chordFromEvent(key("p"))).toBe("P");
+    expect(chordFromEvent(key("P", { shiftKey: true }))).toBe("Shift+P");
+    expect(chordFromEvent(key(" "))).toBe("Space");
+    expect(chordFromEvent(key("l", { ctrlKey: true }))).toBe("Ctrl+L");
+    expect(chordFromEvent(key("ArrowUp"))).toBe("ArrowUp");
+    expect(chordFromEvent(key("F13"))).toBe("F13");
+    expect(chordFromEvent(key("Control", { ctrlKey: true }))).toBeNull();
   });
 
-  it("takes the space bar from `key` when `code` is empty", () => {
-    expect(matchCommand(press("", { key: " " }), km, SHOW)?.id).toBe("go");
-  });
-
-  it("wants the modifiers exactly: Ctrl L is Lock, Ctrl Shift L and L alone are not", () => {
-    expect(matchCommand(press("KeyL", { ctrlKey: true }), km, SHOW)?.id).toBe("lock");
-    expect(matchCommand(press("KeyL", { ctrlKey: true, shiftKey: true }), km, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyL", { ctrlKey: true, altKey: true }), km, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyL"), km, SHOW)).toBeNull();
-    // A letter with Ctrl is never the plain command.
-    expect(matchCommand(press("KeyB", { ctrlKey: true }), km, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyP", { shiftKey: true }), km, SHOW)).toBeNull();
-  });
-
-  it("accepts only the pedal (F13) while typing in a field", () => {
-    expect(matchCommand(press("Space"), km, SHOW, true)).toBeNull();
-    expect(matchCommand(press("KeyB"), km, SHOW, true)).toBeNull();
-    expect(matchCommand(press("Backspace"), km, SHOW, true)).toBeNull();
-    expect(matchCommand(press("F13"), km, SHOW, true)?.id).toBe("go");
-  });
-
-  it("looks only at the commands of the mode", () => {
-    expect(matchCommand(press("KeyN"), km, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyN"), km, ["newGo", "note"])?.id).toBe("newGo");
-  });
-
-  it("follows a changed keymap", () => {
-    const mine = resolveKeymap({ go: [{ code: "Enter" }], blackout: [] });
-    expect(matchCommand(press("Enter"), mine, SHOW)?.id).toBe("go");
-    expect(matchCommand(press("Space"), mine, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyB"), mine, SHOW)).toBeNull();
-    expect(matchCommand(press("KeyP"), mine, SHOW)?.id).toBe("pause");
+  it("shows keys as on a key cap", () => {
+    expect(chordParts("Ctrl+L")).toEqual(["Ctrl", "L"]);
+    expect(chordParts("ArrowUp")).toEqual(["↑"]);
+    expect(chordParts("Escape")).toEqual(["Esc"]);
+    expect(chordParts("Space", "Spazio")).toEqual(["Spazio"]);
+    expect(chordParts("Ctrl+,")).toEqual(["Ctrl", ","]);
   });
 });
 
-describe("E E: two presses within one second", () => {
-  it("arms on the first press and fires on the second within the window", () => {
-    const first = doublePress(null, 10_000);
-    expect(first).toEqual({ fire: false, armedAt: 10_000 });
-    expect(doublePress(first.armedAt, 10_000 + DOUBLE_PRESS_MS)).toEqual({ fire: true, armedAt: null });
-    expect(DOUBLE_PRESS_MS).toBe(1000);
+describe("the default keymap", () => {
+  it("has every action, no conflict, and the keys of 13_cue.md", () => {
+    for (const a of KEY_ACTIONS) expect(DEFAULT_KEYMAP[a.id].length).toBeGreaterThan(0);
+    expect(findConflicts(DEFAULT_KEYMAP)).toEqual([]);
+    expect(DEFAULT_KEYMAP).toMatchObject({ go: ["Space"], back: ["Backspace"], pause: ["P"], preset: ["Q"], blank: ["T"], blackout: ["B"], fadeToBlack: ["F"], emergency: ["E"], stopAudio: ["Escape"], reserve: ["C"], lock: ["Ctrl+L"], newGo: ["N"], note: ["K"] });
   });
 
-  it("arms again when the second press comes too late", () => {
-    const late = doublePress(10_000, 10_000 + DOUBLE_PRESS_MS + 1);
-    expect(late).toEqual({ fire: false, armedAt: 11_001 });
-    expect(doublePress(late.armedAt, 11_500).fire).toBe(true);
+  it("F13 is GO whatever the keymap says, on every screen", () => {
+    const k = cloneKeymap(DEFAULT_KEYMAP);
+    k.go = ["G"];
+    expect(matchAction(k, "F13", "show")).toBe("go");
+    expect(matchAction(k, "F13", "prepare")).toBe("go");
+    expect(matchAction(k, "G", "show")).toBe("go");
+    expect(matchAction(k, "Space", "show")).toBeNull();
   });
 
-  it("does not fire when the clock went back", () => {
-    expect(doublePress(10_000, 9_500)).toEqual({ fire: false, armedAt: 9_500 });
+  it("keeps the Show keys out of Prepara and the Prepara keys out of Show", () => {
+    expect(matchAction(DEFAULT_KEYMAP, "P", "show")).toBe("pause");
+    expect(matchAction(DEFAULT_KEYMAP, "P", "prepare")).toBeNull();
+    expect(matchAction(DEFAULT_KEYMAP, "N", "prepare")).toBe("newGo");
+    expect(matchAction(DEFAULT_KEYMAP, "N", "show")).toBeNull();
+    expect(matchAction(DEFAULT_KEYMAP, "ArrowUp", "show")).toBe("scrollUp");
+    expect(matchAction(DEFAULT_KEYMAP, "ArrowUp", "prepare")).toBe("scrollUp");
   });
 });
 
 describe("conflicts", () => {
-  it("the default keymap has none", () => {
-    expect(keymapConflicts(DEFAULT_KEYMAP)).toEqual([]);
+  const withKeys = (patch: Partial<Keymap>): Keymap => ({ ...cloneKeymap(DEFAULT_KEYMAP), ...patch });
+
+  it("lists both sides of two actions on the same key", () => {
+    const k = withKeys({ pause: ["B"] });
+    expect(findConflicts(k)).toEqual(
+      expect.arrayContaining([
+        { action: "pause", chord: "B", other: "blackout" },
+        { action: "blackout", chord: "B", other: "pause" },
+      ]),
+    );
+    expect(keymapIsValid(k)).toBe(false);
   });
 
-  it("finds two commands on the same key", () => {
-    const c = keymapConflicts(resolveKeymap({ pause: [{ code: "KeyB" }] }));
-    expect(c).toHaveLength(1);
-    expect([c[0].a, c[0].b].sort()).toEqual(["blackout", "pause"]);
+  it("a Show key and a script key conflict (both live in Show)", () => {
+    expect(findConflicts(withKeys({ pause: ["W"] })).some((c) => c.action === "pause" && c.other === "scrollUp")).toBe(true);
   });
 
-  it("a double press clashes with a single press of the same key", () => {
-    const c = keymapConflicts(resolveKeymap({ ftb: [{ code: "KeyE" }] }));
-    expect(c.map((x) => [x.a, x.b].sort().join("+"))).toEqual(["emergency+ftb"]);
+  it("a Show key and a Prepara key do not (never live together)", () => {
+    expect(keymapIsValid(withKeys({ newGo: ["P"] }))).toBe(true);
+    expect(keymapIsValid(withKeys({ note: ["Space"] }))).toBe(true);
   });
 
-  it("refuses the keys of the script and of the app", () => {
-    expect(conflictsOf(DEFAULT_KEYMAP, "pause", { code: "KeyW" }).map((c) => c.b)).toEqual(["scroll"]);
-    expect(conflictsOf(DEFAULT_KEYMAP, "lock", { code: "KeyS", ctrl: true }).map((c) => c.b)).toEqual(["app"]);
-    expect(conflictsOf(DEFAULT_KEYMAP, "go", { code: "ArrowLeft" }).map((c) => c.b)).toEqual(["zoom"]);
+  it("a Prepara key and a script key conflict", () => {
+    expect(keymapIsValid(withKeys({ newGo: ["A"] }))).toBe(false);
   });
 
-  it("allows the same key in Show and in Prepara (never active together)", () => {
-    expect(conflictsOf(DEFAULT_KEYMAP, "newGo", { code: "KeyB" })).toEqual([]);
-    expect(conflictsOf(DEFAULT_KEYMAP, "newGo", { code: "KeyK" }).map((c) => c.b)).toEqual(["note"]);
+  it("the pedal key and the keys of the app itself cannot be given to an action", () => {
+    expect(findConflicts(withKeys({ blank: ["F13"] }))).toEqual([{ action: "blank", chord: "F13", other: null }]);
+    expect(findConflicts(withKeys({ lock: ["Ctrl+S"] }))).toEqual([{ action: "lock", chord: "Ctrl+S", other: null }]);
   });
 
-  it("modifiers make a different key", () => {
-    expect(conflictsOf(DEFAULT_KEYMAP, "blank", { code: "KeyB", ctrl: true })).toEqual([]);
-    expect(conflictsOf(DEFAULT_KEYMAP, "blank", { code: "KeyB", shift: true })).toEqual([]);
+  it("the same key twice on one action is not a conflict", () => {
+    expect(keymapIsValid(withKeys({ zoomIn: ["D", "D"] }))).toBe(true);
+  });
+
+  it("an action may be left without a key", () => {
+    expect(keymapIsValid(withKeys({ lock: [] }))).toBe(true);
   });
 });
 
-describe("keymap in the settings", () => {
-  it("drops unknown commands and broken bindings", () => {
-    expect(normalizeKeymap({ go: [{ code: "Enter" }, { code: 5 }, "x", { code: "F13", ctrl: "yes" }], nope: [{ code: "KeyX" }], back: "Backspace" })).toEqual({
-      go: [{ code: "Enter" }, { code: "F13" }],
-    });
-    expect(normalizeKeymap(null)).toEqual({});
-    expect(normalizeKeymap([1, 2])).toEqual({});
+describe("keymap read from the settings", () => {
+  it("fills what is missing and drops what is wrong", () => {
+    const k = normalizeKeymap({ pause: ["X"], blank: "T", lock: [], zoomIn: ["", 5, "D"], unknown: ["Z"], go: [] });
+    expect(k.pause).toEqual(["X"]);
+    expect(k.blank).toEqual(DEFAULT_KEYMAP.blank);
+    expect(k.lock).toEqual([]);
+    expect(k.zoomIn).toEqual(["D"]);
+    expect(k.go).toEqual(["Space"]);
+    expect("unknown" in k).toBe(false);
+    expect(normalizeKeymap(null)).toEqual(DEFAULT_KEYMAP);
   });
 
-  it("writes the keys as on the keyboard", () => {
-    expect(bindingCaps({ code: "KeyL", ctrl: true })).toEqual(["Ctrl", "L"]);
-    expect(bindingCaps({ code: "KeyE", double: true })).toEqual(["E", "E"]);
-    expect(bindingCaps({ code: "Escape" })).toEqual(["Esc"]);
-    expect(commandKeyText(DEFAULT_KEYMAP, "emergency")).toBe("E E");
-    expect(commandKeyText(resolveKeymap({ blank: [] }), "blank")).toBe("");
+  it("ignores a list with a key reserved by the app", () => {
+    expect(normalizeKeymap({ pause: ["Ctrl+S"] }).pause).toEqual(["P"]);
   });
 
-  it("lists every command for Settings → Tasti", () => {
-    const ids = KEYS.map((k) => k.id);
-    for (const id of COMMAND_IDS) expect(ids).toContain(id);
-    expect(KEYS.find((k) => k.id === "go")?.keys).toEqual([["Space"], ["F13"]]);
-    expect(KEYS.find((k) => k.id === "reserve")?.held).toBe(true);
-    expect(KEYS.find((k) => k.id === "peek")?.fixed).toBe(true);
+  it("scopes: GO keys in Show, N and K in Prepara, script keys in both", () => {
+    expect(scopesOf("go")).toEqual(["show"]);
+    expect(scopesOf("newGo")).toEqual(["prepare"]);
+    expect(scopesOf("zoomIn")).toEqual(["show", "prepare"]);
   });
 });

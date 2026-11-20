@@ -45,7 +45,7 @@ describe("demo sources from the preview's files", () => {
   it("say in Italian what is wrong", async () => {
     const missing = await loadSource({ id: "x", app: "granvelo", path: "Altro.granvelo" }, SHOW);
     expect(missing.status.state).toBe("missing");
-    expect(sourceStatusText(it_, missing)).toBe("Il file non c'è: C:\\Spettacoli\\La locandiera\\Altro.granvelo");
+    expect(sourceStatusText(it_, missing)).toBe("File non trovato: C:\\Spettacoli\\La locandiera\\Altro.granvelo");
     const unsaved = await loadSource({ id: "x", app: "granvelo", path: "Luci.granvelo" }, null);
     expect(unsaved.status.state).toBe("missing");
     const newer = { ...missing, status: { state: "newer" as const } };

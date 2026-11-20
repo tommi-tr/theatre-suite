@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useT } from "@theatre-suite/core";
-import { matchCommand, resolveKeymap, type CommandId } from "../model/keys";
+import { chordFromEvent } from "../model/keys";
+import { showKeyAction } from "./keys";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
 import {
@@ -18,9 +19,6 @@ import {
   useRun,
 } from "./run";
 
-/** The commands the Show listens to (13_cue.md, "Tasti"). */
-export const SHOW_COMMANDS: readonly CommandId[] = ["go", "back", "pause", "preset", "blank", "blackout", "ftb", "emergency", "stopAudio", "reserve", "lock"];
-
 export const isTyping = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
 
 /**
@@ -34,13 +32,12 @@ export function useShowKeys() {
     const onDown = (e: KeyboardEvent) => {
       if (useUi.getState().dialog) return;
       const typing = isTyping(e.target);
-      const keymap = resolveKeymap(useSettings.getState().settings.keys);
-      const m = matchCommand(e, keymap, SHOW_COMMANDS, typing);
-      if (!m) return;
+      const id = showKeyAction(e, useSettings.getState().settings.keymap, typing);
+      if (!id) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.repeat) return;
-      switch (m.id) {
+      switch (id) {
         case "go":
           return runGo(t);
         case "back":
@@ -53,13 +50,10 @@ export function useShowKeys() {
           return runBlank(t);
         case "blackout":
           return runBlackout(t);
-        case "ftb":
+        case "fadeToBlack":
           return runFadeToBlack(t);
         case "emergency":
-          // A single-press binding (changed by the user) fires at once; the default E E needs two presses.
-          if (m.binding.double) return runEmergencyPress(t);
-          runEmergencyPress(t, Date.now());
-          return runEmergencyPress(t, Date.now());
+          return runEmergencyPress(t);
         case "stopAudio":
           return runStopAudio(t);
         case "reserve":
@@ -74,8 +68,8 @@ export function useShowKeys() {
         e.preventDefault();
         e.stopPropagation();
       }
-      const keymap = resolveKeymap(useSettings.getState().settings.keys);
-      if (keymap.reserve.some((b) => b.code === e.code)) setReserved(false);
+      const chord = chordFromEvent({ key: e.key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
+      if (chord && useSettings.getState().settings.keymap.reserve.includes(chord)) setReserved(false);
     };
     const onBlur = () => setReserved(false);
     window.addEventListener("keydown", onDown, true);

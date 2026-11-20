@@ -125,13 +125,13 @@ const S = (id: string, trk: string, extra: { levelDb?: number } = {}) => ({ id, 
 
 export const DEMO_GOS: Go[] = [
   { id: "go01", anchor: at(1, 0.14), actions: [L("a01l", 2), S("a01s", "campane")], givenBy: "both", note: "Al buio completo, aspetta il silenzio in sala" },
-  { id: "go02", anchor: at(1, 0.58), actions: [L("a02l", 3)], givenBy: "both" },
+  { id: "go02", anchor: at(1, 0.58), actions: [L("a02l", 3), { id: "a02p", kind: "projection", projectionItemId: "img-lettera" }], givenBy: "both" },
   { id: "go03", anchor: at(2, 0.22), actions: [S("a03s", "minuetto")], givenBy: "both" },
   { id: "go04", anchor: at(2, 0.64), actions: [S("a04s", "valzer")], givenBy: "both", auto: true },
   { id: "go05", anchor: at(3, 0.16), actions: [L("a05l", 4)], givenBy: "secondary", note: "Lo dà il secondario: vede la porta" },
   { id: "go06", anchor: at(3, 0.71), actions: [L("a06l", 5), { id: "a06x", kind: "audioStop", ref: { sourceId: DEMO_SOUNDS_ID, itemId: "trk-valzer" }, times: { fade: 3 } }], givenBy: "both" },
   { id: "go07", anchor: at(4, 0.1), actions: [L("a07l", 6), S("a07s", "pioggia")], givenBy: "both" },
-  { id: "go08", anchor: at(4, 0.4), actions: [L("a08l", 7), S("a08s", "tuono")], givenBy: "both" },
+  { id: "go08", anchor: at(4, 0.4), actions: [L("a08l", 7), S("a08s", "tuono"), { id: "a08p", kind: "projection", projectionItemId: "vid-tempesta" }], givenBy: "both" },
   { id: "go09", anchor: at(4, 0.42), actions: [L("a09l", 8)], givenBy: "both", auto: true },
   { id: "go10", anchor: at(5, 0.26), actions: [L("a10l", 9, { fade: 5 }), { id: "a10x", kind: "audioStop", ref: { sourceId: DEMO_SOUNDS_ID, itemId: "trk-pioggia" }, times: { fade: 6 } }], givenBy: "both" },
   { id: "go11", anchor: at(5, 0.8), actions: [L("a11l", 10), { id: "a11x", kind: "audioStop" }], givenBy: "both" },
@@ -144,9 +144,45 @@ export const DEMO_AUDIO_HEIGHTS: Record<string, number> = { a01s: 96, a07s: 120 
 /** A moment of the evening for screenshots: GO 6 given, GO 7 in standby. */
 export const DEMO_PLAYBACK: PlaybackSnapshot = { lastGoId: "go06", standbyId: "go07", history: ["go01", "go02", "go03", "go04", "go05", "go06"] };
 
-/** The fields of `show.json` the demo adds (sources, GOs, audio box heights). */
-export function demoCueFields(): { sources: SourceLink[]; gos: Go[]; layout: { scriptWidth: null; audioBoxHeights: Record<string, number> } } {
-  return { sources: structuredClone(DEMO_SOURCES), gos: structuredClone(DEMO_GOS), layout: { scriptWidth: null, audioBoxHeights: { ...DEMO_AUDIO_HEIGHTS } } };
+/** Images of the projections the demo GOs show (phase 4 shows them; here only their boxes). */
+export const DEMO_PROJECTION = {
+  blank: { kind: "black" },
+  screen: null,
+  items: [
+    { id: "img-lettera", kind: "image", name: "Img 3 Lettera", transition: { kind: "dissolve", seconds: 2 } },
+    { id: "vid-tempesta", kind: "video", name: "Video 2 Tempesta", path: "video/tempesta.mp4", transition: { kind: "cut" } },
+  ],
+};
+
+/** A slower zone from GO 7 (the rain), as Prepara sets it. */
+export const DEMO_SPEED_ZONES = [{ id: "z1", from: at(4, 0.1), fromGoId: "go07", speed: 0.6 }];
+
+/**
+ * `?demo&many`: ~60 GOs over the 6 pages of the demo script (stress test of the timeline): every page gets ten,
+ * cycling the memories and tracks of the demo files.
+ */
+export function manyDemoGos(): Go[] {
+  const out: Go[] = [];
+  const tracks = ["campane", "minuetto", "pioggia", "tuono", "applausi"];
+  for (let i = 0; i < 60; i++) {
+    const page = 1 + Math.floor(i / 10);
+    const y = 0.06 + (i % 10) * 0.09;
+    const actions: Go["actions"] = [L(`m${i}l`, 1 + (i % 10))];
+    if (i % 3 === 0) actions.push(S(`m${i}s`, tracks[i % tracks.length]));
+    out.push({ id: `m${String(i).padStart(2, "0")}`, anchor: at(page, y), actions, givenBy: "both" });
+  }
+  return out;
+}
+
+/** The fields of `show.json` the demo adds (sources, GOs, audio box heights, projections, preset; the speed zone is added by model/demo.ts). */
+export function demoCueFields(many = false) {
+  return {
+    sources: structuredClone(DEMO_SOURCES),
+    gos: many ? manyDemoGos() : structuredClone(DEMO_GOS),
+    layout: { scriptWidth: null, audioBoxHeights: { ...DEMO_AUDIO_HEIGHTS } },
+    projection: structuredClone(DEMO_PROJECTION),
+    settings: { autoScrollSpeed: 1, ftbSeconds: 3, presetRef: { sourceId: DEMO_LIGHTS_ID, itemId: "mem1" } },
+  };
 }
 
 /** The texts of the two demo files. */

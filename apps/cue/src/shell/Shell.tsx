@@ -19,6 +19,13 @@ import { ShowMode } from "../modes/ShowMode";
 import { ReplaceScriptDialog } from "../script/ReplaceScriptDialog";
 import { addNoteHere } from "../script/ScriptStage";
 import { startScriptSync, useScriptDoc } from "../script/store";
+import { applySavedOutputs } from "../settings/outputStatus";
+import { startAudioSync, startLibrarySync } from "../store/library";
+import { startOutputs } from "../store/outputs";
+import { startRunSync } from "../show/run";
+import { startFollow } from "../script/follow";
+import { LockButton, LockVeil, ShowStatusLine } from "../show/ShowParts";
+import { lockBlocks } from "../show/useShowKeys";
 
 export function Shell() {
   const t = useT();
@@ -34,6 +41,12 @@ export function Shell() {
 
   // The PDF of the script follows the open show.
   useEffect(() => startScriptSync(), []);
+  // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
+  useEffect(() => {
+    void applySavedOutputs();
+    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow()];
+    return () => stops.forEach((f) => f());
+  }, []);
 
   // Startup: file passed on the command line, crash recovery offered ("Recupera"); the demo show with /?demo.
   useEffect(() => {
@@ -98,6 +111,11 @@ export function Shell() {
       const mod = e.ctrlKey || e.metaKey;
       const typing = !!(e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
       const hasDoc = !!useDoc.getState().show;
+      // Lock (Show): no other file, settings, undo or mode; saving still works.
+      if (lockBlocks(e)) {
+        e.preventDefault();
+        return;
+      }
       if (mod && !e.shiftKey && k === "s") {
         e.preventDefault();
         // A key held down repeats: one save is enough.
@@ -149,7 +167,7 @@ export function Shell() {
         : undefined;
   const modeLabel = (m: Mode) => (m === "prepare" ? t("Prepare") : m === "projections" ? t("Projections") : m === "controls" ? t("Controls") : t("Show (mode)"));
   return (
-    <div className="ts-app cue-app">
+    <div className="ts-app cue-app" data-mode={show ? mode : undefined}>
       <TitleBar
         logo={<AppLogo accentPath="" accentDots={LOGO.dots} inkPath={LOGO.ink} label="Cue" size={20} strokeWidth={LOGO.stroke(20)} />}
         appName=""
@@ -175,6 +193,7 @@ export function Shell() {
         }
         actions={
           <>
+            {show && mode === "show" ? <LockButton /> : null}
             <FileMenu />
             <Button variant="ghost" iconOnly icon="settings" title={`${t("Settings")} · Ctrl ,`} aria-label={t("Settings")} onClick={() => useUi.getState().openSettings()} />
           </>
@@ -200,7 +219,7 @@ export function Shell() {
               icon="reset"
               onClick={async () => {
                 if (!(await confirmDiscard(t))) return;
-                const ok = await restoreAutosave(banner.data!);
+                const ok = await restoreAutosave(banner.data!, t);
                 useUi.getState().setBanner(ok ? "crashRestored" : null);
               }}
             >
@@ -222,6 +241,7 @@ export function Shell() {
       {dialog === "versions" ? <VersionsDialog /> : null}
       {dialog === "newShow" ? <NewShowDialog /> : null}
       <ReplaceScriptDialog />
+      <LockVeil />
       <ConfirmHost />
       <AppToast />
     </div>
@@ -234,6 +254,7 @@ function StatusLine() {
   const show = useDoc((s) => s.show);
   const mode = useUi((s) => s.mode);
   const ready = useScriptDoc((s) => s.status === "ready");
+  if (show && mode === "show") return <ShowStatusLine />;
   return (
     <>
       {show ? (

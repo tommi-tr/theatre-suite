@@ -125,8 +125,8 @@ export interface ShowSettings {
   autoScrollSpeed: number;
   /** Fade to black, seconds (default 3). */
   ftbSeconds: number;
-  /** Piazzato rapido (Q): the memory it brings up; null = none chosen yet (Settings → Outputs). */
-  presetRef: ItemRef | null;
+  /** The memory the Preset key (Piazzato, house lights) brings up; none = the key does nothing. */
+  presetRef?: ItemRef;
 }
 
 export interface CueShow {
@@ -149,7 +149,7 @@ export interface CueShow {
 
 export const DEFAULT_LAYOUT: Layout = { scriptWidth: null, audioBoxHeights: {} };
 export const DEFAULT_PROJECTION: Projection = { blank: { kind: "black" }, screen: null, items: [] };
-export const DEFAULT_SHOW_SETTINGS: ShowSettings = { autoScrollSpeed: 1, ftbSeconds: 3, presetRef: null };
+export const DEFAULT_SHOW_SETTINGS: ShowSettings = { autoScrollSpeed: 1, ftbSeconds: 3 };
 
 export type ShowFileProblem = "not-json" | "not-cue" | "newer" | "damaged";
 
@@ -193,9 +193,6 @@ function anchor(v: unknown): Anchor {
 
 export const SCRIPT_WIDTH_MIN = 0.2;
 export const SCRIPT_WIDTH_MAX = 0.8;
-
-const itemRef = (v: unknown): ItemRef | null =>
-  isObj(v) && typeof v.sourceId === "string" && typeof v.itemId === "string" ? ({ ...v, sourceId: v.sourceId, itemId: v.itemId } as ItemRef) : null;
 
 const withId = (o: Raw) => (typeof o.id === "string" && o.id ? o : null);
 
@@ -264,9 +261,11 @@ export function parseShow(text: string, makeId: () => string = defaultId): CueSh
       ...settings,
       autoScrollSpeed: num(settings.autoScrollSpeed, DEFAULT_SHOW_SETTINGS.autoScrollSpeed, 0.05, 20),
       ftbSeconds: num(settings.ftbSeconds, DEFAULT_SHOW_SETTINGS.ftbSeconds, 0, 60),
-      presetRef: itemRef(settings.presetRef),
     },
   };
+  const preset = settings.presetRef;
+  if (isObj(preset) && typeof preset.sourceId === "string" && typeof preset.itemId === "string") show.settings.presetRef = { ...preset, sourceId: preset.sourceId, itemId: preset.itemId };
+  else delete show.settings.presetRef;
   if (isObj(raw.savedWith)) show.savedWith = { ...raw.savedWith, app: str(raw.savedWith.app), version: str(raw.savedWith.version) };
   // Version metadata belongs to the copy in the versions folder, never to the show.
   delete (show as unknown as Raw).versionKind;

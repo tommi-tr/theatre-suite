@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { useT, type TFunc } from "@theatre-suite/core";
 import { Icon } from "@theatre-suite/ui";
 import { actionDept, audioEngineTrackId, numberGos, sortGos, type Action, type Dept, type Go, type GoNumber } from "../model/gos";
-import { columns as columnsOf, goViews, type Columns, type GoView } from "../model/playback";
+import { columns as columnsOf, goViews, type GoView } from "../model/playback";
 import { draggedAudioHeight, layoutTimeline, BUTTON_H, type Timeline as TL, type TimelineBox, type TimelineGo } from "../model/timeline";
 import type { Library } from "../model/sources";
 import type { ProjectionItem } from "../model/show";
@@ -375,7 +375,9 @@ interface BoxViewProps {
 
 const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state, library, projItems, selected, onSelect, onResize, t }: BoxViewProps) {
   const h = box.bottom - box.top;
-  const label = state === "on" ? t("IN SCENE") : state === "sb" ? t("STANDBY") : null;
+  // A squeezed box keeps its colour and its name; the words IN SCENA / STANDBY need room.
+  const tight = h < 58;
+  const label = tight ? null : state === "on" ? t("IN SCENE") : state === "sb" ? t("STANDBY") : null;
   let body: React.ReactNode = null;
   let missing = false;
   // Room for a thumbnail: the line, the label, the thumbnail, the name.
@@ -440,7 +442,7 @@ const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state
   }
   return (
     <div
-      className={`cue-box cue-box--${box.column}${state ? ` cue-box--${state}` : ""}${missing ? " cue-box--missing" : ""}${selected ? " cue-box--sel" : ""}${onSelect ? " cue-box--click" : ""}`}
+      className={`cue-box cue-box--${box.column}${state ? ` cue-box--${state}` : ""}${missing ? " cue-box--missing" : ""}${selected ? " cue-box--sel" : ""}${tight ? " cue-box--tight" : ""}${onSelect ? " cue-box--click" : ""}`}
       style={{ left: x, width: w, top: box.top, height: Math.max(16, h) }}
       onClick={onSelect}
     >
@@ -456,4 +458,3 @@ const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state
   );
 });
 
-export type { Columns };
