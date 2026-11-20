@@ -56,7 +56,7 @@ jobs:
           retention-days: 30
 
       - name: Rust tests
-        run: cargo test -p granvelo --lib
+        run: cargo test -p granvelo -p dmx-engine --lib
 
       # The launcher reads these public releases (tags <app>-v<version>) to show, install and update the apps.
       - name: Publish release (tags only)

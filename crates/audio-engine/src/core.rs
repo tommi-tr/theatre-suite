@@ -58,8 +58,20 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(track_id: String, path: String, start_sec: f64, rate: u32, h: FeederHandles, duration: f64) -> Self {
-        let seg = Segment { start_frame: 0, src_start: start_sec, speed: h.ctl.speed(), jump: false };
+    pub fn new(
+        track_id: String,
+        path: String,
+        start_sec: f64,
+        rate: u32,
+        h: FeederHandles,
+        duration: f64,
+    ) -> Self {
+        let seg = Segment {
+            start_frame: 0,
+            src_start: start_sec,
+            speed: h.ctl.speed(),
+            jump: false,
+        };
         let looped = h.ctl.start_in_loop;
         Self {
             track_id,
@@ -170,7 +182,12 @@ impl State {
             graveyard: Vec::with_capacity(64),
             requests: Vec::with_capacity(16),
             rate: 0,
-            status: EngineStatus { ready: false, device: String::new(), sample_rate: 0, error: None },
+            status: EngineStatus {
+                ready: false,
+                device: String::new(),
+                sample_rate: 0,
+                error: None,
+            },
             scratch: Vec::new(),
             speed: 1.0,
             main_gain: 1.0,
@@ -181,7 +198,10 @@ impl State {
     }
     pub fn next_playable(&self, id: &str) -> Option<String> {
         let i = self.tracks.iter().position(|t| t.id == id)?;
-        self.tracks[i + 1..].iter().find(|t| t.playable()).map(|t| t.id.clone())
+        self.tracks[i + 1..]
+            .iter()
+            .find(|t| t.playable())
+            .map(|t| t.id.clone())
     }
     pub fn advance_standby_after(&mut self, id: &str) {
         if self.config.auto_advance {
@@ -191,7 +211,9 @@ impl State {
     /// Index of the voice of the main track (the newest one still playing).
     pub fn main_index(&self) -> Option<usize> {
         let id = self.main.as_deref()?;
-        self.voices.iter().rposition(|v| v.track_id == id && v.alive())
+        self.voices
+            .iter()
+            .rposition(|v| v.track_id == id && v.alive())
     }
     /// The track in front ends with Next / Crossfade and nothing stops it (no loop):
     /// the standby track will start by itself.
@@ -199,9 +221,18 @@ impl State {
         if !self.config.steps {
             return false;
         }
-        let Some(i) = self.main_index() else { return false };
-        let Some(tp) = self.track(&self.voices[i].track_id) else { return false };
-        let standby_ok = self.standby.as_deref().and_then(|id| self.track(id)).map(|t| t.playable()).unwrap_or(false);
+        let Some(i) = self.main_index() else {
+            return false;
+        };
+        let Some(tp) = self.track(&self.voices[i].track_id) else {
+            return false;
+        };
+        let standby_ok = self
+            .standby
+            .as_deref()
+            .and_then(|id| self.track(id))
+            .map(|t| t.playable())
+            .unwrap_or(false);
         standby_ok && !tp.loop_on && matches!(tp.exit, Some(Exit::Next) | Some(Exit::Crossfade))
     }
 }
@@ -223,7 +254,11 @@ pub fn feed_params(tp: &TrackParams) -> FeedParams {
     } else {
         None
     };
-    FeedParams { out_sec: tp.eff_out(), looping, loop_after_end: tp.loop_cut() }
+    FeedParams {
+        out_sec: tp.eff_out(),
+        looping,
+        loop_after_end: tp.loop_cut(),
+    }
 }
 
 /// Mixes all active voices into `out` (interleaved, `channels` per frame).
@@ -238,7 +273,12 @@ pub fn render(st: &mut State, out: &mut [f32], channels: usize) {
     let mut start_standby: Option<f64> = None;
     let main_idx = st.main_index();
     let main_target = db_to_gain(st.config.main_db as f32);
-    let State { tracks, voices, config, .. } = st;
+    let State {
+        tracks,
+        voices,
+        config,
+        ..
+    } = st;
     for (vi, v) in voices.iter_mut().enumerate() {
         if v.ended {
             continue;
@@ -288,9 +328,14 @@ pub fn render(st: &mut State, out: &mut [f32], channels: usize) {
                         v.next_seg = v.h.segments.pop().ok();
                     }
                 }
-                v.pos = v.seg.src_start + (v.consumed.saturating_sub(v.seg.start_frame)) as f64 / rate * v.seg.speed;
+                v.pos = v.seg.src_start
+                    + (v.consumed.saturating_sub(v.seg.start_frame)) as f64 / rate * v.seg.speed;
                 v.gain += (target_gain - v.gain) * 0.002;
-                let env_g = if ignore || env.is_empty() { 1.0 } else { envelope_gain(env, v.pos) };
+                let env_g = if ignore || env.is_empty() {
+                    1.0
+                } else {
+                    envelope_gain(env, v.pos)
+                };
                 let g = v.gain * env_g * v.fade.value() * v.pause.value();
                 // Pan: the curve if there is one, else the fader; smoothed so it never clicks.
                 let pan_target = pan_at(pan_curve, v.pos).unwrap_or(pan_fader);
@@ -317,7 +362,10 @@ pub fn render(st: &mut State, out: &mut [f32], channels: usize) {
             v.ended = true;
         }
         // End of the file (or of OUT) reached?
-        if n < frames && v.h.ctl.finished.load(Ordering::Acquire) && v.consumed >= v.h.ctl.pushed.load(Ordering::Acquire) {
+        if n < frames
+            && v.h.ctl.finished.load(Ordering::Acquire)
+            && v.consumed >= v.h.ctl.pushed.load(Ordering::Acquire)
+        {
             v.ended = true;
             if let Some(tp) = tp {
                 if is_main && tp.exit == Some(Exit::Next) && !tp.loop_on && !v.at_end_fired {
@@ -416,8 +464,12 @@ pub fn plan_go(st: &mut State) -> GoPlan {
         resume_all(st);
         return GoPlan::Resumed;
     }
-    let Some(sb) = st.standby.clone() else { return GoPlan::Nothing };
-    let Some(tp) = st.track(&sb).cloned() else { return GoPlan::Nothing };
+    let Some(sb) = st.standby.clone() else {
+        return GoPlan::Nothing;
+    };
+    let Some(tp) = st.track(&sb).cloned() else {
+        return GoPlan::Nothing;
+    };
     if !tp.playable() {
         st.advance_standby_after(&sb);
         return GoPlan::Nothing;
@@ -429,7 +481,10 @@ pub fn plan_go(st: &mut State) -> GoPlan {
 pub fn apply_go(st: &mut State, tp: &TrackParams, mut v: Voice) {
     let cfg = st.config;
     let main_idx = if cfg.steps { st.main_index() } else { None };
-    let main_exit = main_idx.and_then(|i| st.track(&st.voices[i].track_id).map(|t| (t.exit, t.exit_len(&cfg))));
+    let main_exit = main_idx.and_then(|i| {
+        st.track(&st.voices[i].track_id)
+            .map(|t| (t.exit, t.exit_len(&cfg)))
+    });
     // Some(seconds) when the track in front hands over with a crossfade.
     let mut crossfade_in: Option<f64> = None;
     for (i, o) in st.voices.iter_mut().enumerate() {
@@ -461,7 +516,9 @@ pub fn apply_go(st: &mut State, tp: &TrackParams, mut v: Voice) {
         }
         // No Exit (or not the track in front): the general setting.
         match cfg.others_on_go {
-            OthersOnGo::FadeOut => o.fade_to(0.0, cfg.quick_fade_sec.max(QUICK_STOP_SEC), AfterFade::Stop),
+            OthersOnGo::FadeOut => {
+                o.fade_to(0.0, cfg.quick_fade_sec.max(QUICK_STOP_SEC), AfterFade::Stop)
+            }
             OthersOnGo::Keep => {}
             OthersOnGo::Stop => o.fade_to(0.0, QUICK_STOP_SEC, AfterFade::Stop),
         }
@@ -474,7 +531,13 @@ pub fn apply_go(st: &mut State, tp: &TrackParams, mut v: Voice) {
     started(st, &tp.id, v);
     // Keep at most a few paused tracks (each one holds a decoder): the oldest are released.
     const MAX_PAUSED: usize = 8;
-    let paused: Vec<usize> = st.voices.iter().enumerate().filter(|(_, x)| x.paused && !x.ended).map(|(i, _)| i).collect();
+    let paused: Vec<usize> = st
+        .voices
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| x.paused && !x.ended)
+        .map(|(i, _)| i)
+        .collect();
     if paused.len() > MAX_PAUSED {
         for &i in &paused[..paused.len() - MAX_PAUSED] {
             st.voices[i].ended = true;
@@ -505,7 +568,11 @@ pub fn resume_all(st: &mut State) {
 }
 
 pub fn stop_all(st: &mut State, immediate: bool) {
-    let sec = if immediate { QUICK_STOP_SEC } else { st.config.stop_all_sec.max(QUICK_STOP_SEC) };
+    let sec = if immediate {
+        QUICK_STOP_SEC
+    } else {
+        st.config.stop_all_sec.max(QUICK_STOP_SEC)
+    };
     for v in st.voices.iter_mut() {
         if immediate || !v.stopping() {
             v.fade_to(0.0, sec, AfterFade::Stop);
@@ -516,11 +583,21 @@ pub fn stop_all(st: &mut State, immediate: bool) {
 
 /// Second part of a seek on a paused track: `v` replaces the old voice, still paused.
 pub fn apply_seek(st: &mut State, track_id: &str, mut v: Voice) -> bool {
-    let Some(i) = st.voices.iter().rposition(|x| x.track_id == track_id && x.alive()) else { return false };
+    let Some(i) = st
+        .voices
+        .iter()
+        .rposition(|x| x.track_id == track_id && x.alive())
+    else {
+        return false;
+    };
     let old = &mut st.voices[i];
     v.paused = old.paused;
     v.paused_by_all = old.paused_by_all;
-    v.pause = if old.paused { Fade::steady(0.0) } else { Fade::steady(1.0) };
+    v.pause = if old.paused {
+        Fade::steady(0.0)
+    } else {
+        Fade::steady(1.0)
+    };
     if !old.paused {
         v.fade_in(JUMP_SEC);
         old.fade_to(0.0, JUMP_SEC, AfterFade::Stop);
@@ -538,7 +615,11 @@ pub fn headless_voice(st: &State, tp: &TrackParams, at: f64) -> Result<Voice, St
     let path = tp.path.clone().ok_or("The track has no file")?;
     let h = spawn_feeder_ex(path.clone(), at, st.rate, feed_params(tp), st.speed, false)?;
     let t0 = Instant::now();
-    while h.audio.slots() < 2048 && !h.ctl.finished.load(Ordering::Relaxed) && !h.ctl.failed.load(Ordering::Relaxed) && t0.elapsed() < Duration::from_millis(400) {
+    while h.audio.slots() < 2048
+        && !h.ctl.finished.load(Ordering::Relaxed)
+        && !h.ctl.failed.load(Ordering::Relaxed)
+        && t0.elapsed() < Duration::from_millis(400)
+    {
         std::thread::sleep(Duration::from_millis(2));
     }
     let d = h.ctl.duration();
@@ -548,7 +629,9 @@ pub fn headless_voice(st: &State, tp: &TrackParams, at: f64) -> Result<Voice, St
 /// Keeps the standby track ready, like the control thread of the real engine.
 pub fn prepare_headless(st: &mut State) {
     let Some(sb) = st.standby.clone() else { return };
-    let Some(tp) = st.track(&sb).cloned() else { return };
+    let Some(tp) = st.track(&sb).cloned() else {
+        return;
+    };
     if !tp.playable() || st.prepared.iter().any(|p| p.track_id == sb) {
         return;
     }
@@ -618,7 +701,12 @@ mod tests {
         let mut st = State::new();
         st.tracks = tracks;
         st.rate = 48000;
-        st.status = EngineStatus { ready: true, device: "test".into(), sample_rate: 48000, error: None };
+        st.status = EngineStatus {
+            ready: true,
+            device: "test".into(),
+            sample_rate: 48000,
+            error: None,
+        };
         st
     }
     fn run(st: &mut State, secs: f64) {
@@ -630,7 +718,12 @@ mod tests {
         }
     }
     fn ids(st: &State) -> Vec<String> {
-        let mut v: Vec<String> = st.voices.iter().filter(|v| v.alive()).map(|v| v.track_id.clone()).collect();
+        let mut v: Vec<String> = st
+            .voices
+            .iter()
+            .filter(|v| v.alive())
+            .map(|v| v.track_id.clone())
+            .collect();
         v.sort();
         v
     }
@@ -644,7 +737,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let wav = dir.join(name);
         if !wav.exists() {
-            crate::audio::decode::tests::write_wav(&wav, 44100, secs);
+            crate::decode::tests::write_wav(&wav, 44100, secs);
         }
         wav.to_string_lossy().to_string()
     }
@@ -829,7 +922,11 @@ mod tests {
         go(&mut st);
         assert!(!st.auto_start(), "a looping track never ends by itself");
         run(&mut st, 2.6);
-        assert_eq!(ids(&st), vec!["A".to_string()], "still looping after the end");
+        assert_eq!(
+            ids(&st),
+            vec!["A".to_string()],
+            "still looping after the end"
+        );
         assert_eq!(st.standby.as_deref(), Some("B"));
         go(&mut st);
         run(&mut st, 0.2);
@@ -838,15 +935,26 @@ mod tests {
         // Loop with points: plays to the end first, then repeats the points.
         let mut a = track("A", &p);
         a.loop_on = true;
-        a.loop_points = Some(LoopPoints { in_sec: 0.5, out_sec: 1.0 });
+        a.loop_points = Some(LoopPoints {
+            in_sec: 0.5,
+            out_sec: 1.0,
+        });
         let mut st = state(vec![a.clone(), b.clone()]);
         st.standby = Some("A".into());
         go(&mut st);
         run(&mut st, 1.5);
-        assert!(st.voices[0].pos > 1.4, "no loop before the end, pos {}", st.voices[0].pos);
+        assert!(
+            st.voices[0].pos > 1.4,
+            "no loop before the end, pos {}",
+            st.voices[0].pos
+        );
         run(&mut st, 1.0);
         assert!(st.voices[0].in_loop());
-        assert!(st.voices[0].pos >= 0.45 && st.voices[0].pos <= 1.05, "inside the loop, pos {}", st.voices[0].pos);
+        assert!(
+            st.voices[0].pos >= 0.45 && st.voices[0].pos <= 1.05,
+            "inside the loop, pos {}",
+            st.voices[0].pos
+        );
 
         // "Ignore": the points are bypassed, the whole track repeats.
         let mut a2 = a.clone();
@@ -957,9 +1065,17 @@ mod tests {
         assert_eq!(st.voices.len(), 1);
         assert_eq!(go(&mut st), GoPlan::Resumed);
         assert!(!st.paused_all);
-        assert_eq!(st.standby.as_deref(), Some("B"), "GO that resumes does not start B");
+        assert_eq!(
+            st.standby.as_deref(),
+            Some("B"),
+            "GO that resumes does not start B"
+        );
         run(&mut st, 0.3);
-        assert!(st.voices[0].pos > 2.0 && st.voices[0].pos < 2.6, "resumed from the cursor, pos {}", st.voices[0].pos);
+        assert!(
+            st.voices[0].pos > 2.0 && st.voices[0].pos < 2.6,
+            "resumed from the cursor, pos {}",
+            st.voices[0].pos
+        );
     }
 
     /// Two runs of the same show in a row behave the same (no state left behind).

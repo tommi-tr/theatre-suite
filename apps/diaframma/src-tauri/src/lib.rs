@@ -58,12 +58,12 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let engine = audio::Engine::start(app.handle().clone(), "engine-state", false, audio::model::Config::default());
+            let engine = audio::start(app.handle(), "engine-state", false, audio::model::Config::default());
             app.manage(engine);
             // The internal player and the launchpad: GO just plays, nothing else is touched.
             let simple = audio::model::Config { steps: false, auto_advance: false, others_on_go: audio::model::OthersOnGo::Keep, ..Default::default() };
-            app.manage(audio::Player(audio::Engine::start(app.handle().clone(), "player-state", true, audio::model::Config { others_on_go: audio::model::OthersOnGo::Stop, ..simple })));
-            app.manage(audio::Pads(audio::Engine::start(app.handle().clone(), "pads-state", true, simple)));
+            app.manage(audio::Player(audio::start(app.handle(), "player-state", true, audio::model::Config { others_on_go: audio::model::OthersOnGo::Stop, ..simple })));
+            app.manage(audio::Pads(audio::start(app.handle(), "pads-state", true, simple)));
             let journal = storage::data_dir(app.handle()).map(|d| d.join("rehearsal-journal.json")).unwrap_or_default();
             app.manage(rehearsal::Rehearsal::start(journal));
             app.manage(remote::ext::ExtBridge::start());

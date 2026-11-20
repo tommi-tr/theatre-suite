@@ -263,6 +263,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "audio-engine"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "parking_lot 0.13.0",
+ "rtrb",
+ "serde",
+ "serde_json",
+ "symphonia",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -898,15 +910,13 @@ dependencies = [
 name = "diaframma"
 version = "0.3.1"
 dependencies = [
- "cpal",
+ "audio-engine",
  "log",
  "parking_lot 0.13.0",
  "qrcode",
- "rtrb",
  "serde",
  "serde_json",
  "suite-link",
- "symphonia",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -1003,6 +1013,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "dmx-engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serialport",
+ "windows",
 ]
 
 [[package]]
@@ -1623,16 +1643,15 @@ dependencies = [
 name = "granvelo"
 version = "0.6.0"
 dependencies = [
+ "dmx-engine",
  "serde",
  "serde_json",
- "serialport",
  "suite-link",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
- "windows",
 ]
 
 [[package]]

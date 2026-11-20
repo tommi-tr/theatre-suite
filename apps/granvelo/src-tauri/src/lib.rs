@@ -48,7 +48,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // Started idle: no port is opened until dmx_connect.
-            app.manage(dmx::DmxEngine::start(app.handle().clone()));
+            app.manage(dmx::start(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

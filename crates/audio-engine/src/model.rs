@@ -100,9 +100,20 @@ pub struct TrackParams {
 /// Reads the five-band array (gains clamped to ±24 dB); anything else is a flat EQ.
 fn de_eq<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Eq5, D::Error> {
     let v = serde_json::Value::deserialize(d)?;
-    let num = |x: Option<&serde_json::Value>| x.and_then(|x| x.as_f64()).filter(|x| x.is_finite()).unwrap_or(0.0).clamp(-24.0, 24.0);
+    let num = |x: Option<&serde_json::Value>| {
+        x.and_then(|x| x.as_f64())
+            .filter(|x| x.is_finite())
+            .unwrap_or(0.0)
+            .clamp(-24.0, 24.0)
+    };
     Ok(match &v {
-        serde_json::Value::Array(a) => [num(a.first()), num(a.get(1)), num(a.get(2)), num(a.get(3)), num(a.get(4))],
+        serde_json::Value::Array(a) => [
+            num(a.first()),
+            num(a.get(1)),
+            num(a.get(2)),
+            num(a.get(3)),
+            num(a.get(4)),
+        ],
         _ => [0.0; 5],
     })
 }
@@ -113,21 +124,37 @@ impl TrackParams {
     }
     /// Where the track starts (00:00 when the cut is ignored).
     pub fn eff_in(&self) -> f64 {
-        if self.ignore_cut { 0.0 } else { self.in_sec.max(0.0) }
+        if self.ignore_cut {
+            0.0
+        } else {
+            self.in_sec.max(0.0)
+        }
     }
     /// Where the track stops (None = end of the file).
     pub fn eff_out(&self) -> Option<f64> {
         if self.ignore_cut { None } else { self.out_sec }
     }
     pub fn volume_curve(&self) -> &[EnvPoint] {
-        if self.ignore_envelope { &[] } else { &self.envelope }
+        if self.ignore_envelope {
+            &[]
+        } else {
+            &self.envelope
+        }
     }
     pub fn pan_curve(&self) -> &[EnvPoint] {
-        if self.ignore_pan { &[] } else { &self.pan_envelope }
+        if self.ignore_pan {
+            &[]
+        } else {
+            &self.pan_envelope
+        }
     }
     /// Loop points in use (None = loop the whole track, or no loop).
     pub fn cut_points(&self) -> Option<LoopPoints> {
-        if self.ignore_loop { None } else { self.loop_points.filter(|l| l.out_sec > l.in_sec) }
+        if self.ignore_loop {
+            None
+        } else {
+            self.loop_points.filter(|l| l.out_sec > l.in_sec)
+        }
     }
     /// Plays to the end first, then repeats the loop points ("loop cut").
     pub fn loop_cut(&self) -> bool {
@@ -139,7 +166,11 @@ impl TrackParams {
     }
     /// Length of the fade out or crossfade, seconds.
     pub fn exit_len(&self, cfg: &Config) -> f64 {
-        let general = if self.exit == Some(Exit::Crossfade) { cfg.crossfade_sec } else { cfg.fade_out_sec };
+        let general = if self.exit == Some(Exit::Crossfade) {
+            cfg.crossfade_sec
+        } else {
+            cfg.fade_out_sec
+        };
         self.exit_sec.unwrap_or(general).max(0.0)
     }
 }

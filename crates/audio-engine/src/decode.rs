@@ -69,7 +69,8 @@ impl FeederCtl {
         f64::from_bits(self.speed_bits.load(Ordering::Relaxed))
     }
     pub fn set_speed(&self, s: f64) {
-        self.speed_bits.store(s.clamp(0.25, 4.0).to_bits(), Ordering::Relaxed);
+        self.speed_bits
+            .store(s.clamp(0.25, 4.0).to_bits(), Ordering::Relaxed);
     }
 }
 
@@ -95,7 +96,15 @@ fn open_source(path: &Path) -> Result<Source, String> {
         hint.with_extension(ext);
     }
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions { enable_gapless: true, ..Default::default() }, &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions {
+                enable_gapless: true,
+                ..Default::default()
+            },
+            &MetadataOptions::default(),
+        )
         .map_err(|_| "This file format is not supported".to_string())?;
     let format = probed.format;
     let track = format
@@ -117,7 +126,13 @@ fn open_source(path: &Path) -> Result<Source, String> {
     let decoder = symphonia::default::get_codecs()
         .make(&params, &DecoderOptions::default())
         .map_err(|_| "This audio codec is not supported".to_string())?;
-    Ok(Source { format, decoder, track_id, sample_rate, duration })
+    Ok(Source {
+        format,
+        decoder,
+        track_id,
+        sample_rate,
+        duration,
+    })
 }
 
 /// Cubic (Hermite) resampler, stereo. Converts the file rate to the output rate.
@@ -132,7 +147,14 @@ struct Resampler {
 
 impl Resampler {
     fn new(src: u32, dst: u32) -> Self {
-        Self { base: src as f64 / dst as f64, step: src as f64 / dst as f64, frac: 0.0, hist: [[0.0; 2]; 4], primed: 0, bypass: src == dst }
+        Self {
+            base: src as f64 / dst as f64,
+            step: src as f64 / dst as f64,
+            frac: 0.0,
+            hist: [[0.0; 2]; 4],
+            primed: 0,
+            bypass: src == dst,
+        }
     }
     fn set_speed(&mut self, speed: f64) {
         self.step = self.base * speed;
@@ -164,7 +186,12 @@ impl Resampler {
         while self.frac < 1.0 {
             let t = self.frac as f32;
             for c in 0..2 {
-                let (y0, y1, y2, y3) = (self.hist[0][c], self.hist[1][c], self.hist[2][c], self.hist[3][c]);
+                let (y0, y1, y2, y3) = (
+                    self.hist[0][c],
+                    self.hist[1][c],
+                    self.hist[2][c],
+                    self.hist[3][c],
+                );
                 let c0 = y1;
                 let c1 = 0.5 * (y2 - y0);
                 let c2 = y0 - 2.5 * y1 + 2.0 * y2 - 0.5 * y3;
@@ -181,7 +208,9 @@ fn to_stereo(samples: &[f32], channels: usize, mut f: impl FnMut(f32, f32)) {
     match channels {
         0 => {}
         1 => samples.iter().for_each(|&s| f(s, s)),
-        _ => samples.chunks_exact(channels).for_each(|fr| f(fr[0], fr[1])),
+        _ => samples
+            .chunks_exact(channels)
+            .for_each(|fr| f(fr[0], fr[1])),
     }
 }
 
@@ -193,7 +222,13 @@ fn to_stereo(samples: &[f32], channels: usize, mut f: impl FnMut(f32, f32)) {
 fn seek(src: &mut Source, secs: f64) -> f64 {
     const PREROLL: f64 = 0.15;
     let at = (secs - PREROLL).max(0.0);
-    match src.format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(at), track_id: Some(src.track_id) }) {
+    match src.format.seek(
+        SeekMode::Accurate,
+        SeekTo::Time {
+            time: Time::from(at),
+            track_id: Some(src.track_id),
+        },
+    ) {
         Ok(_) => {
             src.decoder.reset();
             secs.max(0.0)
@@ -204,13 +239,26 @@ fn seek(src: &mut Source, secs: f64) -> f64 {
 
 /// Starts a feeder thread for `path`, beginning at `start_sec`.
 #[cfg_attr(not(test), allow(dead_code))]
-pub fn spawn_feeder(path: String, start_sec: f64, out_rate: u32, params: FeedParams, speed: f64) -> Result<FeederHandles, String> {
+pub fn spawn_feeder(
+    path: String,
+    start_sec: f64,
+    out_rate: u32,
+    params: FeedParams,
+    speed: f64,
+) -> Result<FeederHandles, String> {
     spawn_feeder_ex(path, start_sec, out_rate, params, speed, false)
 }
 
 /// Like `spawn_feeder`; with `start_in_loop` the loop region repeats from the start
 /// (used when GO jumps into the loop).
-pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: FeedParams, speed: f64, start_in_loop: bool) -> Result<FeederHandles, String> {
+pub fn spawn_feeder_ex(
+    path: String,
+    start_sec: f64,
+    out_rate: u32,
+    params: FeedParams,
+    speed: f64,
+    start_in_loop: bool,
+) -> Result<FeederHandles, String> {
     let mut src = open_source(Path::new(&path))?;
     let capacity_frames = (out_rate as usize) * 3;
     let (mut prod, cons) = rtrb::RingBuffer::<f32>::new(capacity_frames * 2);
@@ -245,11 +293,21 @@ pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: Feed
                 target = 0.0;
                 let _ = seek(&mut src, 0.0);
             }
-            let _ = seg_prod.push(Segment { start_frame: 0, src_start: target, speed: cur_speed, jump: false });
+            let _ = seg_prod.push(Segment {
+                start_frame: 0,
+                src_start: target,
+                speed: cur_speed,
+                jump: false,
+            });
             // Decoded frames before this time are dropped (sample-accurate start after a seek).
             let mut skip_until = target;
             let rate = src.sample_rate as f64;
-            let time_base = src.format.tracks().iter().find(|t| t.id == src.track_id).and_then(|t| t.codec_params.time_base);
+            let time_base = src
+                .format
+                .tracks()
+                .iter()
+                .find(|t| t.id == src.track_id)
+                .and_then(|t| t.codec_params.time_base);
             let mut eof = false;
             loop {
                 if ctl.stop.load(Ordering::Relaxed) || prod.is_abandoned() {
@@ -278,7 +336,12 @@ pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: Feed
                             eof = true;
                         } else {
                             rs.reset();
-                            let _ = seg_prod.push(Segment { start_frame: pushed, src_start: at, speed: cur_speed, jump: true });
+                            let _ = seg_prod.push(Segment {
+                                start_frame: pushed,
+                                src_start: at,
+                                speed: cur_speed,
+                                jump: true,
+                            });
                             skip_until = at;
                         }
                     }
@@ -334,7 +397,11 @@ pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: Feed
                 let spec = *decoded.spec();
                 let channels = spec.channels.count();
                 let needed = decoded.capacity() as u64;
-                if sample_buf.as_ref().map(|b| b.capacity() < needed as usize * channels).unwrap_or(true) {
+                if sample_buf
+                    .as_ref()
+                    .map(|b| b.capacity() < needed as usize * channels)
+                    .unwrap_or(true)
+                {
                     sample_buf = Some(SampleBuffer::<f32>::new(needed, spec));
                 }
                 let sb = sample_buf.as_mut().unwrap();
@@ -344,7 +411,12 @@ pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: Feed
                     cur_speed = sp;
                     rs.set_speed(sp);
                     let start_frame = pushed + (pending.len() / 2) as u64;
-                    let _ = seg_prod.push(Segment { start_frame, src_start: pkt_time.max(skip_until), speed: sp, jump: false });
+                    let _ = seg_prod.push(Segment {
+                        start_frame,
+                        src_start: pkt_time.max(skip_until),
+                        speed: sp,
+                        jump: false,
+                    });
                 }
                 let in_loop = ctl.in_loop.load(Ordering::Relaxed);
                 let stop_at = match p.looping {
@@ -382,7 +454,11 @@ pub fn spawn_feeder_ex(path: String, start_sec: f64, out_rate: u32, params: Feed
             }
         })
         .map_err(|e| format!("Cannot start the decoder: {e}"))?;
-    Ok(FeederHandles { audio: cons, segments: seg_cons, ctl })
+    Ok(FeederHandles {
+        audio: cons,
+        segments: seg_cons,
+        ctl,
+    })
 }
 
 /// Reads the whole file once: duration and a 1000-bin waveform.
@@ -419,7 +495,11 @@ pub fn analyze(path: &str) -> Result<TrackInfo, String> {
         let ch = spec.channels.count();
         channels_seen = ch as u32;
         let needed = decoded.capacity() as u64;
-        if sample_buf.as_ref().map(|b| b.capacity() < needed as usize * ch).unwrap_or(true) {
+        if sample_buf
+            .as_ref()
+            .map(|b| b.capacity() < needed as usize * ch)
+            .unwrap_or(true)
+        {
             sample_buf = Some(SampleBuffer::<f32>::new(needed, spec));
         }
         let sb = sample_buf.as_mut().unwrap();
@@ -454,7 +534,9 @@ pub fn analyze(path: &str) -> Result<TrackInfo, String> {
     if !blocks.is_empty() {
         for (i, p) in peaks.iter_mut().enumerate() {
             let a = i * blocks.len() / bins;
-            let b = (((i + 1) * blocks.len()) / bins).max(a + 1).min(blocks.len());
+            let b = (((i + 1) * blocks.len()) / bins)
+                .max(a + 1)
+                .min(blocks.len());
             *p = blocks[a..b].iter().cloned().fold(0.0, f32::max).min(1.0);
         }
     }
@@ -463,13 +545,21 @@ pub fn analyze(path: &str) -> Result<TrackInfo, String> {
     if !lblocks.is_empty() {
         for (i, p) in loudness.iter_mut().enumerate() {
             let a = i * lblocks.len() / bins;
-            let b = (((i + 1) * lblocks.len()) / bins).max(a + 1).min(lblocks.len());
+            let b = (((i + 1) * lblocks.len()) / bins)
+                .max(a + 1)
+                .min(lblocks.len());
             *p = lblocks[a..b].iter().sum::<f32>() / (b - a) as f32;
         }
     }
     let duration = frames as f64 / src.sample_rate as f64;
     let _ = src.duration;
-    Ok(TrackInfo { duration_sec: duration, sample_rate: src.sample_rate, channels: channels_seen, peaks, loudness })
+    Ok(TrackInfo {
+        duration_sec: duration,
+        sample_rate: src.sample_rate,
+        channels: channels_seen,
+        peaks,
+        loudness,
+    })
 }
 
 #[cfg(test)]
@@ -544,19 +634,52 @@ pub(crate) mod tests {
         assert_eq!(info.peaks.len(), 1000);
 
         // Whole file, 44.1 kHz -> 48 kHz.
-        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: None, loop_after_end: false }, 1.0).unwrap();
+        let mut h = spawn_feeder(
+            p.clone(),
+            0.0,
+            48000,
+            FeedParams {
+                out_sec: None,
+                looping: None,
+                loop_after_end: false,
+            },
+            1.0,
+        )
+        .unwrap();
         let (a, _) = drain(&mut h, usize::MAX);
         assert!(((a.len() / 2) as i64 - 96000).abs() < 200);
         assert!((a[2 * 48000] - ramp(1.0)).abs() < 0.01);
 
         // IN 0.5 s, OUT 1.5 s: exactly one second, starting at 0.5 s.
-        let mut h = spawn_feeder(p.clone(), 0.5, 48000, FeedParams { out_sec: Some(1.5), looping: None, loop_after_end: false }, 1.0).unwrap();
+        let mut h = spawn_feeder(
+            p.clone(),
+            0.5,
+            48000,
+            FeedParams {
+                out_sec: Some(1.5),
+                looping: None,
+                loop_after_end: false,
+            },
+            1.0,
+        )
+        .unwrap();
         let (a, _) = drain(&mut h, usize::MAX);
         assert!(((a.len() / 2) as i64 - 48000).abs() < 300);
         assert!((a[0] - ramp(0.5)).abs() < 0.01);
 
         // Loop 0.5 – 1.0 s: jumps every 0.5 s after the first second, seamlessly.
-        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: Some((0.5, 1.0)), loop_after_end: false }, 1.0).unwrap();
+        let mut h = spawn_feeder(
+            p.clone(),
+            0.0,
+            48000,
+            FeedParams {
+                out_sec: None,
+                looping: Some((0.5, 1.0)),
+                loop_after_end: false,
+            },
+            1.0,
+        )
+        .unwrap();
         let (a, segs) = drain(&mut h, 48000 * 3);
         assert!(segs.len() >= 3);
         assert!((segs[1].start_frame as i64 - 48000).abs() < 100);
@@ -565,17 +688,43 @@ pub(crate) mod tests {
         assert!((a[2 * j + 4] - ramp(0.5)).abs() < 0.01);
 
         // Loop cut: plays to the end (2 s) first, then repeats 0.5 – 1.0 s.
-        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: Some((0.5, 1.0)), loop_after_end: true }, 1.0).unwrap();
+        let mut h = spawn_feeder(
+            p.clone(),
+            0.0,
+            48000,
+            FeedParams {
+                out_sec: None,
+                looping: Some((0.5, 1.0)),
+                loop_after_end: true,
+            },
+            1.0,
+        )
+        .unwrap();
         let (a, segs) = drain(&mut h, 48000 * 4);
         assert!(segs.len() >= 3);
-        assert!((segs[1].start_frame as i64 - 96000).abs() < 200, "first jump after the whole file, got {}", segs[1].start_frame);
+        assert!(
+            (segs[1].start_frame as i64 - 96000).abs() < 200,
+            "first jump after the whole file, got {}",
+            segs[1].start_frame
+        );
         assert!((segs[2].start_frame as i64 - segs[1].start_frame as i64 - 24000).abs() < 100);
         let j = segs[1].start_frame as usize;
         assert!((a[2 * j + 4] - ramp(0.5)).abs() < 0.01);
         assert!(h.ctl.in_loop.load(Ordering::Relaxed));
 
         // Double speed: half the frames.
-        let mut h = spawn_feeder(p.clone(), 0.0, 48000, FeedParams { out_sec: None, looping: None, loop_after_end: false }, 2.0).unwrap();
+        let mut h = spawn_feeder(
+            p.clone(),
+            0.0,
+            48000,
+            FeedParams {
+                out_sec: None,
+                looping: None,
+                loop_after_end: false,
+            },
+            2.0,
+        )
+        .unwrap();
         let (a, _) = drain(&mut h, usize::MAX);
         assert!(((a.len() / 2) as i64 - 48000).abs() < 300);
 

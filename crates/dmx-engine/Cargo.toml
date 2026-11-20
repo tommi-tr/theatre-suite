@@ -1,0 +1,17 @@
+[package]
+name = "dmx-engine"
+version = "0.1.0"
+description = "Theatre Suite — DMX output engine (Granvelo, Cue): fades, masters, USB-DMX cables"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serialport = "4.10.1"
+
+[target.'cfg(windows)'.dependencies]
+# timeBeginPeriod while a DMX cable is connected (src/hires.rs); same version as the other apps.
+windows = { version = "0.62.2", features = ["Win32_Media"] }
