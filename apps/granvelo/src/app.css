@@ -596,67 +596,6 @@
 }
 
 /* ---------- Settings ---------- */
-.gv-settings {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 18px;
-  min-height: 400px;
-}
-.gv-settabs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border-right: 1px solid var(--border);
-  padding-right: 10px;
-}
-.gv-settab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.gv-settab:hover {
-  background: var(--surface-2);
-}
-.gv-settab[aria-selected="true"] {
-  background: var(--accent-soft);
-  color: var(--text);
-  font-weight: 600;
-}
-.gv-setpane {
-  min-width: 0;
-}
-.gv-set-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 12px 0;
-}
-.gv-set-row__text {
-  flex: 1;
-  min-width: 0;
-}
-.gv-set-row__label {
-  font-size: 13.5px;
-  font-weight: 600;
-  margin-bottom: 3px;
-}
-.gv-set-row__ctl {
-  flex: none;
-  display: flex;
-  align-items: center;
-  padding-top: 1px;
-}
 .gv-set-note h3 {
   margin: 4px 0 10px;
   font-size: 15px;

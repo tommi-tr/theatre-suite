@@ -1,6 +1,17 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo } from "react";
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
-import { AppLogo, Button, Dialog, Icon, Segmented, confirmYesNo, type IconName } from "@theatre-suite/ui";
+import {
+  AppLogo,
+  Button,
+  Dialog,
+  Icon,
+  Segmented,
+  SettingsFooter,
+  SettingsLayout,
+  SettingsRow as Row,
+  confirmYesNo,
+  type SettingsCategory,
+} from "@theatre-suite/ui";
 import { APP_NAME, APP_VERSION, LOGO } from "../lib/version";
 import { setMemoryBinding } from "../model/memories";
 import type { MemoryBinding } from "../model/types";
@@ -16,19 +27,7 @@ import { picturesPerSecond } from "../stage/detail";
 import { DecimalInput } from "./DecimalInput";
 import { ReliabilityPane } from "./ReliabilityPane";
 
-function Row({ label, hint, children }: { label: string; hint?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="gv-set-row">
-      <div className="gv-set-row__text">
-        <div className="gv-set-row__label">{label}</div>
-        {hint ? <div className="ts-field__hint">{hint}</div> : null}
-      </div>
-      {children ? <div className="gv-set-row__ctl">{children}</div> : null}
-    </div>
-  );
-}
-
-const TABS: { id: SettingsTab; label: string; icon: IconName }[] = [
+const TABS: SettingsCategory<SettingsTab>[] = [
   { id: "general", label: "General", icon: "settings" },
   { id: "dmx", label: "DMX output", icon: "plug" },
   { id: "preview", label: "Preview", icon: "eye" },
@@ -51,80 +50,66 @@ export function SettingsDialog() {
       onClose={close}
       closeLabel={t("Close")}
       width={820}
-      footer={
-        <>
-          <span className="ts-muted" style={{ fontSize: 11.5 }}>
-            Granvelo {APP_VERSION} · Theatre Suite
-          </span>
-          <span className="ts-spacer" />
-          <Button variant="primary" icon="check" onClick={close}>
-            {t("Done")}
-          </Button>
-        </>
-      }
+      footer={<SettingsFooter text={`Granvelo ${APP_VERSION} · Theatre Suite`} doneLabel={t("Done")} onDone={close} />}
     >
-      <div className="gv-settings">
-        <div className="gv-settabs" role="tablist" aria-label={t("Settings")}>
-          {TABS.map((x) => (
-            <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} className="gv-settab" onClick={() => useUi.getState().setSettingsTab(x.id)}>
-              <Icon name={x.icon} size={14} />
-              {t(x.label)}
-            </button>
-          ))}
-        </div>
-        <div className="gv-setpane" role="tabpanel">
-          {tab === "general" ? (
-            <>
-              <Row label={t("Language")}>
-                <Segmented<Lang> small ariaLabel={t("Language")} value={s.language} onChange={(language) => update({ language })} options={LANGS} />
-              </Row>
-              <Row label={t("Appearance")} hint={t("Dark is better backstage and does not light up the booth; light is easier to read in daylight.")}>
-                <Segmented<ThemePref>
-                  small
-                  ariaLabel={t("Appearance")}
-                  value={s.theme}
-                  onChange={(theme) => update({ theme })}
-                  options={[
-                    { value: "light", label: t("Light"), icon: "sun" },
-                    { value: "dark", label: t("Dark"), icon: "moon" },
-                    { value: "system", label: t("Like the system"), icon: "monitor" },
-                  ]}
-                />
-              </Row>
-              <Row label={t("Intensity")} hint={t("How the levels of the faders are written: DMX steps from 0 to 255, as on a lighting desk, or in percent.")}>
-                <Segmented<Units>
-                  small
-                  ariaLabel={t("Intensity")}
-                  value={s.units}
-                  onChange={(units) => update({ units })}
-                  options={[
-                    { value: "dmx", label: "0–255" },
-                    { value: "percent", label: "%" },
-                  ]}
-                />
-              </Row>
-            </>
-          ) : tab === "dmx" ? (
-            <DmxPane />
-          ) : tab === "preview" ? (
-            <PreviewPane value={s.previewDetail} onChange={(previewDetail) => update({ previewDetail })} />
-          ) : tab === "memories" ? (
-            <MemoriesPane />
-          ) : tab === "test" ? (
-            <ReliabilityPane />
-          ) : (
-            <div className="gv-set-about">
-              <AppLogo accentPath={LOGO.accent} inkPath={LOGO.ink} label="Granvelo" size={44} strokeWidth={LOGO.stroke(44)} />
-              <div>
-                <div className="gv-set-row__label">{APP_NAME}</div>
-                <div className="ts-field__hint">{t("The lighting desk of a show: stage, lights, desk and memories. Part of the Theatre Suite.")}</div>
-                <div className="ts-field__hint">{t("Everything stays on this computer: Granvelo does not use the internet and sends nothing.")}</div>
-                <div className="ts-field__hint">{t("Granvelo sends nothing to the lights until you press “Connect”.")}</div>
-              </div>
+      <SettingsLayout
+        categories={TABS.map((x) => ({ ...x, label: t(x.label) }))}
+        active={tab}
+        onSelect={(id) => useUi.getState().setSettingsTab(id)}
+        label={t("Settings")}
+        minHeight={400}
+      >
+        {tab === "general" ? (
+          <>
+            <Row label={t("Language")}>
+              <Segmented<Lang> small ariaLabel={t("Language")} value={s.language} onChange={(language) => update({ language })} options={LANGS} />
+            </Row>
+            <Row label={t("Appearance")} hint={t("Dark is better backstage and does not light up the booth; light is easier to read in daylight.")}>
+              <Segmented<ThemePref>
+                small
+                ariaLabel={t("Appearance")}
+                value={s.theme}
+                onChange={(theme) => update({ theme })}
+                options={[
+                  { value: "light", label: t("Light"), icon: "sun" },
+                  { value: "dark", label: t("Dark"), icon: "moon" },
+                  { value: "system", label: t("Like the system"), icon: "monitor" },
+                ]}
+              />
+            </Row>
+            <Row label={t("Intensity")} hint={t("How the levels of the faders are written: DMX steps from 0 to 255, as on a lighting desk, or in percent.")}>
+              <Segmented<Units>
+                small
+                ariaLabel={t("Intensity")}
+                value={s.units}
+                onChange={(units) => update({ units })}
+                options={[
+                  { value: "dmx", label: "0–255" },
+                  { value: "percent", label: "%" },
+                ]}
+              />
+            </Row>
+          </>
+        ) : tab === "dmx" ? (
+          <DmxPane />
+        ) : tab === "preview" ? (
+          <PreviewPane value={s.previewDetail} onChange={(previewDetail) => update({ previewDetail })} />
+        ) : tab === "memories" ? (
+          <MemoriesPane />
+        ) : tab === "test" ? (
+          <ReliabilityPane />
+        ) : (
+          <div className="gv-set-about">
+            <AppLogo accentPath={LOGO.accent} inkPath={LOGO.ink} label="Granvelo" size={44} strokeWidth={LOGO.stroke(44)} />
+            <div>
+              <div className="ts-set-row__label">{APP_NAME}</div>
+              <div className="ts-field__hint">{t("The lighting desk of a show: stage, lights, desk and memories. Part of the Theatre Suite.")}</div>
+              <div className="ts-field__hint">{t("Everything stays on this computer: Granvelo does not use the internet and sends nothing.")}</div>
+              <div className="ts-field__hint">{t("Granvelo sends nothing to the lights until you press “Connect”.")}</div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </SettingsLayout>
     </Dialog>
   );
 }
@@ -150,10 +135,20 @@ function DmxPane() {
     return max || 24;
   }, [doc]);
   useEffect(() => {
-    void useOutput.getState().init().then(() => useOutput.getState().refreshDevices());
+    void useOutput
+      .getState()
+      .init()
+      .then(() => useOutput.getState().refreshDevices());
   }, []);
   // Leaving the Settings stops the test: it never keeps running unseen.
-  useEffect(() => () => void useOutput.getState().stopTest().catch(() => {}), []);
+  useEffect(
+    () => () =>
+      void useOutput
+        .getState()
+        .stopTest()
+        .catch(() => {}),
+    [],
+  );
   const out = useOutput.getState();
   const fail = (e: unknown) => useUi.getState().showToast(String(e), "error");
   const guessText = (d: DmxDevice) =>
@@ -221,14 +216,16 @@ function DmxPane() {
       </Row>
       <ul className="gv-dmxset__kinds">
         <li>
-          <strong>Pro</strong> · {t("the cable has its own small processor that makes the DMX signal (Enttec DMX USB Pro, DMXking and their copies): the most reliable.")}
+          <strong>Pro</strong> ·{" "}
+          {t("the cable has its own small processor that makes the DMX signal (Enttec DMX USB Pro, DMXking and their copies): the most reliable.")}
         </li>
         <li>
-          <strong>Open DMX</strong> · {t("a simple cable with an FTDI chip: the computer makes the signal itself, so keep it free of heavy work during the show.")}
+          <strong>Open DMX</strong> ·{" "}
+          {t("a simple cable with an FTDI chip: the computer makes the signal itself, so keep it free of heavy work during the show.")}
         </li>
       </ul>
       <div className="gv-dmxset__head">
-        <span className="gv-set-row__label">{t("Devices found")}</span>
+        <span className="ts-set-row__label">{t("Devices found")}</span>
         <span className="ts-spacer" />
         <Button variant="sm" icon="sync" disabled={loading} onClick={() => void out.refreshDevices()}>
           {t("Refresh list")}
@@ -297,7 +294,13 @@ function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: 
   return (
     <>
       <Row label={t("Detail of the preview")} hint={t("How rich the drawing of the stage is. Less detail keeps the computer free for the lights.")}>
-        <Segmented<PreviewDetail> small ariaLabel={t("Detail of the preview")} value={value} onChange={onChange} options={options.map((o) => ({ value: o.value, label: o.label }))} />
+        <Segmented<PreviewDetail>
+          small
+          ariaLabel={t("Detail of the preview")}
+          value={value}
+          onChange={onChange}
+          options={options.map((o) => ({ value: o.value, label: o.label }))}
+        />
       </Row>
       <ul className="gv-set-list">
         {options.map((o) => (
@@ -316,7 +319,10 @@ function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: 
           ) : auto ? (
             auto.ms > 0 ? (
               <p>
-                {t("On this computer the richest preview is drawn at about {n} pictures a second. Level in use: {level}.", { n: picturesPerSecond(auto.ms), level: levelName(auto.level) })}
+                {t("On this computer the richest preview is drawn at about {n} pictures a second. Level in use: {level}.", {
+                  n: picturesPerSecond(auto.ms),
+                  level: levelName(auto.level),
+                })}
               </p>
             ) : (
               <p>{t("This computer cannot draw the stage in 3D: the flat views from above and from the front are used, which are light.")}</p>
@@ -324,7 +330,11 @@ function PreviewPane({ value, onChange }: { value: PreviewDetail; onChange: (v: 
           ) : (
             <p>{t("Not measured yet: the Medium level is used until the first measurement.")}</p>
           )}
-          <p className="ts-muted">{t("The measurement lasts a few seconds, never repeats by itself and sends nothing anywhere. Measure again if you change the computer or its graphics card.")}</p>
+          <p className="ts-muted">
+            {t(
+              "The measurement lasts a few seconds, never repeats by itself and sends nothing anywhere. Measure again if you change the computer or its graphics card.",
+            )}
+          </p>
           <div>
             <Button variant="sm" icon="reset" disabled={measuring} onClick={() => void useMeasure.getState().measure()}>
               {auto || failed ? t("Measure again") : t("Measure now")}
@@ -342,7 +352,15 @@ function FtbRow() {
   const ftbSeconds = useSettings((x) => x.settings.ftbSeconds);
   return (
     <Row label={t("Fade to black time")} hint={t("How long “Fade to black” (F in the Show) takes to go dark and to come back. Saved on this computer.")}>
-      <DecimalInput value={ftbSeconds} min={0} max={60} decimals={1} label={t("Fade to black time")} unit="s" onChange={(ftbSeconds) => useSettings.getState().update({ ftbSeconds })} />
+      <DecimalInput
+        value={ftbSeconds}
+        min={0}
+        max={60}
+        decimals={1}
+        label={t("Fade to black time")}
+        unit="s"
+        onChange={(ftbSeconds) => useSettings.getState().update({ ftbSeconds })}
+      />
     </Row>
   );
 }
@@ -370,8 +388,14 @@ function MemoriesPane() {
         title: t("Change how memories remember the lights?"),
         message:
           to === "fixture"
-            ? t("The {n} memories are converted with the addresses the lights have now. Values on channels that no light uses are dropped. You can undo it with Ctrl Z.", { n: doc.memories.length })
-            : t("The {n} memories are converted with the addresses the lights have now. Lights without an address lose their values. You can undo it with Ctrl Z.", { n: doc.memories.length }),
+            ? t(
+                "The {n} memories are converted with the addresses the lights have now. Values on channels that no light uses are dropped. You can undo it with Ctrl Z.",
+                { n: doc.memories.length },
+              )
+            : t(
+                "The {n} memories are converted with the addresses the lights have now. Lights without an address lose their values. You can undo it with Ctrl Z.",
+                { n: doc.memories.length },
+              ),
         cancel: t("Cancel"),
         confirm: t("Convert the memories"),
         close: t("Close"),
@@ -389,7 +413,9 @@ function MemoriesPane() {
         label={t("Memories remember")}
         hint={
           st.memoryBinding === "address"
-            ? t("The DMX addresses, like a real desk: a memory is what goes out on the 512 channels. If you change the address of a light, the memories do not follow it.")
+            ? t(
+                "The DMX addresses, like a real desk: a memory is what goes out on the 512 channels. If you change the address of a light, the memories do not follow it.",
+              )
             : t("The lights: a memory remembers every light by itself. If you change the address of a light, the memories follow it and are not spoiled.")
         }
       >
@@ -405,9 +431,20 @@ function MemoriesPane() {
         />
       </Row>
       <Row label={t("Default crossfade")} hint={t("Time of the transition of a new memory. Every memory can then have its own times.")}>
-        <DecimalInput value={st.defaultCrossfade} min={0} max={600} decimals={1} label={t("Default crossfade")} unit="s" onChange={(defaultCrossfade) => change({ defaultCrossfade })} />
+        <DecimalInput
+          value={st.defaultCrossfade}
+          min={0}
+          max={600}
+          decimals={1}
+          label={t("Default crossfade")}
+          unit="s"
+          onChange={(defaultCrossfade) => change({ defaultCrossfade })}
+        />
       </Row>
-      <Row label={t("Emergency memory")} hint={t("What “Emergency” (E E in the Show) brings on stage. All white at full lights the stage for everyone to see.")}>
+      <Row
+        label={t("Emergency memory")}
+        hint={t("What “Emergency” (E E in the Show) brings on stage. All white at full lights the stage for everyone to see.")}
+      >
         <select
           className="ts-select gv-select"
           aria-label={t("Emergency memory")}
