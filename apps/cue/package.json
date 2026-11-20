@@ -17,6 +17,7 @@
     "@tauri-apps/plugin-clipboard-manager": "2.5.0",
     "@tauri-apps/plugin-dialog": "2.8.4",
     "@theatre-suite/core": "workspace:*",
+    "@theatre-suite/show-files": "workspace:*",
     "@theatre-suite/ui": "workspace:*",
     "pdfjs-dist": "6.5.438",
     "react": "19.3.1",

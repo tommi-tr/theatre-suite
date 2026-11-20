@@ -7,6 +7,9 @@
 //! One Cue at a time (single-instance plugin), except with `--instance <n>` (n ≥ 2): a separate
 //! process with its own data folder, used to try primary and secondary on one computer.
 
+mod audio;
+mod dmx;
+mod files;
 mod power;
 mod storage;
 mod tcue;
@@ -79,6 +82,9 @@ pub fn run() {
     let app = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        // Sound and lights engines: started at their first command, stopped at exit.
+        .manage(audio::CueAudio::default())
+        .manage(dmx::CueDmx::default())
         .setup(move |app| {
             // The window is created here (not from the config) so that an extra instance gets its own
             // webview data folder: two WebView2 processes must not share one.
@@ -123,12 +129,40 @@ pub fn run() {
             storage::version_save,
             storage::version_restore,
             storage::version_delete,
+            files::files_read_text,
+            files::files_sha256,
+            files::files_resolve_relative,
+            files::files_relative_to,
+            audio::audio_list_devices,
+            audio::audio_set_device,
+            audio::audio_sync,
+            audio::audio_play_now,
+            audio::audio_stop_track,
+            audio::audio_stop_all,
+            audio::audio_set_paused,
+            audio::audio_state,
+            dmx::dmx_list_devices,
+            dmx::dmx_connect,
+            dmx::dmx_disconnect,
+            dmx::dmx_set_universe,
+            dmx::dmx_fade_to,
+            dmx::dmx_pause,
+            dmx::dmx_resume,
+            dmx::dmx_stop_fade,
+            dmx::dmx_blackout,
+            dmx::dmx_fade_to_black,
+            dmx::dmx_release_black,
+            dmx::dmx_grand_master,
+            dmx::dmx_get_status,
+            dmx::dmx_test_output,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Cue");
 
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
+            audio::shutdown(handle);
+            dmx::shutdown(handle);
             power::keep_awake(false);
             storage::session_end(handle);
         }

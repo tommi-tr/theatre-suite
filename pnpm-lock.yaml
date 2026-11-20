@@ -168,6 +168,9 @@ importers:
       '@theatre-suite/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@theatre-suite/show-files':
+        specifier: workspace:*
+        version: link:../../packages/show-files
       '@theatre-suite/ui':
         specifier: workspace:*
         version: link:../../packages/ui
