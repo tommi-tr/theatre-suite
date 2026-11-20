@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { debounce, type Lang, type ThemePref } from "@theatre-suite/core";
 import { api, isTauri } from "../lib/api";
+import { cloneKeymap, DEFAULT_KEYMAP, normalizeKeymap, type Keymap } from "../model/keys";
 
 /** Paper of the script, separate from the app theme: white (default) or dark (inverted, with its brightness). */
 export type Paper = "white" | "dark";
@@ -17,6 +18,14 @@ export interface Settings {
   paperBrightness: number;
   arrowKeys: ArrowKeys;
   recentFiles: string[];
+  /** The keys (model/keys.ts): every action with its alternative chords. F13 is always GO and is not in it. */
+  keymap: Keymap;
+  /** Sound output by name; null = the system default. */
+  audioDevice: string | null;
+  /** DMX cable: the port chosen by the user ("COM3"); null = Cue finds it. */
+  dmxPort: string | null;
+  /** In Show the script scrolls by itself to the standby GO when it changes (a hand scroll suspends it, "Segui" resumes). */
+  followStandby: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +38,10 @@ export const DEFAULT_SETTINGS: Settings = {
   paperBrightness: 85,
   arrowKeys: "zoom",
   recentFiles: [],
+  keymap: cloneKeymap(DEFAULT_KEYMAP),
+  audioDevice: null,
+  dmxPort: null,
+  followStandby: true,
 };
 
 const LOCAL_KEY = "cue.settings";
@@ -46,6 +59,10 @@ export function normalizeSettings(raw: unknown): Settings {
       typeof r.paperBrightness === "number" && Number.isFinite(r.paperBrightness) ? Math.round(Math.min(100, Math.max(40, r.paperBrightness))) : DEFAULT_SETTINGS.paperBrightness,
     arrowKeys: pick<ArrowKeys>(r.arrowKeys, ["zoom", "page"], "zoom"),
     recentFiles: Array.isArray(r.recentFiles) ? r.recentFiles.filter((x): x is string => typeof x === "string").slice(0, 10) : [],
+    keymap: normalizeKeymap(r.keymap),
+    audioDevice: typeof r.audioDevice === "string" && r.audioDevice ? r.audioDevice : null,
+    dmxPort: typeof r.dmxPort === "string" && r.dmxPort ? r.dmxPort : null,
+    followStandby: typeof r.followStandby === "boolean" ? r.followStandby : DEFAULT_SETTINGS.followStandby,
   };
 }
 

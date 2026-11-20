@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeT } from "@theatre-suite/core";
 import { DICTS, IT_PARTS } from "./index";
-import { KEYS } from "../model/keys";
+import { KEY_ACTIONS } from "../model/keys";
 
 /** Every text written as t("…") in the interface must have its Italian translation. */
 const sources = import.meta.glob(["../**/*.tsx", "../**/*.ts", "!../**/*.test.ts"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
@@ -16,7 +16,7 @@ function keysIn(code: string): string[] {
   return out;
 }
 
-const KEY_LABELS = KEYS.map((k) => k.label);
+const KEY_LABELS = KEY_ACTIONS.map((k) => k.label);
 
 describe("Italian dictionary", () => {
   it("translates every text of the interface", () => {

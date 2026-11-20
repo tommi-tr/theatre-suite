@@ -1,4 +1,5 @@
 import type { ShowInfo } from "@theatre-suite/core";
+import { demoCueFields, putDemoSources } from "../lib/demoShow";
 import { memFs } from "../lib/memFs";
 
 /**
@@ -66,7 +67,10 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 /** Puts the demo file (with its script) and two versions of it in memory, once. */
 export async function putDemoFile(): Promise<void> {
+  // The two linked files (Luci.granvelo, Suoni.diaframma) the preview reads, and the GOs that use them.
+  putDemoSources();
   if (memFs.exists(DEMO_PATH)) return;
+  const cue = demoCueFields();
   let pdf: Uint8Array | null = null;
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}demo/locandiera.pdf`);
@@ -77,7 +81,7 @@ export async function putDemoFile(): Promise<void> {
   const versions = `${DEMO_DIR}\\Serata.versions`;
   memFs.put(`${versions}\\2026-11-18_221500_auto.tcue`, show({ versionKind: "auto", versionNote: "Prima del primo salvataggio di questa sessione" }), {}, new Date(2026, 10, 18, 22, 15).getTime());
   memFs.put(`${versions}\\2026-11-19_183000.tcue`, show({ versionKind: "named", versionNote: "Dopo la prova tecnica" }), {}, new Date(2026, 10, 19, 18, 30).getTime());
-  if (!pdf) return memFs.put(DEMO_PATH, show());
+  if (!pdf) return memFs.put(DEMO_PATH, show({ sources: cue.sources, gos: cue.gos, layout: cue.layout }));
   const script = { kind: "pdf", part: "script.pdf", fileName: "La locandiera - Atto primo.pdf", sha256: await sha256Hex(pdf), pageCount: 6 };
-  memFs.put(DEMO_PATH, show({ script, notes: DEMO_NOTES, layout: { scriptWidth: 0.46 } }), { "script.pdf": pdf });
+  memFs.put(DEMO_PATH, show({ script, notes: DEMO_NOTES, sources: cue.sources, gos: cue.gos, layout: { ...cue.layout, scriptWidth: 0.46 } }), { "script.pdf": pdf });
 }

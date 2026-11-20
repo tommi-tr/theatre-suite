@@ -150,6 +150,8 @@ export interface ShowSettings {
   autoScrollSpeed: number;
   /** Fade to black, seconds. */
   ftbSeconds: number;
+  /** The memory the Preset key (Piazzato, house lights) brings up; none = the key does nothing. */
+  presetRef?: ItemRef;
 }
 
 export interface CueShow {
@@ -286,6 +288,9 @@ export function parseShow(text: string, makeId: () => string = defaultId): CueSh
       ftbSeconds: num(settings.ftbSeconds, DEFAULT_SHOW_SETTINGS.ftbSeconds, 0, 60),
     },
   };
+  const preset = settings.presetRef;
+  if (isObj(preset) && typeof preset.sourceId === "string" && typeof preset.itemId === "string") show.settings.presetRef = { ...preset, sourceId: preset.sourceId, itemId: preset.itemId };
+  else delete show.settings.presetRef;
   if (isObj(raw.savedWith)) show.savedWith = { ...raw.savedWith, app: str(raw.savedWith.app), version: str(raw.savedWith.version) };
   // Version metadata belongs to the copy in the versions folder, never to the show.
   delete (show as unknown as Raw).versionKind;
