@@ -13,6 +13,7 @@ Format 1 has no backward-compatibility promise until the first public release: l
 | `script.pdf` | the script or score (one PDF per show) | stored | phase 1 |
 | `thumbs/<id>.jpg` | thumbnails (memories, videos, slides) | stored | phase 2 |
 | `images/<id>.<ext>` | projection images and imported slides | stored | phase 4 |
+| | *(0.6.1)* picture parts (`images/`, `thumbs/`) that no projection uses — neither the current show nor a state undo/redo could bring back — are removed at the next save (`removeParts`) | | |
 
 - Part names: relative, `/` separators, ASCII letters, digits and `._-` only, no `..`, at most 200 characters.
   `show.json` is never a part.
@@ -43,8 +44,9 @@ Format 1 has no backward-compatibility promise until the first public release: l
   `YYYY-MM-DD_HHMMSS[_auto].tcue`. Their `show.json` carries two extra fields, `versionKind` (`"named"` |
   `"auto"`) and `versionNote`, removed when a version is restored. Automatic versions: before the first save of
   a session over an existing file and before going back to a version; the newest 30 are kept.
-- Autosave (Cue's data folder, `autosave/session.json`): `{ savedAt, filePath, dirty, showJson, pendingParts }`
-  within ~1.5 s of a change. **Pending parts**: a part added since the last save (a new script PDF) is copied at
+- Autosave (Cue's data folder, `autosave/session.json`): `{ savedAt, filePath, dirty, showJson, pendingParts,
+  playback, mode, evening }` within ~1.5 s of a change (at once after a GO). `evening` (0.6.1) is the log of the
+  evening `{ log, baseline, intervalSince, exportedLen }`: it comes back with "Recupera" after a crash. **Pending parts**: a part added since the last save (a new script PDF) is copied at
   once into `autosave/parts/<random>-<part>` and listed in `pendingParts` (`{ "script.pdf": "<staged path>" }`);
   the next save copies it into the zip (`fromPath`) and removes the staged copy. Recovery takes the staged copies
   back, so a script loaded and not yet saved survives a crash. The autosave and its staged parts are removed on a
