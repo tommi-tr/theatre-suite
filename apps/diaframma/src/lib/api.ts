@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { LiveState, OthersOnGo, Track, TrackInfo } from "../state/types";
+import type { EngineConfig, EngineTrack } from "@theatre-suite/show-files/diaframma/engine";
+import type { LiveState, TrackInfo } from "../state/types";
 
 export interface SessionStart {
   crashed: boolean;
@@ -17,23 +18,8 @@ export interface VersionEntry {
   bytes: number;
 }
 
-export interface EngineConfig {
-  othersOnGo: OthersOnGo;
-  autoAdvance: boolean;
-  fadeInSec: number;
-  fadeOutSec: number;
-  crossfadeSec: number;
-  /** Quick fade of the track in front when it has no Exit. */
-  quickFadeSec?: number;
-  stopAllSec: number;
-  mainDb?: number;
-  numberFrom?: number;
-  /** Show behaviour (the track in front leaves by its Exit). Off for the player and the pads. */
-  steps?: boolean;
-}
-
-/** Track as sent to the engine: path already resolved. */
-export type EngineTrack = Omit<Track, "file"> & { path: string | null };
+/** The engine parameters (`engine_sync`) are shared with Cue: see `@theatre-suite/show-files/diaframma`. */
+export type { EngineConfig, EngineTrack } from "@theatre-suite/show-files/diaframma/engine";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 

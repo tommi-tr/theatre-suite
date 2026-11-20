@@ -22,6 +22,7 @@ import {
   moveTruss,
   nextTrussSpot,
   removeChannel,
+  removeFixture,
   removeFixtures,
   removeTruss,
   renameTruss,
@@ -465,5 +466,16 @@ describe("stage size", () => {
     expect(setStage(doc, { width: 10, depth: 7, height: 5 }).stage).toEqual({ width: 10, depth: 7, height: 5 });
     expect(setStage(doc, { width: 0, depth: 7, height: 5 })).toBe(doc);
     expect(setStage(doc, { ...doc.stage })).toBe(doc);
+  });
+});
+
+describe("removing a light", () => {
+  it("never renumbers or re-addresses the others", () => {
+    const doc = docWith([light("f1", "parRgbw", 1, { number: 1 }), light("f2", "pc", 5, { number: 2 }), light("f3", "pc", 6, { number: 3 })]);
+    const next = removeFixture(doc, "f2");
+    expect(next.fixtures.map((f) => [f.id, f.number, f.address])).toEqual([
+      ["f1", 1, 1],
+      ["f3", 3, 6],
+    ]);
   });
 });

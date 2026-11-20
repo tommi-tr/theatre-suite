@@ -2,7 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { writeText as clipboardWrite } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "./api";
-import { cleanSeconds, cleanTransition } from "../model/enginePayload";
+import { cleanSeconds, fadeToArgs } from "../model/enginePayload";
+import { asBytes, UNIVERSE_NUMBER, type FadePayload } from "@theatre-suite/show-files/granvelo/engine";
+
+/** The payload shapes of the engine commands live in the shared package (Cue sends the same fades). */
+export { UNIVERSE_NUMBER, type EngineLayout, type EngineTransition, type FadePayload } from "@theatre-suite/show-files/granvelo/engine";
 
 /**
  * The DMX output engine, typed. Two implementations of the same interface:
@@ -105,36 +109,6 @@ export type ConnectRequest =
   | { mode: "port"; port: string; kind: CableKind }
   | { mode: "simulated" };
 
-export interface EngineTransition {
-  fadeIn: number;
-  fadeOut: number;
-  delay: number;
-  moveInDark: boolean;
-}
-
-/** What each channel is (crossfade.ts `FadeLayout` as plain arrays). */
-export interface EngineLayout {
-  /** 512 × (1 = intensity, 0 = other). */
-  intensity: number[];
-  /** 512 × index of the moving head of a non-intensity channel, −1 = none. */
-  mover: number[];
-  /** For each moving head, its intensity channels (0-based). */
-  moverIntensity: number[][];
-}
-
-/** The only DMX universe for now (the commands that carry values accept `universe`, default 1). */
-export const UNIVERSE_NUMBER = 1;
-
-/** The `fade_to` command (built by model/enginePayload.ts). */
-export interface FadePayload {
-  /** DMX universe (default 1, the only one for now). */
-  universe?: number;
-  /** 512 values (under the output master). */
-  target: number[];
-  transition: EngineTransition;
-  layout: EngineLayout;
-}
-
 type Unlisten = () => void;
 
 export interface DmxApi {
@@ -163,8 +137,6 @@ export interface DmxApi {
   onOutput(fn: (output: Uint8Array, under: Uint8Array) => void): Unlisten;
 }
 
-const asBytes = (v: ArrayLike<number>) => Array.from(v, (x) => Math.max(0, Math.min(255, Math.round(Number(x) || 0)))).slice(0, 512);
-
 function subscribe<T>(name: string, fn: (p: T) => void): Unlisten {
   let stop: Unlisten | null = null;
   let gone = false;
@@ -185,7 +157,7 @@ export const tauriDmx: DmxApi = {
   connect: (request) => invoke("dmx_connect", { request }),
   disconnect: () => invoke("dmx_disconnect"),
   setUniverse: (values, universe = UNIVERSE_NUMBER) => invoke("dmx_set_universe", { values: asBytes(values), universe }),
-  fadeTo: (p) => invoke<number>("dmx_fade_to", { target: asBytes(p.target), transition: cleanTransition(p.transition), layout: p.layout, universe: p.universe ?? UNIVERSE_NUMBER }),
+  fadeTo: (p) => invoke<number>("dmx_fade_to", fadeToArgs(p)),
   pause: () => invoke("dmx_pause"),
   resume: () => invoke("dmx_resume"),
   stopFade: () => invoke("dmx_stop_fade"),

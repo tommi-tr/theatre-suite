@@ -1,26 +1,15 @@
+import { showEngineConfig, engineTracks as tracksForEngine } from "@theatre-suite/show-files/diaframma/engine";
 import { api, isTauri, type EngineConfig, type EngineTrack } from "./api";
 import { useDoc } from "../state/doc";
 import { useSettings } from "../state/settings";
 
 export function engineConfig(): EngineConfig {
-  const s = useSettings.getState().settings;
-  return {
-    othersOnGo: s.othersOnGo,
-    autoAdvance: s.autoAdvance,
-    fadeInSec: s.fadeInSec,
-    fadeOutSec: s.fadeOutSec,
-    crossfadeSec: s.crossfadeSec,
-    quickFadeSec: s.quickFadeSec,
-    stopAllSec: s.stopAllSec,
-    mainDb: s.mainDb,
-    numberFrom: s.numberFrom,
-    steps: true,
-  };
+  return showEngineConfig(useSettings.getState().settings);
 }
 
 export function engineTracks(): EngineTrack[] {
   const { tracks, missing } = useDoc.getState();
-  return tracks.map(({ file, ...rest }) => ({ ...rest, path: file && !missing[rest.id] ? file.path : null }));
+  return tracksForEngine(tracks, missing);
 }
 
 /**
