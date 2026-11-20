@@ -8,7 +8,6 @@ import {
   SettingsFooter,
   SettingsLayout,
   SettingsRow as Row,
-  SettingsSection,
   type SettingsCategory,
 } from "@theatre-suite/ui";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -20,7 +19,7 @@ import { KeysPane } from "../settings/KeysPane";
 import { LinkPane } from "../settings/LinkPane";
 import { OutputsPane } from "../settings/OutputsPane";
 import { ProjectionPane } from "../settings/ProjectionPane";
-import { SoonPill } from "./ComingSoon";
+import { TestPane } from "../settings/TestPane";
 
 /** Stable reference: Dialog refocuses its first button whenever `onClose` changes. */
 const close = () => useUi.getState().closeDialog();
@@ -71,14 +70,7 @@ export function SettingsDialog() {
         ) : tab === "projections" ? (
           <ProjectionPane />
         ) : tab === "test" ? (
-          <LaterPane
-            version="0.6"
-            title={t("Reliability tests")}
-            about={[
-              t("Tests of the outputs and of the link, with a report you can keep."),
-              t("Dry run: the whole show in silence, nothing sent to lights, sound or screens."),
-            ]}
-          />
+          <TestPane />
         ) : (
           <AboutPane />
         )}
@@ -183,19 +175,6 @@ function PaperSample({ paper, brightness, active, label }: { paper: Paper; brigh
       </div>
       <span className="cue-paper__label">{label}</span>
     </div>
-  );
-}
-
-/** A category whose settings arrive with a later version. */
-function LaterPane({ version, title, about }: { version: string; title: string; about: string[] }) {
-  return (
-    <SettingsSection badge={<SoonPill version={version} />} title={title}>
-      <ul>
-        {about.map((a) => (
-          <li key={a}>{a}</li>
-        ))}
-      </ul>
-    </SettingsSection>
   );
 }
 
