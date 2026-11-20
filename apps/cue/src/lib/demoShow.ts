@@ -144,13 +144,26 @@ export const DEMO_AUDIO_HEIGHTS: Record<string, number> = { a01s: 96, a07s: 120 
 /** A moment of the evening for screenshots: GO 6 given, GO 7 in standby. */
 export const DEMO_PLAYBACK: PlaybackSnapshot = { lastGoId: "go06", standbyId: "go07", history: ["go01", "go02", "go03", "go04", "go05", "go06"] };
 
-/** Images of the projections the demo GOs show (phase 4 shows them; here only their boxes). */
+/** The projections of the demo: placeholder pictures drawn for the demo (`public/demo/*.svg`), one video that is only an entry. */
 export const DEMO_PROJECTION = {
   blank: { kind: "black" },
   screen: null,
+  color: { brightness: 0, contrast: 5, temperature: 0, saturation: 0 },
   items: [
-    { id: "img-lettera", kind: "image", name: "Img 3 Lettera", transition: { kind: "dissolve", seconds: 2 } },
-    { id: "vid-tempesta", kind: "video", name: "Video 2 Tempesta", path: "video/tempesta.mp4", transition: { kind: "cut" } },
+    { id: "img-locanda", kind: "image", name: "Img 1 Locanda", part: "images/locanda.svg", thumb: "thumbs/locanda.svg", transition: { kind: "cut" } },
+    { id: "img-lettera", kind: "image", name: "Img 3 Lettera", part: "images/lettera.svg", thumb: "thumbs/lettera.svg", transition: { kind: "dissolve", seconds: 2 } },
+    {
+      id: "vid-tempesta",
+      kind: "video",
+      name: "Video 2 Tempesta.mp4",
+      path: "video/tempesta.mp4",
+      thumb: "thumbs/tempesta.svg",
+      durationSec: 84,
+      transition: { kind: "throughBlack", seconds: 1.5 },
+      color: { brightness: 0, contrast: 5, temperature: 0, saturation: -15 },
+      atEnd: "hold",
+    },
+    { id: "img-ritratto", kind: "image", name: "Img 4 Ritratto", part: "images/ritratto.svg", thumb: "thumbs/ritratto.svg", transition: { kind: "dissolve", seconds: 3 } },
   ],
 };
 

@@ -193,6 +193,9 @@ export async function openDemo(): Promise<void> {
     const { DEMO_PLAYBACK } = await import("./demoShow");
     resetRun(show.gos, DEMO_PLAYBACK);
     useRun.setState({ startedAt: Date.now() - 12 * 60_000 - 40_000 });
+    // The picture of GO 2 is on the (simulated) output.
+    const { fireItem } = await import("./projection");
+    await fireItem("img-lettera").catch(() => {});
   }
   await detectShow(DEMO_PATH);
 }

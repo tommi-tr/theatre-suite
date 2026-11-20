@@ -76,7 +76,7 @@ Known fields (status: **used** = read/written by the current version, otherwise 
 | `notes` | `Note[]` | `[]` | used |
 | `speedZones` | `SpeedZone[]` | `[]` | used (auto scroll) |
 | `layout` | `Layout` | `{ scriptWidth: null, audioBoxHeights: {} }` | used |
-| `projection` | `Projection` | `{ blank: { kind: "black" }, screen: null, items: [] }` | planned, phase 4 |
+| `projection` | `Projection` | `{ blank: { kind: "black" }, screen: null, items: [] }` | phase 4 (0.5.0) |
 | `checklist` | `ChecklistItem[]` | `[]` | planned, phase 5 |
 | `settings` | `ShowSettings` | `{ autoScrollSpeed: 1, ftbSeconds: 3 }` | used |
 
@@ -114,11 +114,22 @@ SpeedZone = { id: string, from: Anchor, fromGoId?: string, speed: number /* × g
 Layout = { scriptWidth: number | null /* fraction 0.2–0.8 of script + columns; null = default 0.46 */,
            audioBoxHeights: { [actionId]: number /* px */ } }
 
-Projection = { blank: { kind: "black" } | { kind: "image", part: string }, screen: string | null, items: ProjectionItem[] }
+Projection = { blank: { kind: "black" } | { kind: "image", part: string }, screen: string | null /* monitor name chosen last time */,
+               color?: Color /* "Tutti": colour of every item */, items: ProjectionItem[] }   /* the order of items is the sequence */
 ProjectionItem = { id: string, kind: "image" | "video" | "slide", name: string,
-                   part?: "images/<id>.<ext>", path?: string /* video, relative */, sha256?: string,
-                   transition: { kind: "cut" } | { kind: "dissolve" | "throughBlack", seconds: number },
-                   color?: { brightness, contrast, temperature, saturation }, atEnd?: "hold" | "black" | "next" }
+                   part?: "images/<id>.<ext>"   /* image or slide: inside the .tcue */,
+                   thumb?: "thumbs/<id>.jpg"    /* 320x180 JPEG; for videos a frame captured when added */,
+                   path?: string /* video: relative to the .tcue, inside the show folder (Cue plays nothing from elsewhere) */,
+                   sha256?: string /* video file */, durationSec?: number /* video */,
+                   transition: { kind: "cut" } | { kind: "dissolve" | "throughBlack", seconds: number /* 0.1-10 */ },  /* how it comes in */
+                   color?: Color /* "Questo": replaces the "Tutti" colour for this item */,
+                   atEnd?: "hold" | "black" | "loop" /* video; default hold = stays on the last frame */ }
+Color = { brightness, contrast, temperature, saturation }   /* integers -100..100, 0 = untouched */
+
+Slides imported from a PDF or from PowerPoint are ordinary items of kind "slide" (PNG, 1920 wide); nothing of the
+original presentation is kept. Images of removed items stay in the file until a later clean-up.
+GO actions: { kind: "projection", projectionItemId } | { kind: "projection", step: "next" | "previous" } |
+            { kind: "powerpoint", powerpoint: "next" | "previous" | <slide number> } (live control of an open PowerPoint, Windows).
 
 ChecklistItem = { id: string, text: string, done: boolean, origin: "suggested" | "user" }
 ShowSettings = { autoScrollSpeed: number /* lines per second (14 pt) */, ftbSeconds: number /* default 3 */,

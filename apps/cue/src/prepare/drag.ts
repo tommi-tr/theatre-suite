@@ -1,12 +1,13 @@
 import type { ItemRef } from "../model/gos";
 
 /**
- * What is dragged from the library onto the script: a memory (`light`) or a track (`audio`) of a linked file.
+ * What is dragged from the library onto the script: a memory (`light`) or a track (`audio`) of a linked file, or an item
+ * of the projections (`projection`; `itemId` is the item's id, or `@next` / `@previous` for a step of the sequence).
  * HTML5 drag and drop with a custom type; the payload is also kept in `currentDrag()` because a browser hides the
  * data of a drag until the drop (the overlay needs to know the kind while the pointer is still moving).
  */
 export interface DragPayload extends ItemRef {
-  kind: "light" | "audio";
+  kind: "light" | "audio" | "projection";
 }
 
 export const DRAG_MIME = "application/x-cue-item";

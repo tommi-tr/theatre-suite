@@ -97,9 +97,22 @@ export interface ProjectionItem {
   sha256?: string;
   name: string;
   transition: Transition;
-  color?: { brightness: number; contrast: number; temperature: number; saturation: number };
-  /** What happens when a video ends. */
-  atEnd?: "hold" | "black" | "next";
+  /** Colour of this item alone ("Questo"); absent = the one of "Tutti" (`Projection.color`). */
+  color?: Color;
+  /** What happens when a video ends: stay on the last frame (default), go black, or loop. */
+  atEnd?: "hold" | "black" | "loop";
+  /** `thumbs/<id>.jpg` inside the file. */
+  thumb?: string;
+  /** Video length in seconds (read when it was added). */
+  durationSec?: number;
+}
+
+/** Colour adjustments, each -100..100 (0 = untouched). */
+export interface Color {
+  brightness: number;
+  contrast: number;
+  temperature: number;
+  saturation: number;
 }
 
 export interface Projection {
@@ -107,6 +120,8 @@ export interface Projection {
   blank: { kind: "black" } | { kind: "image"; part: string };
   /** Name of the output screen chosen last time. */
   screen: string | null;
+  /** Colour of every item ("Tutti"); an item's own `color` replaces it. */
+  color?: Color;
   items: ProjectionItem[];
 }
 
@@ -194,6 +209,12 @@ function anchor(v: unknown): Anchor {
 export const SCRIPT_WIDTH_MIN = 0.2;
 export const SCRIPT_WIDTH_MAX = 0.8;
 
+/** A transition read from a file: anything unknown is a cut; durations are 0.1–10 s. */
+function transition(v: unknown): Transition {
+  if (isObj(v) && (v.kind === "dissolve" || v.kind === "throughBlack")) return { kind: v.kind, seconds: num(v.seconds, 1, 0.1, 10) };
+  return { kind: "cut" };
+}
+
 const withId = (o: Raw) => (typeof o.id === "string" && o.id ? o : null);
 
 function script(v: unknown): ScriptRef | null {
@@ -221,6 +242,13 @@ export function checkShowJson(text: string): Raw {
   if (typeof fv === "number" && Number.isInteger(fv) && fv > FORMAT_VERSION) throw new ShowFileError("newer", String(fv));
   if (fv !== FORMAT_VERSION) throw new ShowFileError("not-cue");
   return v;
+}
+
+const clampPct = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(100, Math.max(-100, v))) : 0);
+
+/** A colour with every value a whole number in -100..100. */
+export function normalizeColor(c: Record<string, unknown>): Color {
+  return { brightness: clampPct(c.brightness), contrast: clampPct(c.contrast), temperature: clampPct(c.temperature), saturation: clampPct(c.saturation) };
 }
 
 /** Reads `show.json` into a show with every field present, keeping unknown fields. */
@@ -252,7 +280,19 @@ export function parseShow(text: string, makeId: () => string = defaultId): CueSh
       ...projection,
       blank: isObj(projection.blank) && projection.blank.kind === "image" && typeof projection.blank.part === "string" ? (projection.blank as Projection["blank"]) : { kind: "black" },
       screen: typeof projection.screen === "string" ? projection.screen : null,
-      items: list(projection.items, withId) as unknown as ProjectionItem[],
+      items: list(projection.items, (o) =>
+        withId(o)
+          ? ({
+              ...o,
+              kind: o.kind === "video" || o.kind === "slide" ? o.kind : "image",
+              name: str(o.name),
+              transition: transition(o.transition),
+              ...(isObj(o.color) ? { color: normalizeColor(o.color) } : {}),
+              ...(o.atEnd === "black" || o.atEnd === "loop" ? { atEnd: o.atEnd } : o.atEnd ? { atEnd: "hold" } : {}),
+            } as unknown as ProjectionItem)
+          : null,
+      ),
+      ...(isObj(projection.color) ? { color: normalizeColor(projection.color) } : {}),
     },
     checklist: list(raw.checklist, (o) =>
       withId(o) ? ({ ...o, text: str(o.text), done: o.done === true, origin: o.origin === "user" ? "user" : "suggested" } as unknown as ChecklistItem) : null,

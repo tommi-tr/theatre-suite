@@ -263,6 +263,7 @@
 }
 .cue-box__proj {
   flex: none;
+  min-width: 53px;
   display: grid;
   place-items: center;
   height: 30px;

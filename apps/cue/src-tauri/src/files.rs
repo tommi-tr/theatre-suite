@@ -40,6 +40,20 @@ pub fn files_read_text(path: String) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| format!("not-text: {path}"))
 }
 
+/// The bytes of a file the user chose (a PDF of slides), up to 512 MB, as a binary response.
+#[tauri::command(async)]
+pub fn files_read_bytes(path: String) -> Result<tauri::ipc::Response, String> {
+    let p = Path::new(&path);
+    let meta = std::fs::metadata(p).map_err(|e| io_error(&path, e))?;
+    if !meta.is_file() {
+        return Err(format!("missing: {path} is not a file"));
+    }
+    if meta.len() > 512 * 1024 * 1024 {
+        return Err(format!("too-big: {path} ({} bytes)", meta.len()));
+    }
+    Ok(tauri::ipc::Response::new(std::fs::read(p).map_err(|e| io_error(&path, e))?))
+}
+
 /// SHA-256 of a file (hex), read in blocks: fine for big videos.
 #[tauri::command(async)]
 pub fn files_sha256(path: String) -> Result<String, String> {

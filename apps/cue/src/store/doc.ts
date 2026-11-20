@@ -46,6 +46,11 @@ interface DocStore {
    * Undo history restarts from here.
    */
   changeWithPart: (recipe: (s: CueShow) => CueShow, part: { name: string; staged: string }) => void;
+  /**
+   * A change that also adds parts (images of the projections). Undo history is kept: the parts of an undone change
+   * stay in the file (harmless) and are there again if it is redone.
+   */
+  changeWithParts: (recipe: (s: CueShow) => CueShow, parts: { name: string; staged: string }[]) => void;
   setBand: (band: ShowInfo | null) => void;
 }
 
@@ -110,6 +115,19 @@ export const useDoc = create<DocStore>((set, get) => ({
     history.clear();
     lastKey = null;
     set((s) => ({ show: recipe(prev), dirty: true, pending: { ...s.pending, [part.name]: part.staged }, canUndo: false, canRedo: false }));
+  },
+  changeWithParts: (recipe, parts) => {
+    const prev = get().show;
+    if (!prev) return;
+    history.record(prev);
+    lastKey = null;
+    set((s) => ({
+      show: recipe(prev),
+      dirty: true,
+      pending: { ...s.pending, ...Object.fromEntries(parts.map((p) => [p.name, p.staged])) },
+      canUndo: history.canUndo,
+      canRedo: history.canRedo,
+    }));
   },
   setBand: (band) => set({ band }),
 }));

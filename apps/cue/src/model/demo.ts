@@ -18,7 +18,7 @@ const show = (extra: Record<string, unknown> = {}) =>
       formatVersion: 1,
       id: "6c6f63616e64696572612d7365726174",
       title: "La locandiera",
-      savedWith: { app: "Cue", version: "0.4.0" },
+      savedWith: { app: "Cue", version: "0.5.0" },
       ...extra,
     },
     null,

@@ -1,0 +1,35 @@
+/* The output screen (window and preview): black, the picture contained, layers stacked. Only proj- classes. */
+.proj-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+.proj-layer {
+  position: absolute;
+  inset: 0;
+}
+.proj-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+.proj-test {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+html.proj-window,
+html.proj-window body,
+html.proj-window #root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  cursor: none;
+}

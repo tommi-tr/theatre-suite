@@ -26,6 +26,18 @@ describe("addItemAt (a library item dropped on the script)", () => {
     await openDemoShow(false);
   });
 
+  it("drops a picture or a step of the projections as a projection action", async () => {
+    await openDemoShow(true);
+    const first = useDoc.getState().show!.projection.items[0].id;
+    addItemAt(at(1, 0.9), { kind: "projection", sourceId: "", itemId: first }, { makeId });
+    addItemAt(at(2, 0.95), { kind: "projection", sourceId: "", itemId: "@next" }, { makeId });
+    const gos = gosOf(useDoc.getState().show!);
+    expect(gos.find((g) => g.actions.some((a) => a.kind === "projection" && (a as { projectionItemId?: string }).projectionItemId === first))).toBeTruthy();
+    expect(gos.some((g) => g.actions.some((a) => a.kind === "projection" && (a as { step?: string }).step === "next"))).toBe(true);
+    // An item that is not in the sequence is refused.
+    expect(addItemAt(at(3, 0.99), { kind: "projection", sourceId: "", itemId: "nope" }, { makeId })).toBeNull();
+  });
+
   it("makes a new GO and selects it", () => {
     const r = addItemAt(at(1, 0.5), { kind: "light", sourceId: DEMO_LIGHTS_ID, itemId: "mem2" }, { makeId });
     expect(r?.merged).toBe(false);

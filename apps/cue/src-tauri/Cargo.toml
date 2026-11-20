@@ -1,6 +1,6 @@
 [package]
 name = "cue"
-version = "0.4.0"
+version = "0.5.0"
 description = "Cue — the stage manager's digital prompt book: script, GOs and live show control (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"

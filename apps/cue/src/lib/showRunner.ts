@@ -14,7 +14,7 @@ export interface RunnerDeps {
   audio: AudioApi;
   library: Library;
   /** Projection / PowerPoint commands (phase 4). */
-  projection?: (cmd: Extract<EngineCommand, { kind: "projection" }>) => void;
+  projection?: (cmd: Extract<EngineCommand, { kind: "projection" }>) => void | Promise<void>;
   onError?: (cmd: EngineCommand, error: unknown) => void;
   /** Timer for sounds with a delay (default setTimeout; tests pass their own). */
   later?: (fn: () => void, ms: number) => void;
@@ -84,7 +84,7 @@ export async function runCommand(cmd: EngineCommand, d: RunnerDeps): Promise<voi
       }
       return;
     case "projection":
-      d.projection?.(cmd);
+      await d.projection?.(cmd);
       return;
   }
 }

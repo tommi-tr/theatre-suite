@@ -64,6 +64,31 @@ export interface VersionEntry {
   damaged: boolean;
 }
 
+/** A screen of this computer (output window). */
+export interface MonitorInfo {
+  index: number;
+  name: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  scale: number;
+  primary: boolean;
+  /** The one the Cue window is on. */
+  current: boolean;
+}
+
+/** State of the open PowerPoint presentation, as the helper reports it. */
+export interface PptState {
+  ok: boolean;
+  error?: string;
+  detail?: string;
+  name?: string;
+  count?: number;
+  slide?: number;
+  slideshow?: boolean;
+}
+
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 export const isDemo = !isTauri && typeof location !== "undefined" && new URLSearchParams(location.search).has("demo");
 
@@ -97,6 +122,9 @@ export const api = {
       : memFs.save(a),
   /** Copies a file the user chose into the autosave folder as a pending part (native side, no bytes through here). */
   partStage: (from: string, name: string) => (isTauri ? call<StagedPart>("part_stage", { from, name }) : Promise.reject(new Error(`io: ${from} is not available in the preview`))),
+  /** Stages bytes made by the interface (a thumbnail, a rendered slide) as a pending part. */
+  partStageBytes: async (bytes: Uint8Array, name: string): Promise<StagedPart> =>
+    isTauri ? invoke<StagedPart>("part_stage_bytes", bytes, { headers: { name } }) : { path: memFs.stage(bytes, name), sha256: "", size: bytes.length },
   stagedRead: async (path: string): Promise<Uint8Array> => (isTauri ? new Uint8Array(await call<ArrayBuffer>("staged_read", { path })) : memFs.stagedRead(path)),
   stagedExists: (path: string) => (isTauri ? call<boolean>("path_exists", { path }) : Promise.resolve(memFs.stagedExists(path))),
   stagedDrop: (paths: string[]) => (isTauri ? call<void>("staged_drop", { paths }) : Promise.resolve(memFs.stagedDrop(paths))),
@@ -107,6 +135,28 @@ export const api = {
     isTauri ? call<string>("version_save", { path, name, kind, note }) : memFs.versionSave(path, name, kind, note),
   versionRestore: (path: string, version: string) => (isTauri ? call<TcueSaved>("version_restore", { path, version }) : memFs.versionRestore(path, version)),
   versionDelete: (path: string) => (isTauri ? call<void>("version_delete", { path }) : memFs.versionDelete(path)),
+  /** Any file the user chose (a PDF of slides), as bytes. */
+  readBytes: async (path: string): Promise<Uint8Array> => new Uint8Array(await call<ArrayBuffer>("files_read_bytes", { path })),
+  projMonitors: () =>
+    isTauri
+      ? call<MonitorInfo[]>("proj_monitors")
+      : Promise.resolve<MonitorInfo[]>([
+          { index: 0, name: "\\\\.\\DISPLAY1", width: 1366, height: 768, x: 0, y: 0, scale: 1, primary: true, current: true },
+          { index: 1, name: "\\\\.\\DISPLAY2", width: 1920, height: 1080, x: 1366, y: 0, scale: 1, primary: false, current: false },
+        ]),
+  projOpen: (monitor: number | null, windowed: boolean) => (isTauri ? call<void>("proj_open", { monitor, windowed }) : Promise.resolve()),
+  projClose: () => (isTauri ? call<void>("proj_close") : Promise.resolve()),
+  projIsOpen: () => (isTauri ? call<boolean>("proj_is_open") : Promise.resolve(false)),
+  /** Authorises a video of the show folder and gives the address the output window plays it from. */
+  projVideoUrl: (showFile: string, rel: string) => call<string>("proj_video_url", { showFile, rel }),
+  projCopyVideo: (showFile: string, from: string) => call<string>("proj_copy_video", { showFile, from }),
+  pptAvailable: () => (isTauri ? call<boolean>("ppt_available") : Promise.resolve(false)),
+  pptConnect: () => call<PptState>("ppt_connect"),
+  pptCommand: (op: "next" | "previous" | "goto" | "start" | "status", slide?: number) => call<PptState>("ppt_command", { op, slide: slide ?? null }),
+  pptDisconnect: () => (isTauri ? call<void>("ppt_disconnect") : Promise.resolve()),
+  pptExport: (pptx: string, outDir: string) => call<string[]>("ppt_export", { pptx, outDir }),
+  pptTempDir: () => call<string>("ppt_temp_dir"),
+  pptCleanup: (dir: string) => call<void>("ppt_cleanup", { dir }),
   /** Is the launcher installed ("Torna al launcher")? In the browser demo: yes, to see the button. */
   launcherAvailable: () => (isTauri ? call<boolean>("launcher_available") : Promise.resolve(isDemo)),
   openLauncher: (showDir: string) => (isTauri ? call<void>("open_launcher", { showDir }) : Promise.resolve(void console.info("[demo] back to the launcher:", showDir))),
@@ -124,6 +174,13 @@ export const appWindow: ReturnType<typeof getCurrentWindow> = isTauri
       onResized: async () => () => {},
       onCloseRequested: async () => () => {},
     } as unknown as ReturnType<typeof getCurrentWindow>);
+
+/** Tells every window (the output window listens). A no-op in the browser preview. */
+export async function emitEvent(name: string, payload?: unknown): Promise<void> {
+  if (!isTauri) return;
+  const { emit } = await import("@tauri-apps/api/event");
+  await emit(name, payload);
+}
 
 export async function onEvent<T>(name: string, fn: (payload: T) => void): Promise<UnlistenFn> {
   if (!isTauri) return () => {};

@@ -19,6 +19,7 @@ import { useUi, type SettingsTab } from "../store/ui";
 import { KeysPane } from "../settings/KeysPane";
 import { LinkPane } from "../settings/LinkPane";
 import { OutputsPane } from "../settings/OutputsPane";
+import { ProjectionPane } from "../settings/ProjectionPane";
 import { SoonPill } from "./ComingSoon";
 
 /** Stable reference: Dialog refocuses its first button whenever `onClose` changes. */
@@ -68,15 +69,7 @@ export function SettingsDialog() {
         ) : tab === "outputs" ? (
           <OutputsPane />
         ) : tab === "projections" ? (
-          <LaterPane
-            version="0.5"
-            title={t("Projections")}
-            about={[
-              t("The output screen (the second screen of this computer) and the blank image: black or one of your choice."),
-              t("Images and videos (MP4 H.264) with transitions and colour."),
-              t("PowerPoint: slides imported as images, or PowerPoint itself driven live."),
-            ]}
-          />
+          <ProjectionPane />
         ) : tab === "test" ? (
           <LaterPane
             version="0.6"

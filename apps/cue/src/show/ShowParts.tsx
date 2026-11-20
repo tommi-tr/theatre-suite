@@ -1,3 +1,4 @@
+import { useProj } from "../lib/projection";
 import { useEffect, useState } from "react";
 import { useLang, useT } from "@theatre-suite/core";
 import { AlertBand, Button, HoldButton, Icon, Kbd, KeyCommand, KeyCommandBar, OutputPill, type OutputPillState } from "@theatre-suite/ui";
@@ -50,6 +51,7 @@ export function ShowStatusLine() {
   const gos = useDoc((s) => s.show?.gos ?? []);
   const ftbSeconds = useDoc((s) => s.show?.settings.ftbSeconds ?? 3);
   const run = useRun();
+  const blank = useProj((s) => s.blank);
   const keymap = useKeymap();
   const now = useNow(500);
   const pb = run.playback;
@@ -88,7 +90,7 @@ export function ShowStatusLine() {
         <KeyCommand keys={k("preset")} active={run.preset} disabled={em} onMouseDown={noFocus} onClick={() => runPreset(t)} title={t("The preset memory chosen in the settings; again to go back")}>
           {t("Preset")}
         </KeyCommand>
-        <KeyCommand keys={k("blank")} active={run.blank} onMouseDown={noFocus} onClick={() => runBlank(t)} title={t("Blank image on the projections (Cue 0.5)")}>
+        <KeyCommand keys={k("blank")} active={blank} onMouseDown={noFocus} onClick={() => runBlank(t)} title={t("Blank image on the output, and back")}>
           {t("Blank")}
         </KeyCommand>
         <KeyCommand keys={k("blackout")} active={pb.blackout} disabled={em} onMouseDown={noFocus} onClick={() => runBlackout(t)} title={t("Everything dark at once; press again to bring it back")}>
