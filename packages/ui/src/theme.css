@@ -1265,3 +1265,166 @@ button.ts-steps__bar:focus-visible {
 .ts-steps--draft .ts-steps__bar.is-on {
   border-color: var(--text-3);
 }
+
+/* ---------- Settings dialog (SettingsLayout, SettingsRow, SettingsSection) ---------- */
+.ts-settings {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 18px;
+}
+.ts-settabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+  padding-right: 10px;
+}
+.ts-settab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ts-settab:hover {
+  background: var(--surface-2);
+}
+.ts-settab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.ts-setpane {
+  min-width: 0;
+}
+.ts-settings--fixed .ts-setpane {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.ts-set-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 12px 0;
+}
+.ts-set-row__text {
+  flex: 1;
+  min-width: 0;
+}
+.ts-set-row__label {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.ts-set-row__ctl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding-top: 1px;
+}
+.ts-set-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 8px;
+}
+.ts-set-section h3 {
+  margin: 4px 0 2px;
+  font-size: 15px;
+}
+.ts-set-section p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 540px;
+}
+.ts-set-section ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 540px;
+}
+
+/* ---------- "Coming soon" card (ComingSoonCard) ---------- */
+.ts-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.ts-soon__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ts-soon h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+.ts-soon ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ts-soon__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ts-soon--compact {
+  padding: 18px 20px;
+}
+.ts-soon--compact h2 {
+  font-size: 16px;
+}
+.ts-soon--compact .ts-soon__icon {
+  width: 36px;
+  height: 36px;
+}
+.ts-soonpill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ts-soon__now {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}

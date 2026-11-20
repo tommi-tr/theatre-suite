@@ -1,6 +1,19 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment } from "react";
 import { LANGS, useT, type Lang, type ThemePref } from "@theatre-suite/core";
-import { AppLogo, Button, Dialog, Icon, Kbd, Range, Segmented, type IconName } from "@theatre-suite/ui";
+import {
+  AppLogo,
+  Button,
+  Dialog,
+  Icon,
+  Kbd,
+  Range,
+  Segmented,
+  SettingsFooter,
+  SettingsLayout,
+  SettingsRow as Row,
+  SettingsSection,
+  type SettingsCategory,
+} from "@theatre-suite/ui";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isTauri } from "../lib/api";
 import { APP_NAME, APP_VERSION, LOGO } from "../lib/version";
@@ -14,19 +27,7 @@ const close = () => useUi.getState().closeDialog();
 
 const PROJECT_PAGE = "https://github.com/tommi-tr/theatre-suite";
 
-function Row({ label, hint, children }: { label: string; hint?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="cue-set-row">
-      <div className="cue-set-row__text">
-        <div className="cue-set-row__label">{label}</div>
-        {hint ? <div className="ts-field__hint">{hint}</div> : null}
-      </div>
-      {children ? <div className="cue-set-row__ctl">{children}</div> : null}
-    </div>
-  );
-}
-
-const TABS: { id: SettingsTab; label: string; icon: IconName }[] = [
+const TABS: (SettingsCategory<SettingsTab> & { label: string })[] = [
   { id: "general", label: "General", icon: "settings" },
   { id: "script", label: "Script", icon: "pages" },
   { id: "keys", label: "Keys", icon: "keyboard" },
@@ -48,78 +49,64 @@ export function SettingsDialog() {
       onClose={close}
       closeLabel={t("Close")}
       width={820}
-      footer={
-        <>
-          <span className="ts-muted" style={{ fontSize: 11.5 }}>
-            Cue {APP_VERSION} · Theatre Suite
-          </span>
-          <span className="ts-spacer" />
-          <Button variant="primary" icon="check" onClick={close}>
-            {t("Done")}
-          </Button>
-        </>
-      }
+      footer={<SettingsFooter text={`Cue ${APP_VERSION} · Theatre Suite`} doneLabel={t("Done")} onDone={close} />}
     >
-      <div className="cue-settings">
-        <div className="cue-settabs" role="tablist" aria-label={t("Settings")}>
-          {TABS.map((x) => (
-            <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} className="cue-settab" onClick={() => useUi.getState().setSettingsTab(x.id)}>
-              <Icon name={x.icon} size={14} />
-              {t(x.label)}
-            </button>
-          ))}
-        </div>
-        <div className="cue-setpane" role="tabpanel">
-          {tab === "general" ? (
-            <GeneralPane />
-          ) : tab === "script" ? (
-            <ScriptPane />
-          ) : tab === "keys" ? (
-            <KeysPane />
-          ) : tab === "link" ? (
-            <LaterPane
-              version="0.4"
-              title={t("Primary and secondary")}
-              about={[
-                t("A second computer can lead the same show as an equal: every request goes through the primary."),
-                t("Direct Ethernet cable between the two computers, paired once with a 6-digit code."),
-                t("Link state always written in words and colours; optional Wi-Fi backup."),
-              ]}
-            />
-          ) : tab === "outputs" ? (
-            <LaterPane
-              version="0.3"
-              title={t("Lights and sound")}
-              about={[
-                t("The sound card for the Diaframma tracks and the USB-DMX cable for the Granvelo memories."),
-                t("Cue uses the same engines as Diaframma and Granvelo: what you hear and see in rehearsal is what the show does."),
-                t("Only one program at a time can use the DMX cable: if Granvelo has it, Cue says so plainly."),
-              ]}
-            />
-          ) : tab === "projections" ? (
-            <LaterPane
-              version="0.5"
-              title={t("Projections")}
-              about={[
-                t("The output screen (the second screen of this computer) and the blank image: black or one of your choice."),
-                t("Images and videos (MP4 H.264) with transitions and colour."),
-                t("PowerPoint: slides imported as images, or PowerPoint itself driven live."),
-              ]}
-            />
-          ) : tab === "test" ? (
-            <LaterPane
-              version="0.6"
-              title={t("Reliability tests")}
-              about={[
-                t("Tests of the outputs and of the link, with a report you can keep."),
-                t("Dry run: the whole show in silence, nothing sent to lights, sound or screens."),
-              ]}
-            />
-          ) : (
-            <AboutPane />
-          )}
-        </div>
-      </div>
+      <SettingsLayout
+        categories={TABS.map((x) => ({ ...x, label: t(x.label) }))}
+        active={tab}
+        onSelect={(id) => useUi.getState().setSettingsTab(id)}
+        label={t("Settings")}
+        height={430}
+      >
+        {tab === "general" ? (
+          <GeneralPane />
+        ) : tab === "script" ? (
+          <ScriptPane />
+        ) : tab === "keys" ? (
+          <KeysPane />
+        ) : tab === "link" ? (
+          <LaterPane
+            version="0.4"
+            title={t("Primary and secondary")}
+            about={[
+              t("A second computer can lead the same show as an equal: every request goes through the primary."),
+              t("Direct Ethernet cable between the two computers, paired once with a 6-digit code."),
+              t("Link state always written in words and colours; optional Wi-Fi backup."),
+            ]}
+          />
+        ) : tab === "outputs" ? (
+          <LaterPane
+            version="0.3"
+            title={t("Lights and sound")}
+            about={[
+              t("The sound card for the Diaframma tracks and the USB-DMX cable for the Granvelo memories."),
+              t("Cue uses the same engines as Diaframma and Granvelo: what you hear and see in rehearsal is what the show does."),
+              t("Only one program at a time can use the DMX cable: if Granvelo has it, Cue says so plainly."),
+            ]}
+          />
+        ) : tab === "projections" ? (
+          <LaterPane
+            version="0.5"
+            title={t("Projections")}
+            about={[
+              t("The output screen (the second screen of this computer) and the blank image: black or one of your choice."),
+              t("Images and videos (MP4 H.264) with transitions and colour."),
+              t("PowerPoint: slides imported as images, or PowerPoint itself driven live."),
+            ]}
+          />
+        ) : tab === "test" ? (
+          <LaterPane
+            version="0.6"
+            title={t("Reliability tests")}
+            about={[
+              t("Tests of the outputs and of the link, with a report you can keep."),
+              t("Dry run: the whole show in silence, nothing sent to lights, sound or screens."),
+            ]}
+          />
+        ) : (
+          <AboutPane />
+        )}
+      </SettingsLayout>
     </Dialog>
   );
 }
@@ -268,10 +255,12 @@ function KeysPane() {
           <Icon name="flag" size={18} />
         </span>
         <div>
-          <div className="cue-set-row__label">
+          <div className="ts-set-row__label">
             {t("Pedal")} · <span className="ts-muted">{t("Coming soon")}</span>
           </div>
-          <div className="ts-field__hint">{t("A foot pedal that types F13 gives the GO, even while the chat is open. F13 is already a GO key; how to build the pedal comes later.")}</div>
+          <div className="ts-field__hint">
+            {t("A foot pedal that types F13 gives the GO, even while the chat is open. F13 is already a GO key; how to build the pedal comes later.")}
+          </div>
         </div>
       </div>
     </>
@@ -281,15 +270,13 @@ function KeysPane() {
 /** A category whose settings arrive with a later version. */
 function LaterPane({ version, title, about }: { version: string; title: string; about: string[] }) {
   return (
-    <div className="cue-set-later">
-      <SoonPill version={version} />
-      <h3>{title}</h3>
+    <SettingsSection badge={<SoonPill version={version} />} title={title}>
       <ul>
         {about.map((a) => (
           <li key={a}>{a}</li>
         ))}
       </ul>
-    </div>
+    </SettingsSection>
   );
 }
 
@@ -309,11 +296,19 @@ function AboutPane() {
     <div className="cue-set-about">
       <AppLogo accentPath="" accentDots={LOGO.dots} inkPath={LOGO.ink} label="Cue" size={44} strokeWidth={LOGO.stroke(44)} />
       <div>
-        <div className="cue-set-row__label">
+        <div className="ts-set-row__label">
           {APP_NAME}
-          {instance > 1 ? <span className="ts-pill" style={{ marginLeft: 8 }}>{t("Instance {n}", { n: instance })}</span> : null}
+          {instance > 1 ? (
+            <span className="ts-pill" style={{ marginLeft: 8 }}>
+              {t("Instance {n}", { n: instance })}
+            </span>
+          ) : null}
         </div>
-        <div className="ts-field__hint">{t("The stage manager's digital prompt book: the script with its GOs, and the command of lights, sound and images during the show. Part of the Theatre Suite.")}</div>
+        <div className="ts-field__hint">
+          {t(
+            "The stage manager's digital prompt book: the script with its GOs, and the command of lights, sound and images during the show. Part of the Theatre Suite.",
+          )}
+        </div>
         <div className="ts-field__hint">{t("Everything stays on this computer: Cue does not use the internet and sends nothing.")}</div>
         <div className="ts-field__hint">{t("While Cue is open, Windows does not go to sleep and the screen stays on.")}</div>
         <div className="cue-set-link">

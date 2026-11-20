@@ -14,7 +14,7 @@ export function PrepareMode() {
     <div className="cue-mode">
       <div className="cue-mode__inner cue-mode__inner--two">
         <section className="cue-first">
-          <div className="cue-soon__head">
+          <div className="ts-soon__head">
             <span className="cue-first__icon">
               <Icon name="pages" size={22} />
             </span>

@@ -1147,3 +1147,137 @@ export function AlertBand({ tone, title, children, action, icon, className }: Al
     </div>
   );
 }
+
+
+/* ---------------- Settings dialog layout ---------------- */
+
+export interface SettingsCategory<T extends string = string> {
+  id: T;
+  /** Already translated. */
+  label: string;
+  icon: IconName;
+}
+
+export interface SettingsLayoutProps<T extends string = string> {
+  categories: SettingsCategory<T>[];
+  active: T;
+  onSelect: (id: T) => void;
+  /** Accessible name of the list of categories (usually "Settings"). */
+  label: string;
+  /** Fixed height of the body in px: the dialog does not jump between categories and a long one scrolls. */
+  height?: number;
+  /** Minimum height in px, when the body should grow with its content instead. */
+  minHeight?: number;
+  children: ReactNode;
+}
+
+/** Body of a settings dialog: categories in a column on the left, the pane of the active one on the right. Goes inside `Dialog`, with `SettingsFooter`. */
+export function SettingsLayout<T extends string = string>({ categories, active, onSelect, label, height, minHeight, children }: SettingsLayoutProps<T>) {
+  return (
+    <div className={cx("ts-settings", height !== undefined && "ts-settings--fixed")} style={{ height, minHeight }}>
+      <div className="ts-settabs" role="tablist" aria-label={label}>
+        {categories.map((c) => (
+          <button key={c.id} type="button" role="tab" aria-selected={active === c.id} className="ts-settab" onClick={() => onSelect(c.id)}>
+            <Icon name={c.icon} size={14} />
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="ts-setpane" role="tabpanel">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Footer of a settings dialog: version text on the left, the "Done" button on the right. */
+export function SettingsFooter({ text, doneLabel, onDone }: { text: ReactNode; doneLabel: string; onDone: () => void }) {
+  return (
+    <>
+      <span className="ts-muted" style={{ fontSize: 11.5 }}>
+        {text}
+      </span>
+      <span className="ts-spacer" />
+      <Button variant="primary" icon="check" onClick={onDone}>
+        {doneLabel}
+      </Button>
+    </>
+  );
+}
+
+/** One setting: label and hint on the left, the control on the right. */
+export function SettingsRow({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="ts-set-row">
+      <div className="ts-set-row__text">
+        <div className="ts-set-row__label">{label}</div>
+        {hint ? <div className="ts-field__hint">{hint}</div> : null}
+      </div>
+      {children ? <div className="ts-set-row__ctl">{children}</div> : null}
+    </div>
+  );
+}
+
+/** A block of a settings pane with an optional badge (e.g. `ComingSoonPill`), a title, a description and its content (rows or a list). */
+export function SettingsSection({
+  title,
+  description,
+  badge,
+  children,
+}: {
+  title?: ReactNode;
+  description?: ReactNode;
+  badge?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="ts-set-section">
+      {badge}
+      {title ? <h3>{title}</h3> : null}
+      {description ? <p>{description}</p> : null}
+      {children}
+    </section>
+  );
+}
+
+/* ---------------- Coming soon ---------------- */
+
+/** Small dashed pill with the version that brings a part ("Coming with Cue 0.3"). `label` comes already translated. */
+export function ComingSoonPill({ label }: { label: string }) {
+  return <span className="ts-soonpill">{label}</span>;
+}
+
+export interface ComingSoonCardProps {
+  icon: IconName;
+  /** Text of the pill, already translated: "Coming with Cue 0.3". */
+  label: string;
+  title: string;
+  /** Bullet list of what the part will do (already translated). */
+  items?: string[];
+  /** Block under a rule: what can be done meanwhile. */
+  children?: ReactNode;
+  compact?: boolean;
+}
+
+/** "Part not yet available" (02_design.md): icon, dashed pill with the version, title, bullet list. */
+export function ComingSoonCard({ icon, label, title, items, children, compact }: ComingSoonCardProps) {
+  return (
+    <section className={cx("ts-soon", compact && "ts-soon--compact")}>
+      <div className="ts-soon__head">
+        <span className="ts-soon__icon">
+          <Icon name={icon} size={compact ? 18 : 22} />
+        </span>
+        <ComingSoonPill label={label} />
+      </div>
+      <h2>{title}</h2>
+      {items?.length ? (
+        <ul>
+          {items.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      ) : null}
+      {children ? <div className="ts-soon__now">{children}</div> : null}
+    </section>
+  );
+}
