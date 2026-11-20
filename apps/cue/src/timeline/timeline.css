@@ -275,11 +275,22 @@
   background: linear-gradient(135deg, #8fa3b8, #3b4a5e);
   color: rgba(255, 255, 255, 0.6);
 }
+/* Up to two lines when there is room (narrow columns), one line with "…" in short boxes; the tooltip has it all. */
 .cue-box__name {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  flex: none;
+}
+.cue-box--tight .cue-box__name,
+.cue-box--compact .cue-box__name {
+  display: block;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .cue-box__name svg {
   vertical-align: -1px;
@@ -356,4 +367,30 @@
 /* Squeezed between two GOs: the name right under the line. */
 .cue-box.cue-box--tight {
   padding-top: 20px;
+}
+/* Very short boxes (two GOs close together): the name stays whole just under the line (which enters at 17 px). */
+.cue-box.cue-box--compact {
+  gap: 0;
+  padding-top: 19px;
+  padding-bottom: 0;
+  font-size: 11.5px;
+  line-height: 13px;
+}
+.cue-box.cue-box--compact .cue-box__num,
+.cue-box.cue-box--compact .cue-box__dur {
+  font-size: 10.5px;
+}
+.cue-box.cue-box--compact .cue-box__grip {
+  height: 7px;
+}
+.cue-box.cue-box--compact .cue-box__grip::after {
+  bottom: 2px;
+  height: 2px;
+}
+/* Stacked under the first box of the same GO: no line crosses it, the name starts at the top. */
+.cue-box.cue-box--under {
+  padding-top: 8px;
+}
+.cue-box.cue-box--under.cue-box--compact {
+  padding-top: 5px;
 }

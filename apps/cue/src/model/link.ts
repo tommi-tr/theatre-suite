@@ -353,5 +353,5 @@ export function linkPanel(i: LinkInfo, t: TFunc, lang: Lang, nowMs: number): Lin
   if (i.role === "secondary" && i.found?.pairing) return { ...base, title: t("Looking for the primary…"), detail: t("Type the code shown by {name}", { name: i.found.name }) };
   if (i.role === "secondary") return { ...base, title: t("Looking for the primary…"), detail: t("Choose Primary on the other computer") };
   if (primary && i.pairedWith) return { ...base, title: t("No secondary"), detail: t("Looking for the secondary…") };
-  return { ...base, title: t("No secondary"), detail: t("Controls → Link to pair one") };
+  return { ...base, title: t("No secondary"), detail: t("Settings → Link to pair one") };
 }

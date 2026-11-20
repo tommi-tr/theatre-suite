@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLang, useT, type TFunc } from "@theatre-suite/core";
-import { Button, confirmYesNo, Dialog, OutputPill, type IconName } from "@theatre-suite/ui";
+import { Button, confirmYesNo, Dialog, StatusLight, type IconName } from "@theatre-suite/ui";
 import { api, isTauri } from "../lib/api";
 import { dmxApi, dmxLinkText } from "../lib/dmx";
 import { saveDoc, writeVersion } from "../lib/files";
-import { toggleTest, useProj } from "../lib/projection";
+import { openOutput, projErrorText, toggleTest, useProj } from "../lib/projection";
 import { usePpt } from "../lib/ppt";
 import { linkPanel } from "../model/link";
 import {
@@ -59,27 +59,34 @@ export function ControlsMode() {
   );
 }
 
-function Card(p: { icon: IconName; title: string; state: PillState; label: string; text?: string; action?: { label: string; onClick: () => void }; tab?: SettingsTab }) {
+/**
+ * One output (design "Controlli"): title with the settings gear, the state in words and colour (StatusLight, grey when
+ * not in use), a line of detail, and the command to try it, full width at the bottom.
+ */
+function Card(p: { icon: IconName; title: string; state: PillState; label: string; text?: string; action?: { label: string; onClick: () => void; disabled?: boolean }; tab?: SettingsTab }) {
   const t = useT();
   return (
     <div className="cue-ctl__card">
       <div className="cue-ctl__cardhead">
         <strong>{p.title}</strong>
-        <OutputPill state={p.state} label={p.label} />
-      </div>
-      {p.text ? <p className="cue-ctl__text">{p.text}</p> : null}
-      <div className="cue-ctl__actions">
-        {p.action ? (
-          <Button variant="sm" onClick={p.action.onClick}>
-            {p.action.label}
-          </Button>
-        ) : null}
         {p.tab ? (
-          <Button variant="ghost" icon="settings" onClick={() => useUi.getState().openSettings(p.tab)}>
-            {t("Settings")}
-          </Button>
+          <Button variant="ghost" iconOnly icon="settings" aria-label={t("Settings")} title={t("Settings")} onClick={() => useUi.getState().openSettings(p.tab)} />
         ) : null}
       </div>
+      {p.state === "idle" ? (
+        <span className="ts-light cue-ctl__idle">
+          <span className="ts-light__dot" aria-hidden="true" />
+          {p.label}
+        </span>
+      ) : (
+        <StatusLight state={p.state} label={p.label} strong />
+      )}
+      {p.text ? <p className="cue-ctl__text">{p.text}</p> : null}
+      {p.action ? (
+        <Button className="cue-ctl__cmd" onClick={p.action.onClick} disabled={p.action.disabled}>
+          {p.action.label}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -88,7 +95,17 @@ function AudioCard() {
   const t = useT();
   const { simulated, engine } = useAudioStatus();
   const s: [PillState, string] = engine?.error ? ["stop", t("Problem")] : simulated ? ["idle", t("Simulated output")] : engine?.ready ? ["ok", t("Ready")] : ["warn", t("Starting")];
-  return <Card icon="speaker" title={t("Audio")} state={s[0]} label={s[1]} text={engine?.device ? String(engine.device) : undefined} tab="outputs" />;
+  return (
+    <Card
+      icon="speaker"
+      title={t("Audio")}
+      state={s[0]}
+      label={s[1]}
+      text={engine?.device && String(engine.device) !== s[1] ? String(engine.device) : simulated ? t("No sound card here: Cue shows what it would play.") : undefined}
+      action={{ label: t("Choose the sound card"), onClick: () => useUi.getState().openSettings("outputs") }}
+      tab="outputs"
+    />
+  );
 }
 
 function DmxCard() {
@@ -114,7 +131,11 @@ function DmxCard() {
       state={state}
       label={dmxLinkText(t, link)}
       text={testing ? t("Test on: every light at half. Press again to stop.") : undefined}
-      action={link.state === "connected" || link.state === "simulated" ? { label: testing ? t("Stop the test") : t("Test"), onClick: () => void test() } : undefined}
+      action={
+        link.state === "connected" || link.state === "simulated"
+          ? { label: testing ? t("Stop the test") : t("Test the lights"), onClick: () => void test() }
+          : { label: t("Connect the interface"), onClick: () => useUi.getState().openSettings("outputs") }
+      }
       tab="outputs"
     />
   );
@@ -130,7 +151,12 @@ function ProjectorCard() {
       title={t("Projector")}
       state={open ? "ok" : "idle"}
       label={open ? t("Output open") : t("Output closed")}
-      action={open ? { label: testing ? t("Stop the test pattern") : t("Test pattern"), onClick: () => void toggleTest() } : undefined}
+      text={open ? undefined : t("The output opens on the second screen (the projector).")}
+      action={
+        open
+          ? { label: testing ? t("Stop the test pattern") : t("Test pattern"), onClick: () => void toggleTest() }
+          : { label: t("Turn the output on"), onClick: () => void openOutput().catch((e) => useUi.getState().showToast(projErrorText(t, e), "error")) }
+      }
       tab="projections"
     />
   );
@@ -142,7 +168,8 @@ function SecondaryCard() {
   const lang = useLang();
   const p = linkPanel(info, t, lang, Date.now());
   const state: PillState = info.status === "stable" ? "ok" : info.status === "unstable" || info.status === "backup" ? "warn" : info.status === "lost" ? "stop" : info.status === "unavailable" ? "info" : "idle";
-  return <Card icon="plug" title={t("Secondary")} state={state} label={p.title} text={p.detail || undefined} tab="link" />;
+  const action = info.role === "none" || !info.pairedWith ? { label: t("Pair a computer"), onClick: () => useUi.getState().openSettings("link") } : undefined;
+  return <Card icon="plug" title={t("Secondary")} state={state} label={p.title} text={p.detail || undefined} action={action} tab="link" />;
 }
 
 function PptCard() {
@@ -150,7 +177,17 @@ function PptCard() {
   const ppt = usePpt();
   const state: PillState = ppt.status === "on" ? "ok" : ppt.status === "error" ? "stop" : ppt.status === "connecting" ? "warn" : "idle";
   const label = ppt.status === "on" ? (ppt.name || t("Connected")) : ppt.status === "error" ? t("Problem") : t("Not connected");
-  return <Card icon="image" title="PowerPoint" state={state} label={label} text={ppt.error ?? undefined} tab="projections" />;
+  return (
+    <Card
+      icon="image"
+      title="PowerPoint"
+      state={state}
+      label={label}
+      text={ppt.error ?? (ppt.status === "on" ? undefined : t("Recommended: import the slides as images in Projections."))}
+      action={{ label: t("Open Projections"), onClick: () => useUi.getState().setMode("projections") }}
+      tab="projections"
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ */

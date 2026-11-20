@@ -65,7 +65,7 @@ function SoundSection() {
           <Button variant="ghost" iconOnly icon="sync" title={t("Look for the outputs again")} aria-label={t("Look for the outputs again")} onClick={refresh} />
         </span>
       </Row>
-      <Row label={t("State")} hint={engine?.error ? engine.error : t("To hear a track before the show, play it from Controlli (Cue 0.6) or in Diaframma.")}>
+      <Row label={t("State")} hint={engine?.error ? engine.error : t("To hear a track before the show, play it in Diaframma (Cue does not make a test sound yet).")}>
         <OutputPill state={pill.state} label={pill.label} detail={engine?.ready && engine.sampleRate ? `${Math.round(engine.sampleRate / 100) / 10} kHz` : undefined} />
       </Row>
     </SettingsSection>
@@ -129,7 +129,7 @@ function DmxSection() {
           <Button variant="ghost" iconOnly icon="sync" title={t("Look for the cables again")} aria-label={t("Look for the cables again")} onClick={refresh} />
         </span>
       </Row>
-      <Row label={t("State")}>
+      <Row label={t("State")} hint={t("Connected, simulated or with a problem, in words. If Granvelo holds the cable, it says so here.")}>
         <span className="cue-out__ctl">
           <OutputPill state={pill.state} label={dmxLinkText(t, link)} busy={link.state === "connecting" || busy} />
           {connected ? (

@@ -197,7 +197,8 @@ export function Timeline({ mode, selectedGoId = null, onSelectGo }: TimelineProp
   const lineColor = (v: GoView | undefined): string | null => {
     if (!v) return null;
     if (v.status === "last") return "var(--go)";
-    if (v.status === "standby" && v.fireable) return reservedByMe ? "var(--pre)" : "var(--sb)";
+    // Reserved by the other computer: this one cannot give it, so its line stays grey (only the dot stays amber).
+    if (v.status === "standby" && v.fireable && !resv.other) return reservedByMe ? "var(--pre)" : "var(--sb)";
     return null;
   };
   const lineEndX = (row: TimelineGo): number | null => {
@@ -222,7 +223,7 @@ export function Timeline({ mode, selectedGoId = null, onSelectGo }: TimelineProp
               <g key={row.goId}>
                 <path d={pathTo(row)} stroke={stroke} strokeWidth={1.5} fill="none" />
                 {xe !== null ? <path d={`M${BTN_X + geo.btnW} ${row.lineY}H${xe}`} stroke={stroke} strokeWidth={1} strokeOpacity={0.6} fill="none" /> : null}
-                <circle cx={0} cy={row.dotY} r={4.5} fill={stroke} />
+                <circle cx={0} cy={row.dotY} r={4.5} fill={v?.status === "standby" ? "var(--sb)" : stroke} />
               </g>
             );
           })}
@@ -393,10 +394,35 @@ function ProjThumb({ item }: { item: ProjectionItem | undefined }) {
   );
 }
 
+/** The whole name of a box, as a tooltip: a narrow or short box cuts it with "…". */
+function boxTitle(action: Action, library: BoxViewProps["library"], projItems: BoxViewProps["projItems"]): string | undefined {
+  switch (action.kind) {
+    case "light": {
+      const m = library.light(action.ref);
+      return m ? `M${m.number} ${m.name}` : undefined;
+    }
+    case "audio":
+    case "audioStop": {
+      const tr = action.ref ? library.track(action.ref) : null;
+      return tr ? stripExt(tr.name) : undefined;
+    }
+    case "projection": {
+      const item = action.projectionItemId ? projItems.get(action.projectionItemId) : undefined;
+      return item?.name;
+    }
+    default:
+      return undefined;
+  }
+}
+
 const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state, library, projItems, selected, onSelect, onResize, t }: BoxViewProps) {
   const h = box.bottom - box.top;
-  // A squeezed box keeps its colour and its name; the words IN SCENA / STANDBY need room.
-  const tight = h < 58;
+  // A squeezed box keeps its colour and its name; the words IN SCENA / STANDBY need room. The line of the GO crosses
+  // only the first box of a column (stack 0): below it a stacked box can start its name at the top.
+  const under = box.stack > 0;
+  const tight = h < (under ? 40 : 58);
+  // Very little room: smaller name, no padding below, so that the name stays whole under the line.
+  const compact = h < (under ? 26 : 46);
   const label = tight ? null : state === "on" ? t("IN SCENE") : state === "sb" ? t("STANDBY") : null;
   let body: React.ReactNode = null;
   let missing = false;
@@ -460,8 +486,9 @@ const TimelineBoxView = memo(function TimelineBoxView({ box, action, x, w, state
   }
   return (
     <div
-      className={`cue-box cue-box--${box.column}${state ? ` cue-box--${state}` : ""}${missing ? " cue-box--missing" : ""}${selected ? " cue-box--sel" : ""}${tight ? " cue-box--tight" : ""}${onSelect ? " cue-box--click" : ""}`}
+      className={`cue-box cue-box--${box.column}${state ? ` cue-box--${state}` : ""}${missing ? " cue-box--missing" : ""}${selected ? " cue-box--sel" : ""}${tight ? " cue-box--tight" : ""}${compact ? " cue-box--compact" : ""}${under ? " cue-box--under" : ""}${onSelect ? " cue-box--click" : ""}`}
       style={{ left: x, width: w, top: box.top, height: Math.max(16, h) }}
+      title={boxTitle(action, library, projItems)}
       onClick={onSelect}
     >
       {label ? (

@@ -3,6 +3,7 @@ import { useT } from "@theatre-suite/core";
 import { Button, Icon } from "@theatre-suite/ui";
 import { loadScript, replaceScript } from "../lib/script";
 import { SCRIPT_WIDTH_MAX, SCRIPT_WIDTH_MIN } from "../model/show";
+import { actionDept } from "../model/gos";
 import { useDoc } from "../store/doc";
 import { NotesColumn, addNote } from "./NotesColumn";
 import { PeekBand, ScriptView } from "./ScriptView";
@@ -21,6 +22,9 @@ export const DEFAULT_SCRIPT_WIDTH = 0.46;
 /** Never narrower than these (px). */
 const MIN_SCRIPT_PX = 240;
 const MIN_COLUMNS_PX = 160;
+/** Buttons, gaps and margins of the columns area, and a comfortable column (Timeline.tsx). */
+const COLUMNS_FIXED_PX = 158;
+const COLUMN_COMFORT_PX = 106;
 
 /** "Nota" (K) in Prepara: a note at the pointer, or at the reading line. */
 export async function addNoteHere(): Promise<void> {
@@ -40,6 +44,11 @@ export function ScriptStage({ mode, left, right }: { mode: "show" | "prepare"; l
   const workRef = useRef<HTMLDivElement>(null);
   const [workW, setWorkW] = useState(0);
   const [drag, setDrag] = useState<number | null>(null);
+  const depts = useDoc((s) => {
+    const set = new Set<string>();
+    for (const g of s.show?.gos ?? []) for (const a of g.actions) set.add(actionDept(a));
+    return set.size;
+  });
   const frac = drag ?? saved ?? DEFAULT_SCRIPT_WIDTH;
   const selectedGoId = useUi((s) => s.selectedGoId);
   const selectGo = useUi((s) => s.selectGo);
@@ -58,10 +67,13 @@ export function ScriptStage({ mode, left, right }: { mode: "show" | "prepare"; l
     (f: number) => {
       if (workW <= 0) return f;
       const lo = Math.max(SCRIPT_WIDTH_MIN, MIN_SCRIPT_PX / workW);
-      const hi = Math.min(SCRIPT_WIDTH_MAX, 1 - MIN_COLUMNS_PX / workW);
+      // The columns keep about 100 px each (names readable), as long as the script keeps its minimum: in Prepara,
+      // with the library on the left, the same saved width would otherwise squeeze them.
+      const columnsPx = Math.max(MIN_COLUMNS_PX, Math.min(COLUMNS_FIXED_PX + depts * COLUMN_COMFORT_PX, workW - MIN_SCRIPT_PX));
+      const hi = Math.min(SCRIPT_WIDTH_MAX, 1 - columnsPx / workW);
       return Math.min(Math.max(lo, f), Math.max(lo, hi));
     },
-    [workW],
+    [workW, depts],
   );
   const scriptPx = workW > 0 ? Math.round(clampFrac(frac) * workW) : undefined;
 

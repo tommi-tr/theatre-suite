@@ -7,7 +7,7 @@ export const itLink: Dict = {
   "Commands taken from the secondary": "Comandi tolti al secondario",
   "Connected": "Connesso",
   "Connected · {ms} ms": "Connesso · {ms} ms",
-  "Controls → Link to pair one": "Controlli → Collegamento per abbinarne uno",
+  "Settings → Link to pair one": "Impostazioni → Collegamento per abbinarne uno",
   "Disconnected for {time}": "Scollegato da {time}",
   "Give the commands back": "Ridai i comandi",
   "given by the primary": "lo dà il primario",

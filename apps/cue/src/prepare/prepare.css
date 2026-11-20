@@ -1,7 +1,7 @@
 /* Prepara: library panel (left) and selected-GO panel (right). Only cue- classes on top of packages/ui. */
 
 .cue-library.cue-lib {
-  width: 240px;
+  width: 220px;
   gap: 8px;
   min-height: 0;
 }
@@ -492,4 +492,9 @@
 }
 .cue-item--video.cue-item--on {
   outline-color: var(--dept-video);
+}
+
+/* Prepara has the library on the left too: a narrower notes column leaves room for the columns. */
+.cue-stage[data-mode="prepare"] .cue-notes {
+  width: 168px;
 }

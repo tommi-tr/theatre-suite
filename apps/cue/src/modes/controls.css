@@ -7,6 +7,10 @@
 .cue-ctl__box--grow { flex: 1 1 auto; min-height: 220px; }
 .cue-ctl__cardhead, .cue-ctl__boxhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cue-ctl__text { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
+.cue-ctl__card .cue-ctl__cardhead { min-height: 28px; }
+.cue-ctl__card .cue-ctl__cardhead .ts-btn { width: 28px; height: 28px; }
+.cue-ctl__idle { font-weight: 600; }
+.cue-ctl__cmd { margin-top: auto; justify-content: center; width: 100%; }
 .cue-ctl__actions, .cue-ctl__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cue-ctl__row .ts-input { flex: 1 1 160px; }
 .cue-ctl__count { font: 600 12px var(--font-mono, monospace); color: var(--sb, #ffb224); }

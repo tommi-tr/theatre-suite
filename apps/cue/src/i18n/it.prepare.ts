@@ -130,7 +130,7 @@ export const itPrepare: Dict = {
   "The sound output could not be changed: {error}": "Non è stato possibile cambiare l'uscita audio: {error}",
   "They stay on the script, with the missing item marked, and work again if you link the file again.":
     "Restano sul copione, con l'elemento mancante segnato, e tornano a funzionare se colleghi di nuovo il file.",
-  "To hear a track before the show, play it from Controlli (Cue 0.6) or in Diaframma.": "Per sentire una traccia prima dello spettacolo, suonala da Controlli (Cue 0.6) o in Diaframma.",
+  "To hear a track before the show, play it in Diaframma (Cue does not make a test sound yet).": "Per sentire una traccia prima dello spettacolo, suonala in Diaframma (Cue non fa ancora un suono di prova).",
   "Too new": "Troppo recente",
   "Track": "Traccia",
   "USB-DMX cable": "Cavo USB-DMX",
@@ -140,4 +140,6 @@ export const itPrepare: Dict = {
   "Wrong format": "Formato sbagliato",
   "Zoom in (or next page)": "Ingrandisci (o pagina avanti)",
   "Zoom out (or previous page)": "Riduci (o pagina indietro)",
+
+  "Connected, simulated or with a problem, in words. If Granvelo holds the cable, it says so here.": "Collegato, simulato o con un problema, in parole. Se il cavo lo tiene Granvelo, lo dice qui.",
 };

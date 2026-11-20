@@ -136,7 +136,8 @@
 }
 .cue-link[data-tone="neutral"] .cue-link__chip,
 .cue-link[data-tone="go"] .cue-link__chip {
-  border-color: var(--border-2, var(--border));
+  border-color: var(--border-strong);
+  color: var(--text-2);
 }
 .cue-link__input {
   height: 30px;

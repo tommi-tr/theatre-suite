@@ -38,7 +38,7 @@ describe("link panel (13_cue.md, exact Italian texts)", () => {
   });
 
   it("no secondary: neutral, no border; pairing shows the code", () => {
-    expect(linkPanel(NO_LINK, t, "it", NOW)).toMatchObject({ tone: "neutral", border: null, heading: null, title: "Nessun secondario", detail: "Controlli → Collegamento per abbinarne uno" });
+    expect(linkPanel(NO_LINK, t, "it", NOW)).toMatchObject({ tone: "neutral", border: null, heading: null, title: "Nessun secondario", detail: "Impostazioni → Collegamento per abbinarne uno" });
     expect(linkPanel(info(["pairing"]), t, "it", NOW).detail).toBe("Codice di abbinamento 482 913");
     expect(linkPanel(info(["pairing", "secondary"]), t, "it", NOW).detail).toBe("Scrivi il codice che mostra Regia");
   });
