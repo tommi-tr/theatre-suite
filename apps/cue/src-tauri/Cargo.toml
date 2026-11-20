@@ -29,6 +29,10 @@ base64 = "0.22.1"
 # The engines shared with Diaframma and Granvelo (src/audio.rs, src/dmx.rs).
 audio-engine = { path = "../../../crates/audio-engine" }
 dmx-engine = { path = "../../../crates/dmx-engine" }
+# Primary/secondary link (src/net): signed messages, pairing code, interface list for discovery.
+hmac = "0.13.0"
+getrandom = "0.4.3"
+if-addrs = "0.15.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"

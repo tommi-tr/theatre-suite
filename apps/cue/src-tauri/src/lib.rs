@@ -10,6 +10,7 @@
 mod audio;
 mod dmx;
 mod files;
+pub mod net;
 mod power;
 mod storage;
 mod tcue;
@@ -85,6 +86,7 @@ pub fn run() {
         // Sound and lights engines: started at their first command, stopped at exit.
         .manage(audio::CueAudio::default())
         .manage(dmx::CueDmx::default())
+        .manage(net::CueLink::default())
         .setup(move |app| {
             // The window is created here (not from the config) so that an extra instance gets its own
             // webview data folder: two WebView2 processes must not share one.
@@ -155,6 +157,20 @@ pub fn run() {
             dmx::dmx_grand_master,
             dmx::dmx_get_status,
             dmx::dmx_test_output,
+            net::link_info,
+            net::link_configure,
+            net::link_new_code,
+            net::link_enter_code,
+            net::link_forget,
+            net::link_request,
+            net::link_reply,
+            net::link_publish_state,
+            net::link_publish_event,
+            net::link_reserve,
+            net::link_take_commands,
+            net::link_chat,
+            net::link_pointer,
+            net::link_send_show,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Cue");
@@ -163,6 +179,7 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             audio::shutdown(handle);
             dmx::shutdown(handle);
+            net::shutdown(handle);
             power::keep_awake(false);
             storage::session_end(handle);
         }
