@@ -942,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "diaframma"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "audio-engine",
  "log",
@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "granvelo"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "dmx-engine",
  "serde",
@@ -2276,7 +2276,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "launcher-core",
  "serde",

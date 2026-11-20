@@ -1,6 +1,6 @@
 [package]
 name = "granvelo"
-version = "0.6.0"
+version = "0.6.1"
 description = "Granvelo — the lighting desk of a show: stage, lights, desk and memories (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"

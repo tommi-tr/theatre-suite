@@ -454,19 +454,25 @@ export function Dialog({
   closeLabel?: string;
 }) {
   const boxRef = useRef<HTMLElement>(null);
+  // The latest onClose, so a new function identity at each render does not re-run the effects below.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         e.preventDefault();
-        onClose();
+        closeRef.current();
       }
     };
     window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+  // Focus the first control once, when the dialog opens (not again while the user types).
+  useEffect(() => {
     const first = boxRef.current?.querySelector<HTMLElement>("button, input, select, [tabindex='0']");
     first?.focus();
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, []);
   return (
     <div className="ts-overlay" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <section ref={boxRef} role="dialog" aria-modal="true" aria-label={title} className="ts-dialog" style={{ width }}>

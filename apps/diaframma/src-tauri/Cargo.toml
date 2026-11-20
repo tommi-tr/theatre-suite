@@ -1,6 +1,6 @@
 [package]
 name = "diaframma"
-version = "0.3.1"
+version = "0.3.2"
 description = "Diaframma — sound for the theatre (Theatre Suite)"
 authors = ["Theatre Suite"]
 edition = "2024"
