@@ -1,5 +1,5 @@
-// Generates the launcher's icons (PNG + ICO): a light tile with four short strokes, one per app
-// (02_design.md): indigo Diaframma, copper Bardo, slate Cantinella, magenta Luci (Granvelo).
+// Generates the launcher's icons (PNG + ICO): a light tile with five short strokes, one per app, laid out like the five on a die
+// (02_design.md): indigo Diaframma, copper Bardo, chalk Cue (centre), slate Cantinella, magenta Luci (Granvelo).
 // Run with: pnpm --filter launcher icons
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -10,10 +10,11 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri", "ic
 const TILE = "#F6F6F8";
 const BORDER = "#E1E2E7";
 const STROKES = [
-  ["M24 36H44", "#6B5BEF"], // Diaframma
-  ["M56 36H76", "#C8642C"], // Bardo
-  ["M24 64H44", "#55627E"], // Cantinella
-  ["M56 64H76", "#c2349f"], // Luci
+  ["M22 28H42", "#6B5BEF"], // Diaframma
+  ["M58 28H78", "#C8642C"], // Bardo
+  ["M40 50H60", "#77726A"], // Cue
+  ["M22 72H42", "#55627E"], // Cantinella
+  ["M58 72H78", "#c2349f"], // Luci
 ];
 
 function svg(size) {

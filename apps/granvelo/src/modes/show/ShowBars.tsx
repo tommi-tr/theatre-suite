@@ -1,5 +1,5 @@
 import { useLang, useT } from "@theatre-suite/core";
-import { Button, HoldButton, Icon, Kbd, Segmented } from "@theatre-suite/ui";
+import { Button, HoldButton, Icon, Kbd, KeyCommand, KeyCommandBar, Segmented } from "@theatre-suite/ui";
 import { fmtNum } from "../../lib/format";
 import { sequenceMemories } from "../../model/sequence";
 import { useDesk } from "../../store/desk";
@@ -147,29 +147,26 @@ export function ShowFooter() {
         {st.startedAt !== null ? t("Evening {time}", { time: clock(now - st.startedAt) }) : t("The evening starts at the first GO")}
       </span>
       <span className="ts-spacer" />
-      <button type="button" className="gv-cmd" data-on={st.blackout ? "" : undefined} onMouseDown={noFocus} onClick={() => blackout(t)} disabled={!!st.emergency} title={t("Everything dark at once; press again to bring it back")}>
-        <Icon name="blackout" size={14} />
-        {st.blackout ? t("Blackout on") : "Blackout"}
-        <Kbd>B</Kbd>
-      </button>
-      <button type="button" className="gv-cmd" data-on={st.ftb ? "" : undefined} onMouseDown={noFocus} onClick={() => fadeToBlack(t)} disabled={!!st.emergency} title={t("Down to dark in the time shown; press again to come back (time in the Settings → Memories)")}>
-        <Icon name="ftb" size={14} />
-        {st.ftb ? t("Dark") : "Fade to black"} · {fmtNum(ftbSeconds, lang, 1)} s
-        <Kbd>F</Kbd>
-      </button>
-      <button
-        type="button"
-        className="gv-cmd gv-cmd--stop"
-        data-armed={armed ? "" : undefined}
-        data-on={st.emergency ? "" : undefined}
-        onMouseDown={noFocus}
-        onClick={() => (st.emergency ? leaveEmergency(t) : emergency(t))}
-        title={st.emergency ? t("Back to the show") : t("Press twice: all the lights white at full (or the memory chosen in the Settings)")}
-      >
-        <Icon name="emergency" size={14} />
-        {st.emergency ? t("Emergency on") : armed ? t("Press E again") : t("Emergency")}
-        <Kbd>E E</Kbd>
-      </button>
+      <KeyCommandBar>
+        <KeyCommand icon="blackout" keys="B" active={st.blackout} onMouseDown={noFocus} onClick={() => blackout(t)} disabled={!!st.emergency} title={t("Everything dark at once; press again to bring it back")}>
+          {st.blackout ? t("Blackout on") : "Blackout"}
+        </KeyCommand>
+        <KeyCommand icon="ftb" keys="F" active={st.ftb} onMouseDown={noFocus} onClick={() => fadeToBlack(t)} disabled={!!st.emergency} title={t("Down to dark in the time shown; press again to come back (time in the Settings → Memories)")}>
+          {st.ftb ? t("Dark") : "Fade to black"} · {fmtNum(ftbSeconds, lang, 1)} s
+        </KeyCommand>
+        <KeyCommand
+          icon="emergency"
+          variant="danger"
+          keys="E E"
+          active={!!st.emergency}
+          armed={armed}
+          onMouseDown={noFocus}
+          onClick={() => (st.emergency ? leaveEmergency(t) : emergency(t))}
+          title={st.emergency ? t("Back to the show") : t("Press twice: all the lights white at full (or the memory chosen in the Settings)")}
+        >
+          {st.emergency ? t("Emergency on") : armed ? t("Press E again") : t("Emergency")}
+        </KeyCommand>
+      </KeyCommandBar>
     </div>
   );
 }

@@ -473,9 +473,10 @@ h1, h2, h3, p { margin: 0; }
 .ln-checkstate--err strong { color: var(--sb); }
 .ln-weekly { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); cursor: pointer; }
 
-/* The four apps: two by two (one column when the window is narrow). Theatre Suite itself is the header above. */
-.ln-store-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; align-items: stretch; }
-@media (min-width: 900px) { .ln-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* The apps: three by three on a wide window, two below ~1100 px, one when narrow. Theatre Suite itself is the header above. */
+.ln-store-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+@media (max-width: 1099px) { .ln-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 699px) { .ln-store-grid { grid-template-columns: minmax(0, 1fr); } }
 .ln-appcard {
   position: relative;
   display: flex;
@@ -499,6 +500,13 @@ h1, h2, h3, p { margin: 0; }
 .ln-appcard--soon { background: var(--surface-2); }
 .ln-appcard--soon::before { opacity: 0.35; }
 .ln-appcard--soon .ln-appcard__top > :first-child { opacity: 0.7; }
+/* The quiet sixth card: an invitation, not an app. */
+.ln-appcard--more { align-items: flex-start; justify-content: center; gap: 8px; background: var(--surface-2); border-style: dashed; border-color: var(--border-strong); }
+.ln-appcard--more::before { display: none; }
+.ln-appcard--more:hover { box-shadow: none; }
+.ln-appcard--more h3 { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.ln-appcard--more p { font-size: 13px; line-height: 1.55; color: var(--text-3); }
+.ln-appcard__more .ln-linkbtn, .ln-appcard__more .ln-keep { white-space: nowrap; }
 .ln-appcard__top { display: flex; align-items: center; gap: 14px; }
 .ln-appcard__titles { flex: 1; min-width: 0; }
 .ln-appcard__titles h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
@@ -511,7 +519,7 @@ h1, h2, h3, p { margin: 0; }
 .ln-appcard__ver { display: flex; flex-direction: column; font-size: 11px; color: var(--text-3); line-height: 1.3; }
 .ln-appcard__ver strong { font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
 .ln-appcard__foot .ts-btn--primary { height: 34px; padding: 0 16px; }
-.ln-appcard__more { display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ln-appcard__more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .ln-linkbtn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; margin-left: -6px; font-size: 12px; font-weight: 500; color: var(--text-2); background: none; border: 0; border-radius: var(--r-sm); cursor: pointer; }
 .ln-linkbtn:hover { color: var(--text); background: var(--surface-2); }
 .ln-keep { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); cursor: pointer; }

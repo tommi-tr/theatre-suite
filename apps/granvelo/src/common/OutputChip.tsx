@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useT } from "@theatre-suite/core";
-import { Button, Icon } from "@theatre-suite/ui";
+import { AlertBand, Button, Icon, OutputPill, type OutputPillState } from "@theatre-suite/ui";
 import type { DmxErrorCode, DmxStatus, LinkState } from "../lib/dmx";
 import { useOutput } from "../store/output";
 import { useUi } from "../store/ui";
@@ -178,20 +178,10 @@ export function OutputChip() {
   }
 
   const dot = link.state === "connected" ? "ts-dot--go" : link.state === "lost" ? "ts-dot--stop" : "";
+  const pill: OutputPillState = link.state === "connected" ? "ok" : link.state === "lost" ? "stop" : "idle";
   return (
     <div className="gv-out">
-      <button
-        type="button"
-        className={`gv-out-chip${link.state === "lost" ? " gv-out-chip--lost" : ""}${link.state === "connecting" ? " gv-out-chip--busy" : ""}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title={t("DMX output")}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className={`ts-dot ${dot}`} />
-        <span className="gv-out-chip__label">{linkLabel(t, link)}</span>
-        <Icon name="chevDown" size={12} />
-      </button>
+      <OutputPill state={pill} busy={link.state === "connecting"} open={open} label={linkLabel(t, link)} aria-haspopup="dialog" title={t("DMX output")} onClick={() => setOpen((v) => !v)} />
       {open ? (
         <Popover onClose={() => setOpen(false)}>
           <div className="gv-out-pop__head">
@@ -237,15 +227,12 @@ export function OutputBanner() {
   const link = useOutput((s) => s.status.link);
   if (link.state !== "lost") return null;
   return (
-    <div className="ts-banner gv-out-banner" role="alert">
-      <span className="ts-dot ts-dot--stop" />
-      <span>
-        <strong>{t("USB-DMX cable unplugged.")}</strong> {t("Granvelo keeps trying to reconnect it; as soon as it is back, the lights get the current state at once.")}
-      </span>
-      <span className="ts-spacer" />
-      <Button variant="sm" icon="settings" onClick={() => useUi.getState().openSettings("dmx")}>
-        {t("Output settings…")}
-      </Button>
-    </div>
+    <AlertBand
+      tone="stop"
+      title={t("USB-DMX cable unplugged.")}
+      action={{ label: t("Output settings…"), icon: "settings", onClick: () => useUi.getState().openSettings("dmx") }}
+    >
+      {t("Granvelo keeps trying to reconnect it; as soon as it is back, the lights get the current state at once.")}
+    </AlertBand>
   );
 }

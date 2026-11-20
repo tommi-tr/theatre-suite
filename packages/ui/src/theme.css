@@ -841,6 +841,142 @@ textarea {
   background: var(--sb-soft);
   font-size: 12.5px;
 }
+/* Alert band (AlertBand): the ts-banner layout, coloured by tone. */
+.ts-alertband--stop {
+  border-bottom-color: var(--stop);
+  background: var(--stop-soft);
+}
+.ts-alertband--stop strong {
+  color: var(--stop);
+}
+.ts-alertband--stop > svg {
+  color: var(--stop);
+}
+.ts-alertband--warn > svg,
+.ts-alertband--warn strong {
+  color: var(--sb);
+}
+.ts-alertband--info {
+  border-bottom-color: var(--pre-line);
+  background: var(--pre-soft);
+}
+.ts-alertband--info > svg,
+.ts-alertband--info strong {
+  color: var(--pre);
+}
+
+/* ---------- Key commands (KeyCommand): words with their key, no box, for the bottom bar of a live mode ---------- */
+.ts-keycmds {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.ts-keycmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ts-keycmd:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.ts-keycmd:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ts-keycmd[data-on] {
+  color: var(--sb);
+  background: var(--sb-soft);
+  font-weight: 600;
+}
+.ts-keycmd--danger {
+  color: var(--stop);
+  font-weight: 600;
+}
+.ts-keycmd--danger[data-on],
+.ts-keycmd--danger[data-armed] {
+  color: var(--stop);
+  background: var(--stop-soft);
+  box-shadow: inset 0 0 0 1px var(--stop);
+}
+.ts-keycmd--danger[data-armed] {
+  animation: ts-keycmd-armed 0.6s ease-in-out infinite alternate;
+}
+@keyframes ts-keycmd-armed {
+  to {
+    background: transparent;
+  }
+}
+
+/* ---------- Output pill (OutputPill): the state of an output as a round pill ---------- */
+.ts-outpill {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+button.ts-outpill {
+  cursor: pointer;
+}
+button.ts-outpill:hover,
+.ts-outpill[aria-expanded="true"] {
+  background: var(--surface-2);
+}
+.ts-outpill > svg {
+  flex: none;
+  color: var(--text-3);
+}
+.ts-outpill__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ts-outpill__detail {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.ts-outpill--stop {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+  color: var(--stop);
+  font-weight: 600;
+}
+button.ts-outpill--stop:hover,
+.ts-outpill--stop[aria-expanded="true"] {
+  background: var(--stop-soft);
+  filter: brightness(1.15);
+}
+.ts-outpill--busy .ts-dot {
+  animation: ts-outpill-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes ts-outpill-pulse {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* ---------- Show band: the app is open inside a show of the launcher ---------- */
 .ts-titlebar--show {
