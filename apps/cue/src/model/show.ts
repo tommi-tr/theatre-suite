@@ -12,20 +12,30 @@
 export const FORMAT = "theatre.cue";
 export const FORMAT_VERSION = 1;
 
-/** A point of the script: page (from 1), height on the page (0 top … 1 bottom), the text around it. */
+/**
+ * A point of the script (model/anchor.ts): page (from 1), height on the page (0 top … 1 bottom), optionally the
+ * position across, and the text at that point to find it again in a new edition of the script.
+ */
 export interface Anchor {
   page: number;
   y: number;
-  /** Text at the point, to find it again in a new edition of the script (phase 1). */
-  text?: { before: string; exact: string; after: string };
+  x?: number;
+  /** The line at the point ("" on a page without text). */
+  quote: string;
+  /** A few words before and after the quote. */
+  before: string;
+  after: string;
   /** With a Bardo script: the id of the line (phase 5). */
   lineId?: string;
 }
 
-/** The script: one PDF inside the file, or a Bardo script among the sources (planned, phases 1 and 5). */
+/** The script: one PDF inside the file, or a Bardo script among the sources (phase 5). */
 export type ScriptRef =
-  | { kind: "pdf"; part: string; name: string; pages: number; sha256: string }
+  | { kind: "pdf"; part: string; fileName: string; sha256: string; pageCount: number }
   | { kind: "bardo"; sourceId: string };
+
+/** The part name of the script PDF inside the file (one PDF per show). */
+export const SCRIPT_PART = "script.pdf";
 
 export type SourceApp = "granvelo" | "diaframma" | "bardo";
 
@@ -93,7 +103,7 @@ export interface SpeedZone {
 
 /** Widths and heights the user set (phase 1–2). */
 export interface Layout {
-  /** Width of the script column in px; null = automatic. */
+  /** Width of the script as a fraction (0.2–0.8) of script + columns; null = the default. */
   scriptWidth: number | null;
   /** Height in px of each audio box (by action id), dragged by its handle. */
   audioBoxHeights: Record<string, number>;
@@ -196,14 +206,23 @@ function list<T>(v: unknown, fix: (o: Raw) => T | null): T[] {
 
 function anchor(v: unknown): Anchor {
   const o = isObj(v) ? v : {};
-  return { ...o, page: Math.round(num(o.page, 1, 1)), y: num(o.y, 0, 0, 1) } as Anchor;
+  const a = { ...o, page: Math.round(num(o.page, 1, 1)), y: num(o.y, 0, 0, 1), quote: str(o.quote), before: str(o.before), after: str(o.after) } as Anchor;
+  if (o.x !== undefined) {
+    if (typeof o.x === "number" && Number.isFinite(o.x)) a.x = num(o.x, 0, 0, 1);
+    else delete a.x;
+  }
+  return a;
 }
+
+export const SCRIPT_WIDTH_MIN = 0.2;
+export const SCRIPT_WIDTH_MAX = 0.8;
 
 const withId = (o: Raw) => (typeof o.id === "string" && o.id ? o : null);
 
 function script(v: unknown): ScriptRef | null {
   if (!isObj(v)) return null;
-  if (v.kind === "pdf" && typeof v.part === "string") return { ...v, kind: "pdf", part: v.part, name: str(v.name), pages: Math.round(num(v.pages, 0, 0)), sha256: str(v.sha256) } as ScriptRef;
+  if (v.kind === "pdf" && typeof v.part === "string")
+    return { ...v, kind: "pdf", part: v.part, fileName: str(v.fileName), sha256: str(v.sha256), pageCount: Math.round(num(v.pageCount, 0, 0)) } as ScriptRef;
   if (v.kind === "bardo" && typeof v.sourceId === "string") return { ...v, kind: "bardo", sourceId: v.sourceId } as ScriptRef;
   // A kind this Cue does not know: kept as it is.
   return v as unknown as ScriptRef;
@@ -248,7 +267,8 @@ export function parseShow(text: string, makeId: () => string = defaultId): CueSh
     speedZones: list(raw.speedZones, (o) => (withId(o) ? ({ ...o, from: anchor(o.from), speed: num(o.speed, 1, 0.05, 20) } as unknown as SpeedZone) : null)),
     layout: {
       ...layout,
-      scriptWidth: typeof layout.scriptWidth === "number" && Number.isFinite(layout.scriptWidth) ? Math.round(layout.scriptWidth) : null,
+      scriptWidth:
+        typeof layout.scriptWidth === "number" && Number.isFinite(layout.scriptWidth) ? Math.min(SCRIPT_WIDTH_MAX, Math.max(SCRIPT_WIDTH_MIN, layout.scriptWidth)) : null,
       audioBoxHeights: isObj(layout.audioBoxHeights) ? (layout.audioBoxHeights as Record<string, number>) : {},
     },
     projection: {

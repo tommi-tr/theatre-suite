@@ -13,11 +13,13 @@
 //!
 //! This module has no Tauri dependency, so it is tested with plain `cargo test`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
@@ -279,16 +281,43 @@ pub fn read_part(path: &Path, name: &str) -> Result<Vec<u8>, TcueError> {
     if entry.size() > MAX_PART {
         return Err(TcueError::Damaged(format!("{name} is too large to read at once")));
     }
-    let mut out = Vec::with_capacity(entry.size() as usize);
+    // The size in the zip header is only a hint: never trusted for the allocation.
+    let mut out = Vec::with_capacity(entry.size().min(64 * 1024 * 1024) as usize);
     entry.take(MAX_PART + 1).read_to_end(&mut out).map_err(|e| TcueError::Damaged(format!("Cannot read {name}: {e}")))?;
     Ok(out)
 }
 
-/// `<file>.tmp` next to the file.
+/// A temporary file next to `target`, with a name no other save uses (process id + counter), so two
+/// saves at once (a key held down, two `--instance` processes) never write into the same file.
 pub fn tmp_path(target: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
     let mut name = target.file_name().map(|n| n.to_os_string()).unwrap_or_default();
-    name.push(".tmp");
+    name.push(format!(".{}-{n}.tmp", std::process::id()));
     target.with_file_name(name)
+}
+
+/// One lock per target path: saves of the same file inside this process take turns.
+pub fn path_lock(target: &Path) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
+    let key = std::path::absolute(target).unwrap_or_else(|_| target.to_path_buf());
+    let mut map = LOCKS.get_or_init(|| Mutex::new(HashMap::new())).lock().unwrap_or_else(|e| e.into_inner());
+    map.entry(key).or_default().clone()
+}
+
+/// `fs::rename`, retried a few times when Windows says "access denied" (an antivirus or the search
+/// indexer may hold the old file for a moment).
+pub fn rename_retry(from: &Path, to: &Path) -> io::Result<()> {
+    let mut tries = 0;
+    loop {
+        match fs::rename(from, to) {
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && tries < 5 => {
+                tries += 1;
+                std::thread::sleep(std::time::Duration::from_millis(60 + 10 * tries));
+            }
+            other => return other,
+        }
+    }
 }
 
 /// Random 128-bit identifier as 32 hex digits (same shape as the launcher's ids).
@@ -353,13 +382,15 @@ pub fn save(target: &Path, source: Option<&Path>, show_json: Option<&str>, add: 
             fs::create_dir_all(parent).map_err(|e| io_err("Cannot create the folder", parent, e))?;
         }
     }
+    let lock = path_lock(target);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tmp_path(target);
     let written = write_zip(&tmp, src.as_deref(), show_json, add, &added, &removed);
     if let Err(e) = written {
         let _ = fs::remove_file(&tmp);
         return Err(e);
     }
-    if let Err(e) = fs::rename(&tmp, target) {
+    if let Err(e) = rename_retry(&tmp, target) {
         let _ = fs::remove_file(&tmp);
         return Err(io_err("Cannot save", target, e));
     }
@@ -431,6 +462,112 @@ fn write_zip(tmp: &Path, src: Option<&Path>, show_json: Option<&str>, add: &[Add
     let file = buf.into_inner().map_err(|e| w(e.into_error()))?;
     file.sync_all().map_err(w)?;
     Ok(())
+}
+
+// ---------------- Pending parts and export ----------------
+//
+// A part added to the show (a new script PDF) is not in the `.tcue` until the next save. So that it
+// survives a crash, it is first copied ("staged") into Cue's autosave folder; the autosave lists it
+// and recovery takes it back. The save then copies the staged file into the zip (`fromPath`).
+
+/// A part copied into the staging folder, waiting for the next save.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Staged {
+    /// Where the copy is (inside the staging folder).
+    pub path: String,
+    pub sha256: String,
+    pub size: u64,
+}
+
+/// Copies `from` into `dir` under a new unique name ending with the part name, atomically
+/// (temporary file, flush, rename), computing its SHA-256 on the way.
+pub fn stage_copy(from: &Path, dir: &Path, part_name: &str) -> Result<Staged, TcueError> {
+    check_part_name(part_name)?;
+    let meta = fs::metadata(from).map_err(|e| io_err("Cannot open", from, e))?;
+    if !meta.is_file() {
+        return Err(TcueError::Io(format!("{} is not a file", from.display())));
+    }
+    if meta.len() > MAX_PART {
+        return Err(TcueError::Io(format!("{} is too large", from.display())));
+    }
+    fs::create_dir_all(dir).map_err(|e| io_err("Cannot create the folder", dir, e))?;
+    let flat = part_name.replace('/', "_");
+    let target = dir.join(format!("{}-{flat}", &new_id()[..16]));
+    let tmp = tmp_path(&target);
+    let result = (|| -> Result<Staged, TcueError> {
+        let mut src = File::open(from).map_err(|e| io_err("Cannot open", from, e))?;
+        let mut out = BufWriter::new(File::create(&tmp).map_err(|e| io_err("Cannot write", &tmp, e))?);
+        let mut h = Sha256::new();
+        let mut buf = vec![0u8; 256 * 1024];
+        let mut size = 0u64;
+        loop {
+            let n = src.read(&mut buf).map_err(|e| io_err("Cannot read", from, e))?;
+            if n == 0 {
+                break;
+            }
+            h.update(&buf[..n]);
+            out.write_all(&buf[..n]).map_err(|e| io_err("Cannot write", &tmp, e))?;
+            size += n as u64;
+        }
+        let f = out.into_inner().map_err(|e| io_err("Cannot write", &tmp, e.into_error()))?;
+        f.sync_all().map_err(|e| io_err("Cannot write", &tmp, e))?;
+        drop(f);
+        rename_retry(&tmp, &target).map_err(|e| io_err("Cannot save", &target, e))?;
+        Ok(Staged { path: target.to_string_lossy().to_string(), sha256: hex(&h.finalize()), size })
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Is `path` a file directly inside the staging folder `dir`? (Only those can be read or removed.)
+pub fn is_staged(dir: &Path, path: &Path) -> bool {
+    let (Ok(d), Ok(p)) = (dir.canonicalize(), path.canonicalize()) else { return false };
+    p.parent() == Some(d.as_path()) && p.is_file()
+}
+
+/// Writes `reader` to `dest` atomically (temporary file next to it, flush, rename).
+fn write_atomically(dest: &Path, reader: &mut dyn Read) -> Result<(), TcueError> {
+    if let Some(parent) = dest.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).map_err(|e| io_err("Cannot create the folder", parent, e))?;
+        }
+    }
+    let lock = path_lock(dest);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tmp_path(dest);
+    let result = (|| -> Result<(), TcueError> {
+        let mut out = BufWriter::new(File::create(&tmp).map_err(|e| io_err("Cannot write", &tmp, e))?);
+        io::copy(reader, &mut out).map_err(|e| io_err("Cannot write", &tmp, e))?;
+        let f = out.into_inner().map_err(|e| io_err("Cannot write", &tmp, e.into_error()))?;
+        f.sync_all().map_err(|e| io_err("Cannot write", &tmp, e))?;
+        drop(f);
+        rename_retry(&tmp, dest).map_err(|e| io_err("Cannot save", dest, e))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Copies one part of a `.tcue` to `dest` ("Esporta il PDF"), streaming, without loading it whole.
+pub fn export_part(path: &Path, name: &str, dest: &Path) -> Result<(), TcueError> {
+    check_part_name(name)?;
+    let mut zip = open_archive(path)?;
+    let mut entry = match zip.by_name(name) {
+        Ok(e) => e,
+        Err(zip::result::ZipError::FileNotFound) => return Err(TcueError::NoSuchPart(name.to_string())),
+        Err(e) => return Err(zip_err(e)),
+    };
+    write_atomically(dest, &mut entry)
+}
+
+/// Copies a file (a staged part) to `dest`.
+pub fn export_file(from: &Path, dest: &Path) -> Result<(), TcueError> {
+    let mut f = File::open(from).map_err(|e| io_err("Cannot open", from, e))?;
+    write_atomically(dest, &mut f)
 }
 
 // ---------------- Versions: copies of the file in `<Name>.versions/` ----------------
@@ -590,6 +727,11 @@ mod tests {
         (out, crc, method)
     }
 
+    /// Temporary files left in a folder (there must be none after a save, failed or not).
+    fn leftovers(dir: &Path) -> Vec<String> {
+        fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.ends_with(".tmp")).collect()
+    }
+
     fn show(extra: &str) -> String {
         format!(r#"{{"format":"theatre.cue","formatVersion":1,"id":"abc","title":"La locandiera"{extra}}}"#)
     }
@@ -643,7 +785,7 @@ mod tests {
         save(&path, Some(&path), Some(&show("")), &[part("thumbs/g1.jpg", b"new")], &["script.pdf".into()]).unwrap();
         let o = open(&path).unwrap();
         assert_eq!(o.parts, vec![PartInfo { name: "thumbs/g1.jpg".into(), size: 3 }]);
-        assert!(!tmp_path(&path).exists());
+        assert!(leftovers(dir.path()).is_empty());
     }
 
     #[test]
@@ -715,13 +857,12 @@ mod tests {
         let err = save(&path, Some(&path), Some(&show(r#","notes":[]"#)), &[part("thumbs/x.jpg", b"123"), missing], &[]).unwrap_err();
         assert_eq!(err.code(), "io");
         assert_eq!(fs::read(&path).unwrap(), old);
-        assert!(!tmp_path(&path).exists());
-        // Fails before writing: the temporary file cannot be created (a folder is in the way).
-        fs::create_dir(tmp_path(&path)).unwrap();
-        assert!(save(&path, Some(&path), Some(&show("")), &[], &[]).is_err());
+        assert!(leftovers(dir.path()).is_empty());
+        // Fails before writing: the file the parts come from is not there.
+        assert!(save(&path, Some(&dir.path().join("gone.tcue")), Some(&show("")), &[], &[]).is_err());
         assert_eq!(fs::read(&path).unwrap(), old);
+        assert!(leftovers(dir.path()).is_empty());
         // A wrong show.json is refused before touching anything.
-        fs::remove_dir(tmp_path(&path)).unwrap();
         assert_eq!(save(&path, Some(&path), Some(r#"{"format":"theatre.granvelo"}"#), &[], &[]).unwrap_err(), TcueError::NotCue);
         assert_eq!(fs::read(&path).unwrap(), old);
     }
@@ -806,5 +947,79 @@ mod tests {
         assert!(!v2.exists());
         assert!(list_versions(&dir.path().join("none.versions")).is_empty());
         assert!(save_version(&path, "../x.tcue", "named", "").is_err());
+    }
+
+    #[test]
+    fn staged_part_survives_and_goes_into_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let pdf_path = dir.path().join("copione.pdf");
+        fs::write(&pdf_path, fake_pdf()).unwrap();
+        let staging = dir.path().join("autosave").join("parts");
+        let staged = stage_copy(&pdf_path, &staging, "script.pdf").unwrap();
+        assert_eq!(staged.size, fake_pdf().len() as u64);
+        assert_eq!(staged.sha256, sha256_file(&pdf_path).unwrap());
+        assert!(staged.path.ends_with("-script.pdf"));
+        assert!(is_staged(&staging, Path::new(&staged.path)));
+        assert!(!is_staged(&staging, &pdf_path));
+        // Two stagings of the same part never collide.
+        let again = stage_copy(&pdf_path, &staging, "script.pdf").unwrap();
+        assert_ne!(again.path, staged.path);
+        // The original may go away: the staged copy is what the save uses.
+        fs::remove_file(&pdf_path).unwrap();
+        let path = dir.path().join("Serata.tcue");
+        let add = AddPart { name: "script.pdf".into(), data: None, from_path: Some(staged.path.clone()) };
+        save(&path, None, Some(&show("")), &[add], &[]).unwrap();
+        assert_eq!(read_part(&path, "script.pdf").unwrap(), fake_pdf());
+        assert!(stage_copy(&dir.path().join("missing.pdf"), &staging, "script.pdf").is_err());
+        assert!(stage_copy(&path, &staging, "../x.pdf").is_err());
+    }
+
+    #[test]
+    fn exports_a_part_and_a_staged_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Serata.tcue");
+        save(&path, None, Some(&show("")), &[part("script.pdf", &fake_pdf())], &[]).unwrap();
+        let dest = dir.path().join("out").join("Copione.pdf");
+        export_part(&path, "script.pdf", &dest).unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), fake_pdf());
+        assert!(leftovers(dest.parent().unwrap()).is_empty());
+        assert_eq!(export_part(&path, "thumbs/x.jpg", &dest).unwrap_err().code(), "no-part");
+        let copy = dir.path().join("Copia.pdf");
+        export_file(&dest, &copy).unwrap();
+        assert_eq!(fs::read(&copy).unwrap(), fake_pdf());
+    }
+
+    #[test]
+    fn temporary_names_are_unique() {
+        let p = Path::new("/x/Serata.tcue");
+        let (a, b) = (tmp_path(p), tmp_path(p));
+        assert_ne!(a, b);
+        assert_eq!(a.parent(), p.parent());
+        assert!(a.to_string_lossy().ends_with(".tmp"));
+    }
+
+    #[test]
+    fn concurrent_saves_of_one_file_never_mix() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Serata.tcue");
+        save(&path, None, Some(&show("")), &[part("script.pdf", &fake_pdf())], &[]).unwrap();
+        let threads: Vec<_> = (0..6)
+            .map(|i| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let big = vec![i as u8; 300_000 + i * 1000];
+                    save(&path, Some(&path), Some(&show(&format!(r#","n":{i}"#))), &[part("images/a.png", &big)], &[]).unwrap();
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        // Whatever save came last, the file is whole: its show.json and its image belong together.
+        let json = read_show_json(&path).unwrap();
+        let n: usize = serde_json::from_str::<serde_json::Value>(&json).unwrap()["n"].as_u64().unwrap() as usize;
+        assert_eq!(read_part(&path, "images/a.png").unwrap(), vec![n as u8; 300_000 + n * 1000]);
+        assert_eq!(read_part(&path, "script.pdf").unwrap(), fake_pdf());
+        assert!(leftovers(dir.path()).is_empty());
     }
 }

@@ -45,6 +45,13 @@ export interface TcueSaveArgs {
   removeParts?: string[];
 }
 
+/** A part copied to Cue's autosave folder until the next save (survives a crash). */
+export interface StagedPart {
+  path: string;
+  sha256: string;
+  size: number;
+}
+
 /** A saved version of a show file (a copy in the `.versions` folder next to it). */
 export interface VersionEntry {
   path: string;
@@ -88,6 +95,13 @@ export const api = {
     isTauri
       ? call<TcueSaved>("tcue_save", { path: a.path, sourcePath: a.sourcePath ?? null, showJson: a.showJson, addParts: a.addParts ?? [], removeParts: a.removeParts ?? [] })
       : memFs.save(a),
+  /** Copies a file the user chose into the autosave folder as a pending part (native side, no bytes through here). */
+  partStage: (from: string, name: string) => (isTauri ? call<StagedPart>("part_stage", { from, name }) : Promise.reject(new Error(`io: ${from} is not available in the preview`))),
+  stagedRead: async (path: string): Promise<Uint8Array> => (isTauri ? new Uint8Array(await call<ArrayBuffer>("staged_read", { path })) : memFs.stagedRead(path)),
+  stagedExists: (path: string) => (isTauri ? call<boolean>("path_exists", { path }) : Promise.resolve(memFs.stagedExists(path))),
+  stagedDrop: (paths: string[]) => (isTauri ? call<void>("staged_drop", { paths }) : Promise.resolve(memFs.stagedDrop(paths))),
+  /** Writes a part of the file (or a pending one) to `dest`. Native only: the browser downloads instead. */
+  partExport: (a: { path: string | null; name: string; staged: string | null; dest: string }) => call<void>("part_export", a),
   versionsList: (path: string) => (isTauri ? call<VersionEntry[]>("versions_list", { path }) : memFs.versionsList(path)),
   versionSave: (path: string, name: string, kind: "named" | "auto", note: string) =>
     isTauri ? call<string>("version_save", { path, name, kind, note }) : memFs.versionSave(path, name, kind, note),

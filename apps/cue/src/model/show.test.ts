@@ -32,7 +32,7 @@ describe("show.json", () => {
       title: "La locandiera",
       futureThing: { x: [1, 2, { y: null }] },
       gos: [{ id: "g1", anchor: { page: 3, y: 0.4, fromTheFuture: 7 }, actions: [{ id: "a1", kind: "light", extra: "keep" }], givenBy: "secondary", colour: "red" }],
-      layout: { scriptWidth: 412, panes: { left: 1 } },
+      layout: { scriptWidth: 0.42, panes: { left: 1 } },
       projection: { items: [], wallpaper: "x" },
       settings: { autoScrollSpeed: 1.5, secret: true },
     });
@@ -43,7 +43,7 @@ describe("show.json", () => {
     expect(again.gos[0].anchor.fromTheFuture).toBe(7);
     expect(again.gos[0].actions[0].extra).toBe("keep");
     expect(again.gos[0].givenBy).toBe("secondary");
-    expect(again.layout).toEqual({ scriptWidth: 412, panes: { left: 1 }, audioBoxHeights: {} });
+    expect(again.layout).toEqual({ scriptWidth: 0.42, panes: { left: 1 }, audioBoxHeights: {} });
     expect(again.projection.wallpaper).toBe("x");
     expect(again.settings).toEqual({ autoScrollSpeed: 1.5, secret: true, ftbSeconds: 5 });
     // An edit made by copying keeps them too.
@@ -75,7 +75,7 @@ describe("show.json", () => {
     expect(s.id).toBe("id-made-here");
     expect(s.title).toBe("");
     expect(s.gos).toEqual([]);
-    expect(s.notes).toEqual([{ id: "n1", anchor: { page: 1, y: 1 }, text: "" }]);
+    expect(s.notes).toEqual([{ id: "n1", anchor: { page: 1, y: 1, quote: "", before: "", after: "" }, text: "" }]);
     expect(s.settings.autoScrollSpeed).toBe(20);
   });
 
@@ -109,5 +109,31 @@ describe("show.json", () => {
     expect(errorCode(new ShowFileError("not-json", "x"))).toBe("damaged");
     expect(errorCode("something else")).toBe("other");
     expect(errorDetail("io: Cannot open C:\\x.tcue")).toBe("Cannot open C:\\x.tcue");
+  });
+});
+
+describe("script, notes and layout (phase 1)", () => {
+  it("reads the PDF script, notes with anchors and the script width", () => {
+    const s = parseShow(
+      JSON.stringify({
+        format: "theatre.cue",
+        formatVersion: 1,
+        id: "a",
+        title: "x",
+        script: { kind: "pdf", part: "script.pdf", fileName: "Locandiera.pdf", sha256: "ab", pageCount: 6, extra: 1 },
+        notes: [
+          { id: "n1", anchor: { page: 2, y: 0.5, x: 0.3, quote: "CONTE", before: "a", after: "b" }, text: "Luce pronta" },
+          { id: "n2", anchor: { page: 0, y: 7, x: "no" }, text: 3 },
+          { text: "no id" },
+        ],
+        layout: { scriptWidth: 3 },
+      }),
+    );
+    expect(s.script).toEqual({ kind: "pdf", part: "script.pdf", fileName: "Locandiera.pdf", sha256: "ab", pageCount: 6, extra: 1 });
+    expect(s.notes).toHaveLength(2);
+    expect(s.notes[0].anchor).toEqual({ page: 2, y: 0.5, x: 0.3, quote: "CONTE", before: "a", after: "b" });
+    expect(s.notes[1].anchor).toEqual({ page: 1, y: 1, quote: "", before: "", after: "" });
+    expect(s.notes[1].text).toBe("");
+    expect(s.layout.scriptWidth).toBe(0.8);
   });
 });

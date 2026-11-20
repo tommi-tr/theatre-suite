@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "icons": "node tools/make_icons.mjs",
+    "demo-pdf": "node tools/make_demo_pdf.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "@tauri-apps/plugin-dialog": "2.8.4",
     "@theatre-suite/core": "workspace:*",
     "@theatre-suite/ui": "workspace:*",
+    "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zustand": "5.1.0"
@@ -28,6 +30,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.3.0",
     "jsdom": "31.0.0",
+    "pdf-lib": "1.17.1",
     "typescript": "7.0.2",
     "vite": "8.3.7",
     "vitest": "5.1.0"

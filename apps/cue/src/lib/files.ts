@@ -1,5 +1,5 @@
 import { message, open, save } from "@tauri-apps/plugin-dialog";
-import { basename, debounce, findShow, type TFunc } from "@theatre-suite/core";
+import { basename, findShow, type TFunc } from "@theatre-suite/core";
 import { confirmSave, confirmYesNo } from "@theatre-suite/ui";
 import { errorCode, errorDetail, newShow, parseShow, serializeShow, type CueShow } from "../model/show";
 import { api, isDemo, isTauri, type VersionEntry } from "./api";
@@ -61,7 +61,24 @@ function afterLoad() {
   useUi.getState().setMode("prepare");
 }
 
+/** A save in progress: a second Ctrl+S (or a key held down) waits for it instead of writing at the same time. */
+let saving: Promise<boolean> | null = null;
+
 export async function saveDoc(t: TFunc, saveAs = false): Promise<boolean> {
+  if (saving) {
+    // A plain save while another one runs: that one already writes the show (edits made meanwhile stay unsaved).
+    if (!saveAs) return saving;
+    await saving.catch(() => false);
+  }
+  saving = doSave(t, saveAs);
+  try {
+    return await saving;
+  } finally {
+    saving = null;
+  }
+}
+
+async function doSave(t: TFunc, saveAs: boolean): Promise<boolean> {
   const st = useDoc.getState();
   if (!st.show) return false;
   let path = st.filePath;
@@ -76,12 +93,19 @@ export async function saveDoc(t: TFunc, saveAs = false): Promise<boolean> {
   }
   try {
     if (path === st.filePath) await keepOldContentOnce(t, path);
+    // What is written: the show and the pending parts as they are now (edits made during the save stay dirty).
+    const { show, pending, filePath } = useDoc.getState();
+    if (!show) return false;
     // Unchanged parts come from the file the show was opened from (also for Save as); none for a new show.
-    const source = st.filePath && (await api.pathExists(st.filePath)) ? st.filePath : null;
-    const saved = await api.tcueSave({ path, sourcePath: source, showJson: serializeShow(useDoc.getState().show!, APP) });
-    useDoc.getState().markSaved(path, saved.parts, saved.sha256);
+    const source = filePath && (await api.pathExists(filePath)) ? filePath : null;
+    const addParts = Object.entries(pending).map(([name, fromPath]) => ({ name, fromPath }));
+    const saved = await api.tcueSave({ path, sourcePath: source, showJson: serializeShow(show, APP), addParts });
+    useDoc.getState().markSaved(path, saved.parts, saved.sha256, show, pending);
     useSettings.getState().addRecent(path);
     writeAutosaveNow();
+    // The staged copies are in the file now.
+    const done = Object.values(pending).filter((p) => !Object.values(useDoc.getState().pending).includes(p));
+    if (done.length) void api.stagedDrop(done).catch(() => {});
     void detectShow(path);
     if (!isTauri) useUi.getState().showToast(t("Saved in this preview only: nothing is written on the disk."));
     return true;
@@ -157,7 +181,7 @@ export function createDoc(title: string): void {
 /** The demo show (browser preview): La locandiera / Serata.tcue, in memory. */
 export async function openDemo(): Promise<void> {
   const { DEMO_PATH, putDemoFile } = await import("../model/demo");
-  putDemoFile();
+  await putDemoFile();
   const opened = await api.tcueOpen(DEMO_PATH);
   useDoc.getState().load(parseShow(opened.showJson), { filePath: DEMO_PATH, dirty: false, parts: opened.parts, sha256: opened.sha256 });
   afterLoad();
@@ -240,43 +264,55 @@ export const confirmDeleteVersion = (t: TFunc) => confirmBox(t, t("Delete this v
 /* Autosave and crash recovery                                          */
 /* ------------------------------------------------------------------ */
 //
-// The autosave keeps show.json and the path of the file in Cue's data folder (the parts are in the file on
-// disk). After a crash Cue offers to recover it; nothing is sent to lights, sound or screens on recovery.
+// The autosave keeps show.json and the path of the file in Cue's data folder. Saved parts are in the file on
+// disk; parts added since the last save (a new script) are staged copies in the autosave folder, listed in
+// `pendingParts`. After a crash Cue offers to recover it all; nothing is sent to lights, sound or screens.
 
 interface AutosaveData {
   savedAt: string;
   filePath: string | null;
   dirty: boolean;
   showJson: string;
+  /** Part name → staged copy (see store/doc `pending`). */
+  pendingParts?: Record<string, string>;
 }
 
 function snapshot(show: CueShow): string {
   const st = useDoc.getState();
-  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP) };
+  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP), pendingParts: st.pending };
   return JSON.stringify(data);
 }
 
+/** The autosave being written, so a clear can wait for it (the order of two calls is not guaranteed). */
+let autosaveWriting: Promise<void> = Promise.resolve();
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+
 function writeAutosaveNow() {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = null;
   if (!isTauri) return;
   const show = useDoc.getState().show;
-  if (!show) {
-    api.autosaveClear().catch(() => {});
-    return;
-  }
-  api.autosaveWrite(snapshot(show)).catch((e) => console.error("autosave failed", e));
+  const text = show ? snapshot(show) : null;
+  autosaveWriting = autosaveWriting.then(() => (text ? api.autosaveWrite(text) : api.autosaveClear())).catch((e) => console.error("autosave failed", e));
 }
 
-const autosaveSoon = debounce(writeAutosaveNow, 1500);
+function autosaveSoon() {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(writeAutosaveNow, 1500);
+}
 
 /** Every change is copied to Cue's data folder within ~1.5 s. */
 export function startAutosave(): () => void {
   return useDoc.subscribe((s, prev) => {
-    if (s.show !== prev.show || s.filePath !== prev.filePath || s.dirty !== prev.dirty) autosaveSoon();
+    if (s.show !== prev.show || s.filePath !== prev.filePath || s.dirty !== prev.dirty || s.pending !== prev.pending) autosaveSoon();
   });
 }
 
-export function flushAutosave() {
-  autosaveSoon.flush();
+/** Drops a planned autosave and waits for one being written: after this, clearing the autosave is final. */
+export async function cancelAutosave(): Promise<void> {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  await autosaveWriting;
 }
 
 export async function restoreAutosave(text: string): Promise<boolean> {
@@ -290,7 +326,10 @@ export async function restoreAutosave(text: string): Promise<boolean> {
       parts = opened?.parts;
       sha256 = opened?.sha256 ?? null;
     }
-    useDoc.getState().load(show, { filePath: a.filePath, dirty: a.dirty, parts, sha256 });
+    // Pending parts come back if their staged copy is still there.
+    const pending: Record<string, string> = {};
+    for (const [name, path] of Object.entries(a.pendingParts ?? {})) if (typeof path === "string" && (await api.stagedExists(path))) pending[name] = path;
+    useDoc.getState().load(show, { filePath: a.filePath, dirty: a.dirty || Object.keys(pending).length > 0, parts, sha256, pending });
     afterLoad();
     void detectShow(a.filePath);
     return true;
@@ -303,5 +342,6 @@ export async function restoreAutosave(text: string): Promise<boolean> {
 export async function closeDoc(t: TFunc): Promise<void> {
   if (!(await confirmDiscard(t))) return;
   useDoc.getState().close();
+  await cancelAutosave();
   if (isTauri) await api.autosaveClear().catch(() => {});
 }

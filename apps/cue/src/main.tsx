@@ -8,6 +8,14 @@ import { App } from "./App";
 window.addEventListener("keydown", (e) => {
   if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) e.preventDefault();
 });
+// Ctrl + wheel never zooms the whole window (in Cue, Ctrl held is the peek on the script).
+window.addEventListener(
+  "wheel",
+  (e) => {
+    if (e.ctrlKey) e.preventDefault();
+  },
+  { passive: false },
+);
 window.addEventListener("contextmenu", (e) => {
   const el = e.target as HTMLElement;
   if (!el.closest("input, textarea")) e.preventDefault();

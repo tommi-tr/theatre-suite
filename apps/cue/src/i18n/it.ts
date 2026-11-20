@@ -7,17 +7,14 @@ import type { Dict } from "@theatre-suite/core";
  */
 export const it: Dict = {
   "{n} GO": "{n} GO",
-  "{name} · {n} pages. Cue 0.2 shows it here, with zoom, peek and notes.": "{name} · {n} pagine. Cue 0.2 lo mostra qui, con zoom, sbirciata e note.",
   "{name} is no longer there: removed from the list.": "{name} non c'è più: tolto dall'elenco.",
   "1 GO": "1 GO",
-  "A Bardo script. Cue shows it here in a later version.": "Un copione di Bardo. Cue lo mostra qui in una prossima versione.",
   "A foot pedal that types F13 gives the GO, even while the chat is open. F13 is already a GO key; how to build the pedal comes later.":
     "Un pedale che manda F13 dà il GO, anche con la chat aperta. F13 è già un tasto del GO; come costruire il pedale arriva più avanti.",
   "A note for this version": "Una nota per questa versione",
   "A note for this version (for example: after the technical rehearsal)": "Una nota per questa versione (per esempio: dopo la prova tecnica)",
   "A second computer can lead the same show as an equal: every request goes through the primary.":
     "Un secondo computer può condurre lo stesso spettacolo alla pari: ogni richiesta passa dal primario.",
-  "A secondary computer leads the same show as an equal, over a direct cable.": "Un computer secondario conduce lo stesso spettacolo alla pari, con un cavo diretto.",
   "A show saved before, on this computer or on a USB stick, or created by the Theatre Suite launcher.":
     "Uno spettacolo salvato prima, su questo computer o su una chiavetta, o creato dal launcher di Theatre Suite.",
   "About": "Informazioni",
@@ -69,7 +66,6 @@ export const it: Dict = {
   "Dismiss": "Chiudi",
   "Don't save": "Non salvare",
   "Done": "Fatto",
-  "Drag them onto the script to create a GO; things on the same point become one GO.": "Si trascinano sul copione per creare un GO; elementi sullo stesso punto diventano un GO unico.",
   "Dry run: the whole show in silence, nothing sent to lights, sound or screens.": "Prova a secco: tutto lo spettacolo in silenzio, niente mandato a luci, audio o schermi.",
   "During the show": "Durante lo spettacolo",
   "Emergency": "Emergenza",
@@ -83,9 +79,6 @@ export const it: Dict = {
   "Go back": "Torna indietro",
   "Go back to this": "Torna a questa",
   "Go back to this version? The file as it is now is kept as an automatic version first.": "Tornare a questa versione? Il file com'è ora viene prima conservato come versione automatica.",
-  "GO with Space or the pedal; Pause, Blackout, Fade to black and Emergency always at hand.": "GO con Spazio o con il pedale; Pausa, Blackout, Fade to black ed Emergenza sempre a portata.",
-  "Grey GOs are done, green is the last one given, amber is the standby: the next GO starts it.":
-    "I GO grigi sono passati, il verde è l'ultimo dato, l'ambra è lo standby: parte al prossimo GO.",
   "held down": "tenuto premuto",
   "Images and videos (MP4 H.264) with transitions and colour.": "Immagini e video (MP4 H.264) con transizioni e colore.",
   "In Prepare": "In Prepara",
@@ -96,7 +89,6 @@ export const it: Dict = {
   "Keys": "Tasti",
   "La locandiera / Serata: to look around without touching anything of yours.": "La locandiera / Serata: per guardarsi intorno senza toccare niente di tuo.",
   "Language": "Lingua",
-  "Libraries on the left: Granvelo memories, Diaframma tracks, images and videos.": "Le librerie a sinistra: memorie di Granvelo, tracce di Diaframma, immagini e video.",
   "Light": "Chiaro",
   "Lights and sound": "Luci e audio",
   "Like the system": "Come il sistema",
@@ -109,8 +101,6 @@ export const it: Dict = {
   "Maximize": "Ingrandisci",
   "Meanwhile keep images and videos in the show folder: videos stay outside the file, linked by their path.":
     "Intanto tieni immagini e video nella cartella dello spettacolo: i video restano fuori dal file, collegati dal loro percorso.",
-  "Meanwhile prepare lights and sound in Granvelo and Diaframma: Cue reads their files, it does not copy them.":
-    "Intanto prepara luci e audio in Granvelo e Diaframma: Cue legge i loro file, non li copia.",
   "Minimize": "Riduci a icona",
   "Mode": "Modalità",
   "New GO here": "Nuovo GO qui",
@@ -125,7 +115,6 @@ export const it: Dict = {
   "On the right the checklist before the curtain, with suggested items and your own, saved in the file.":
     "A destra la lista di controllo prima del sipario, con voci proposte e voci tue, salvate nel file.",
   "On the right the retouch: transition, brightness, contrast, temperature, saturation.": "A destra il ritocco: transizione, luminosità, contrasto, temperatura, saturazione.",
-  "On the right the selected GO: its actions and times, who gives it, speed zone, notes.": "A destra il GO selezionato: azioni e tempi, chi lo dà, zona di velocità, note.",
   "One card per output (audio, DMX lights, projector, secondary, PowerPoint, pedal) with its state in words and a test button.":
     "Una scheda per uscita (audio, luci DMX, proiettore, secondario, PowerPoint, pedale) con lo stato a parole e il comando di prova.",
   "One PDF: the script or the score. It goes inside the show file and Cue never changes it; underlines and comments already in the PDF stay visible.":
@@ -175,29 +164,22 @@ export const it: Dict = {
   "Stop audio": "Stop audio",
   "Test": "Test",
   "Tests of the outputs and of the link, with a report you can keep.": "Prove delle uscite e del collegamento, con un rapporto da conservare.",
-  "The columns Lights, Audio and Video scroll with the script and show what is on stage.": "Le colonne Luci, Audio e Video scorrono con il copione e mostrano ciò che è in scena.",
   "The file cannot be read or written here.": "Il file non si può leggere o scrivere qui.",
   "The file is damaged and cannot be opened.": "Il file è danneggiato e non si può aprire.",
   "The keys of Cue. With Cue 0.3 they work and can be changed, with a check for conflicts.": "I tasti di Cue. Con Cue 0.3 funzionano e si possono cambiare, con il controllo dei conflitti.",
-  "The link state is always on screen: a coloured border and panel, with words.": "Lo stato del collegamento è sempre sullo schermo: bordo e pannello colorati, con le parole.",
   "The output screen (the second screen of this computer) and the blank image: black or one of your choice.":
     "Lo schermo di uscita (il secondo schermo di questo computer) e l'immagine tappo: nera o scelta da te.",
-  "The script on the left, a dot for every GO and a line to its button.": "Il copione a sinistra, un puntino per ogni GO e una linea fino al suo pulsante.",
   "The script, the GOs and the rest come after, in Prepare.": "Copione, GO e tutto il resto vengono dopo, in Prepara.",
   "The sequence of images and videos on the left, with the transition written between one and the next.":
     "La sequenza di immagini e video a sinistra, con la transizione scritta fra un elemento e l'altro.",
-  "The show": "Lo spettacolo",
   "The shows you open appear here.": "Qui compaiono gli spettacoli che apri.",
   "The sound card for the Diaframma tracks and the USB-DMX cable for the Granvelo memories.": "La scheda audio per le tracce di Diaframma e il cavo USB-DMX per le memorie di Granvelo.",
   "The stage manager's digital prompt book: the script with its GOs, and the command of lights, sound and images during the show. Part of the Theatre Suite.":
     "Il libro di scena digitale di chi chiama lo spettacolo: il copione con i suoi GO, e il comando di luci, audio e immagini durante lo spettacolo. Fa parte della Theatre Suite.",
-  "Then: the GOs on the script": "Poi: i GO sul copione",
   "There are unsaved changes. Save them first?": "Ci sono modifiche non salvate. Vuoi salvarle prima?",
   "This file was saved with a newer version of Cue. Please update Cue to open it.": "Questo file è stato salvato con una versione più recente di Cue. Aggiorna Cue per aprirlo.",
   "This is not a Cue show file (.tcue).": "Questo non è un file di Cue (.tcue).",
-  "This show already has its script": "Questo spettacolo ha già il suo copione",
   "Title of the show": "Titolo dello spettacolo",
-  "Two computers, one show": "Due computer, uno spettacolo",
   "Unsaved changes": "Modifiche non salvate",
   "Unsaved changes · copy kept": "Modifiche non salvate · copia conservata",
   "Untitled show": "Spettacolo senza titolo",

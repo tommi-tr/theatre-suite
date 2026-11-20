@@ -3,6 +3,7 @@ import { basename, useT } from "@theatre-suite/core";
 import { Button, Icon, Kbd, type IconName } from "@theatre-suite/ui";
 import { api, appWindow, isDemo, isTauri } from "../lib/api";
 import { newDocDialog, openDemo, openDocDialog, openRecent, saveDoc } from "../lib/files";
+import { exportScript, loadScript, replaceScript } from "../lib/script";
 import { useDoc } from "../store/doc";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
@@ -15,6 +16,7 @@ export function FileMenu() {
   const recent = useSettings((s) => s.settings.recentFiles);
   const filePath = useDoc((s) => s.filePath);
   const hasDoc = useDoc((s) => s.show !== null);
+  const hasScript = useDoc((s) => s.show?.script?.kind === "pdf");
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -61,6 +63,12 @@ export function FileMenu() {
           {item("save", "save", t("Save"), "Ctrl S", () => saveDoc(t), { disabled: !hasDoc })}
           {item("saveAs", "save", t("Save as…"), "Ctrl Shift S", () => saveDoc(t, true), { disabled: !hasDoc })}
           {item("versions", "history", t("Versions…"), null, () => useUi.getState().openDialog("versions"), { disabled: !hasDoc })}
+          <div className="cue-menu__sep" />
+          {hasScript
+            ? item("replaceScript", "upload", t("Replace the script…"), null, () => void replaceScript(t))
+            : item("loadScript", "upload", t("Load the script…"), null, () => void loadScript(t), { disabled: !hasDoc })}
+          {item("exportScript", "download", t("Export the PDF…"), null, () => void exportScript(t), { disabled: !hasScript })}
+          <div className="cue-menu__sep" />
           {item("reveal", "folder", t("Show in folder"), null, () => void api.revealInFolder(filePath!).catch(() => {}), { disabled: !filePath || !isTauri })}
           {recent.length ? (
             <>

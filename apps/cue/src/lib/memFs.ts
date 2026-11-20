@@ -12,6 +12,9 @@ interface MemFile {
 }
 
 const files = new Map<string, MemFile>();
+/** Parts waiting for the next save (the native side keeps them in the autosave folder). */
+const staged = new Map<string, Uint8Array>();
+let stagedCount = 0;
 
 const fail = (code: string, detail: string) => new Error(`${code}: ${detail}`);
 
@@ -84,12 +87,28 @@ export const memFs = {
     const parts = new Map(src?.parts ?? []);
     for (const r of a.removeParts ?? []) parts.delete(r);
     for (const p of a.addParts ?? []) {
-      if (p.data === undefined) throw fail("io", `Cannot read ${p.fromPath ?? p.name} in the preview`);
-      parts.set(p.name, fromBase64(p.data));
+      if (p.data !== undefined) parts.set(p.name, fromBase64(p.data));
+      else if (p.fromPath && staged.has(p.fromPath)) parts.set(p.name, staged.get(p.fromPath)!);
+      else throw fail("io", `Cannot read ${p.fromPath ?? p.name} in the preview`);
     }
     const f = { showJson, parts, modifiedMs: Date.now() };
     files.set(a.path, f);
     return { parts: partsOf(f), sha256: fingerprint(f) };
+  },
+  /** Keeps bytes as a pending part; returns its stand-in path. */
+  stage(bytes: Uint8Array, name: string): string {
+    const path = `mem:staged/${++stagedCount}-${name}`;
+    staged.set(path, bytes);
+    return path;
+  },
+  stagedExists: (path: string) => staged.has(path),
+  async stagedRead(path: string): Promise<Uint8Array> {
+    const b = staged.get(path);
+    if (!b) throw fail("io", `${path} is not a pending part`);
+    return b;
+  },
+  stagedDrop(paths: string[]) {
+    for (const p of paths) staged.delete(p);
   },
   async versionsList(path: string): Promise<VersionEntry[]> {
     const dir = versionsDirOf(path);

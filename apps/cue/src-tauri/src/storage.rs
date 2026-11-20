@@ -48,13 +48,15 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     if !parent.as_os_str().is_empty() {
         fs::create_dir_all(parent).map_err(|e| format!("Cannot create folder: {e}"))?;
     }
+    let lock = tcue::path_lock(path);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tcue::tmp_path(path);
     {
         let mut f = fs::File::create(&tmp).map_err(|e| format!("Cannot write {}: {e}", path.display()))?;
         f.write_all(bytes).map_err(|e| format!("Cannot write {}: {e}", path.display()))?;
         f.sync_all().map_err(|e| format!("Cannot write {}: {e}", path.display()))?;
     }
-    fs::rename(&tmp, path).map_err(|e| {
+    tcue::rename_retry(&tmp, path).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         format!("Cannot save {}: {e}", path.display())
     })
@@ -101,7 +103,7 @@ pub fn file_from_args(args: &[String]) -> Option<String> {
 
 // ---------------- Settings ----------------
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn settings_load(app: AppHandle) -> Result<serde_json::Value, String> {
     let path = data_dir(&app)?.join("settings.json");
     if !path.exists() {
@@ -116,7 +118,7 @@ pub fn settings_load(app: AppHandle) -> Result<serde_json::Value, String> {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn settings_save(app: AppHandle, settings: serde_json::Value) -> Result<(), String> {
     let path = data_dir(&app)?.join("settings.json");
     let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
@@ -142,7 +144,7 @@ fn lock_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir(app)?.join("session.lock"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn session_start(app: AppHandle) -> Result<SessionStart, String> {
     let lock = lock_path(&app)?;
     let crashed = lock.exists();
@@ -170,25 +172,82 @@ pub fn session_end(app: &AppHandle) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn autosave_write(app: AppHandle, json: String) -> Result<(), String> {
     let path = sub_dir(&app, "autosave")?.join("session.json");
     atomic_write(&path, json.as_bytes())
 }
 
-#[tauri::command]
+/// Removes the autosave and the parts staged for it (after a clean exit, a save-less close, or when
+/// the user did not need the recovery).
+#[tauri::command(async)]
 pub fn autosave_clear(app: AppHandle) -> Result<(), String> {
     let path = sub_dir(&app, "autosave")?.join("session.json");
     if path.exists() {
         fs::remove_file(path).map_err(|e| e.to_string())?;
     }
+    let parts = staging_dir(&app)?;
+    if parts.exists() {
+        let _ = fs::remove_dir_all(parts);
+    }
     Ok(())
+}
+
+// ---------------- Pending parts (staged in the autosave folder until the next save) ----------------
+
+fn staging_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("autosave").join("parts"))
+}
+
+fn staged_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    let dir = staging_dir(app)?;
+    let p = PathBuf::from(path);
+    if !tcue::is_staged(&dir, &p) {
+        return Err(format!("io: {path} is not a pending part"));
+    }
+    Ok(p)
+}
+
+/// Copies a file chosen by the user (a new script PDF) into the staging folder: from now on it
+/// survives a crash, and the next save copies it into the `.tcue` with `fromPath`.
+#[tauri::command(async)]
+pub fn part_stage(app: AppHandle, from: String, name: String) -> Result<tcue::Staged, String> {
+    Ok(tcue::stage_copy(Path::new(&from), &staging_dir(&app)?, &name)?)
+}
+
+/// The bytes of a staged part, as a binary response.
+#[tauri::command(async)]
+pub fn staged_read(app: AppHandle, path: String) -> Result<tauri::ipc::Response, String> {
+    let p = staged_path(&app, &path)?;
+    let bytes = fs::read(&p).map_err(|e| format!("io: Cannot read {}: {e}", p.display()))?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Removes staged parts that are no longer needed (after they were saved into the file).
+#[tauri::command(async)]
+pub fn staged_drop(app: AppHandle, paths: Vec<String>) {
+    for p in paths {
+        if let Ok(p) = staged_path(&app, &p) {
+            let _ = fs::remove_file(p);
+        }
+    }
+}
+
+/// "Esporta il PDF": writes a part of the show file, or a staged part, to a path the user chose.
+#[tauri::command(async)]
+pub fn part_export(app: AppHandle, path: Option<String>, name: String, staged: Option<String>, dest: String) -> Result<(), String> {
+    let dest = PathBuf::from(dest);
+    if let Some(s) = staged.filter(|s| !s.is_empty()) {
+        return Ok(tcue::export_file(&staged_path(&app, &s)?, &dest)?);
+    }
+    let file = path.filter(|s| !s.is_empty()).ok_or("io: No file to export from")?;
+    Ok(tcue::export_part(Path::new(&file), &name, &dest)?)
 }
 
 // ---------------- Other files ----------------
 
 /// Reads a text file (the launcher's `progetto.theatre` next to the show file).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn file_read_text(path: String) -> Result<String, String> {
     read_limited(Path::new(&path))
 }
@@ -321,6 +380,7 @@ mod tests {
         atomic_write(&file, b"one").unwrap();
         atomic_write(&file, b"two").unwrap();
         assert_eq!(fs::read_to_string(&file).unwrap(), "two");
-        assert!(!tcue::tmp_path(&file).exists());
+        let left: Vec<_> = fs::read_dir(dir.path()).unwrap().filter_map(|e| e.ok()).filter(|e| e.file_name().to_string_lossy().ends_with(".tmp")).collect();
+        assert!(left.is_empty());
     }
 }
