@@ -56,6 +56,19 @@ export function usedParts(p: Projection): Set<string> {
   return out;
 }
 
+/** Parts that hold projection pictures. */
+export const isPicturePart = (name: string): boolean => name.startsWith("images/") || name.startsWith("thumbs/");
+
+/**
+ * The picture parts of the file that no projection uses any more — not the current one, nor one that undo or redo
+ * could bring back (`keep`): removed at the next save, so the file does not keep growing with deleted images.
+ */
+export function partsToDrop(fileParts: readonly string[], keep: readonly Projection[]): string[] {
+  const used = new Set<string>();
+  for (const p of keep) for (const n of usedParts(p)) used.add(n);
+  return fileParts.filter((n) => isPicturePart(n) && !used.has(n));
+}
+
 /* ------------------------------------------------------------------ */
 /* Transitions                                                          */
 /* ------------------------------------------------------------------ */

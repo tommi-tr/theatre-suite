@@ -4,11 +4,13 @@ import { confirmSave, confirmYesNo } from "@theatre-suite/ui";
 import { errorCode, errorDetail, newShow, parseShow, serializeShow, type CueShow } from "../model/show";
 import { api, isDemo, isTauri, type VersionEntry } from "./api";
 import { APP_VERSION } from "./version";
-import { useDoc } from "../store/doc";
+import { historyShows, useDoc } from "../store/doc";
+import { partsToDrop } from "../model/projection";
 import { useSettings } from "../store/settings";
 import { useUi } from "../store/ui";
 import type { PlaybackSnapshot } from "../model/playback";
 import { goName, resetRun, runSnapshot, useRun } from "../show/run";
+import { eveningSnapshot, restoreEvening, unexportedEntries, useEvening, type EveningSnapshot } from "../store/evening";
 
 const EXT = /\.tcue$/i;
 const FILTER = [{ name: "Cue", extensions: ["tcue"] }];
@@ -100,8 +102,14 @@ async function doSave(t: TFunc, saveAs: boolean): Promise<boolean> {
     if (!show) return false;
     // Unchanged parts come from the file the show was opened from (also for Save as); none for a new show.
     const source = filePath && (await api.pathExists(filePath)) ? filePath : null;
-    const addParts = Object.entries(pending).map(([name, fromPath]) => ({ name, fromPath }));
-    const saved = await api.tcueSave({ path, sourcePath: source, showJson: serializeShow(show, APP), addParts });
+    // Pictures no projection uses any more (not even one undo could bring back) leave the file.
+    const keep = [show.projection, ...historyShows().map((s) => s.projection)];
+    const drop = new Set(partsToDrop([...useDoc.getState().parts.map((p) => p.name), ...Object.keys(pending)], keep));
+    const addParts = Object.entries(pending)
+      .filter(([name]) => !drop.has(name))
+      .map(([name, fromPath]) => ({ name, fromPath }));
+    const removeParts = source ? [...drop].filter((n) => useDoc.getState().parts.some((p) => p.name === n)) : [];
+    const saved = await api.tcueSave({ path, sourcePath: source, showJson: serializeShow(show, APP), addParts, removeParts });
     useDoc.getState().markSaved(path, saved.parts, saved.sha256, show, pending);
     useSettings.getState().addRecent(path);
     writeAutosaveNow();
@@ -129,6 +137,25 @@ export async function confirmDiscard(t: TFunc): Promise<boolean> {
     close: t("Close"),
   });
   if (choice === "save") return saveDoc(t);
+  return choice === "discard";
+}
+
+/**
+ * Closing Cue with a log of the evening that was never exported: Cancel · Close without it · Export the report.
+ * True if Cue may close.
+ */
+export async function confirmEveningLog(t: TFunc, exportReport: () => Promise<boolean>): Promise<boolean> {
+  const n = unexportedEntries();
+  if (!n) return true;
+  const choice = await confirmSave({
+    title: t("Log of the evening not exported"),
+    message: t("The log of the evening has {n} entries that were not exported: closing Cue loses them.", { n }),
+    cancel: t("Cancel"),
+    discard: t("Close without it"),
+    save: t("Export the report"),
+    close: t("Close"),
+  });
+  if (choice === "save") return exportReport();
   return choice === "discard";
 }
 
@@ -291,11 +318,13 @@ interface AutosaveData {
   playback?: PlaybackSnapshot;
   /** The mode on screen. */
   mode?: string;
+  /** The log of the evening so far (13, "Registro della serata"). */
+  evening?: EveningSnapshot | null;
 }
 
 function snapshot(show: CueShow): string {
   const st = useDoc.getState();
-  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP), pendingParts: st.pending, playback: runSnapshot(), mode: useUi.getState().mode };
+  const data: AutosaveData = { savedAt: new Date().toISOString(), filePath: st.filePath, dirty: st.dirty, showJson: serializeShow(show, APP), pendingParts: st.pending, playback: runSnapshot(), mode: useUi.getState().mode, evening: eveningSnapshot() };
   return JSON.stringify(data);
 }
 
@@ -326,9 +355,14 @@ export function startAutosave(): () => void {
   const b = useRun.subscribe((s, prev) => {
     if (s.playback.standbyId !== prev.playback.standbyId || s.playback.lastGoId !== prev.playback.lastGoId) writeAutosaveNow();
   });
+  // The log of the evening goes with it (a GO already writes at once; chat, link, interval within ~1.5 s).
+  const c = useEvening.subscribe((s, prev) => {
+    if (s.log !== prev.log || s.exportedLen !== prev.exportedLen) autosaveSoon();
+  });
   return () => {
     a();
     b();
+    c();
   };
 }
 
@@ -355,6 +389,7 @@ export async function restoreAutosave(text: string, t?: TFunc): Promise<boolean>
     for (const [name, path] of Object.entries(a.pendingParts ?? {})) if (typeof path === "string" && (await api.stagedExists(path))) pending[name] = path;
     useDoc.getState().load(show, { filePath: a.filePath, dirty: a.dirty || Object.keys(pending).length > 0, parts, sha256, pending });
     afterLoad();
+    if (a.evening) restoreEvening(a.evening);
     if (a.playback && (a.playback.lastGoId || a.playback.standbyId)) {
       // Back on the same standby, nothing fired: the operator gives the next GO when ready.
       resetRun(show.gos, a.playback);

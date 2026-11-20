@@ -55,6 +55,9 @@ interface DocStore {
 }
 
 const history = new History<CueShow>(300);
+
+/** The shows an undo or redo could bring back (their parts must stay in the file). */
+export const historyShows = (): readonly CueShow[] => history.snapshots();
 let lastKey: string | null = null;
 let lastAt = 0;
 

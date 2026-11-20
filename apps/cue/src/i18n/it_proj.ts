@@ -143,4 +143,15 @@ export const itProj: Dict = {
   "{n} not found": "{n} non trovati",
   "{n} videos outside the file": "{n} video fuori dal file",
   "“{name}” is used by a GO: that GO will show nothing. Remove it anyway?": "«{name}» è usato da un GO: quel GO non mostrerà nulla. Toglierlo comunque?",
+
+  "A video changed since it was added:": "Un video è cambiato da quando è stato aggiunto:",
+  "Some videos changed since they were added:": "Alcuni video sono cambiati da quando sono stati aggiunti:",
+  "Got it": "Ho capito",
+  "{names}. Check that it is the right one, then choose “Use this version”.": "{names}. Controlla che sia quello giusto, poi scegli “Usa questa versione”.",
+  "This video changed since it was added (another cut, or another file with the same name).": "Questo video è cambiato da quando è stato aggiunto (un altro montaggio, o un altro file con lo stesso nome).",
+  "This version of the video is now the right one.": "Questa versione del video ora è quella giusta.",
+  "Use this version": "Usa questa versione",
+  "changed": "cambiato",
+  "1 changed": "1 cambiato",
+  "{n} changed": "{n} cambiati",
 };

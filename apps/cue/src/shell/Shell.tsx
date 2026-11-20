@@ -1,9 +1,11 @@
 import { startEvening } from "../store/evening";
 import { useCallback, useEffect, useState } from "react";
 import { basename, useT } from "@theatre-suite/core";
-import { AppLogo, Button, ConfirmHost, KeyCommand, KeyCommandBar, Segmented, StatusBar, TitleBar, useBackToLauncher } from "@theatre-suite/ui";
+import { AlertBand, AppLogo, Button, ConfirmHost, KeyCommand, KeyCommandBar, Segmented, StatusBar, TitleBar, useBackToLauncher } from "@theatre-suite/ui";
 import { api, appWindow, isDemo, isTauri, onEvent } from "../lib/api";
-import { cancelAutosave, confirmDiscard, newDocDialog, openDemo, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave } from "../lib/files";
+import { cancelAutosave, confirmDiscard, confirmEveningLog, newDocDialog, openDemo, openDocDialog, openDocPath, restoreAutosave, saveDoc, startAutosave } from "../lib/files";
+import { exportReport } from "../lib/report";
+import { changedVideos, startVideoCheck, useVideoCheck } from "../lib/videoCheck";
 import { APP_NAME, LOGO } from "../lib/version";
 import { useDoc } from "../store/doc";
 import { MODES, useUi, type Mode } from "../store/ui";
@@ -15,7 +17,7 @@ import { AppToast } from "../common/AppToast";
 import { StartScreen } from "./StartScreen";
 import { PrepareMode } from "../modes/PrepareMode";
 import { startProjectionSync } from "../lib/projection";
-import { ProjectionsMode } from "../modes/ProjectionsMode";
+import { ProjectionsMode, ProjectionsStatusLine } from "../modes/ProjectionsMode";
 import { ControlsMode } from "../modes/ControlsMode";
 import { ShowMode } from "../modes/ShowMode";
 import { ReplaceScriptDialog } from "../script/ReplaceScriptDialog";
@@ -48,7 +50,7 @@ export function Shell() {
   // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
   useEffect(() => {
     void applySavedOutputs();
-    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startLink(), startProjectionSync(), startEvening(t)];
+    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startLink(), startProjectionSync(), startEvening(t), startVideoCheck()];
     return () => stops.forEach((f) => f());
   }, []);
 
@@ -96,6 +98,7 @@ export function Shell() {
       appWindow.onCloseRequested(async (event) => {
         event.preventDefault();
         if (!(await confirmDiscard(t))) return;
+        if (!(await confirmEveningLog(t, () => exportReport(t)))) return;
         // No pending autosave may land after the clear: it is cancelled, not flushed.
         await cancelAutosave();
         await api.autosaveClear().catch(() => {});
@@ -237,6 +240,7 @@ export function Shell() {
           </Button>
         </div>
       ) : null}
+      {show ? <VideoBand /> : null}
       <main className="cue-body">
         {!show ? <StartScreen /> : mode === "prepare" ? <PrepareMode /> : mode === "projections" ? <ProjectionsMode /> : mode === "controls" ? <ControlsMode /> : <ShowMode />}
       </main>
@@ -256,6 +260,32 @@ export function Shell() {
   );
 }
 
+/** Amber band: a video of the projections changed since it was added (its fingerprint is different). */
+function VideoBand() {
+  const t = useT();
+  const items = useDoc((s) => s.show?.projection.items);
+  const byId = useVideoCheck((s) => s.byId);
+  const dismissed = useVideoCheck((s) => s.dismissed);
+  const mode = useUi((s) => s.mode);
+  const changed = changedVideos(items ?? [], byId);
+  const key = changed.map((i) => `${i.id}:${i.sha256 ?? ""}`).join("|");
+  if (!changed.length || key === dismissed) return null;
+  const names = changed.map((i) => i.name).join(", ");
+  return (
+    <AlertBand
+      tone="warn"
+      title={changed.length === 1 ? t("A video changed since it was added:") : t("Some videos changed since they were added:")}
+      action={
+        mode === "projections"
+          ? { label: t("Got it"), icon: "check", onClick: () => useVideoCheck.setState({ dismissed: key }) }
+          : { label: t("Open Projections"), onClick: () => useUi.getState().setMode("projections") }
+      }
+    >
+      {t("{names}. Check that it is the right one, then choose “Use this version”.", { names })}
+    </AlertBand>
+  );
+}
+
 /** Bottom line: the script and the GOs of the show; on the right the commands of the mode, and that Windows stays awake. */
 function StatusLine() {
   const t = useT();
@@ -265,7 +295,9 @@ function StatusLine() {
   if (show && mode === "show") return <ShowStatusLine />;
   return (
     <>
-      {show ? (
+      {show && mode === "projections" ? (
+        <ProjectionsStatusLine />
+      ) : show ? (
         <>
           <span>{show.script?.kind === "pdf" ? t("Script: {name} · {n} pages", { name: show.script.fileName || "script.pdf", n: show.script.pageCount }) : t("No script yet")}</span>
           <span className="ts-muted">{show.notes.length === 1 ? t("1 note") : t("{n} notes", { n: show.notes.length })}</span>
@@ -274,7 +306,7 @@ function StatusLine() {
       ) : (
         <span className="ts-muted">{t("No show open")}</span>
       )}
-      <span className="ts-spacer" />
+      {show && mode === "projections" ? null : <span className="ts-spacer" />}
       {show && mode === "prepare" && ready ? (
         <KeyCommandBar>
           <KeyCommand keys="K" title={t("A note where the pointer is (or at the reading line)")} onClick={() => void addNoteHere()}>

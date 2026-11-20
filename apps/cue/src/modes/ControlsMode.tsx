@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLang, useT, type TFunc } from "@theatre-suite/core";
+import { useLang, useT } from "@theatre-suite/core";
 import { Button, confirmYesNo, Dialog, StatusLight, type IconName } from "@theatre-suite/ui";
-import { api, isTauri } from "../lib/api";
 import { dmxApi, dmxLinkText } from "../lib/dmx";
 import { saveDoc, writeVersion } from "../lib/files";
 import { openOutput, projErrorText, toggleTest, useProj } from "../lib/projection";
@@ -15,7 +14,6 @@ import {
   dryRun,
   forgetTonight,
   removeCheck,
-  reportText,
   resetChecks,
   toggleCheck,
   withSuggestions,
@@ -30,6 +28,7 @@ import { endInterval, logEvent, resetEvening, startInterval, useEvening } from "
 import { useLibrary } from "../store/library";
 import { useLink } from "../store/link";
 import { useUi, type SettingsTab } from "../store/ui";
+import { byName, exportReport, printReport } from "../lib/report";
 import "./controls.css";
 
 type PillState = "ok" | "warn" | "stop" | "info" | "idle";
@@ -346,43 +345,6 @@ function Evening() {
       {end ? <EndOfShow onClose={() => setEnd(false)} /> : null}
     </section>
   );
-}
-
-const byName = (t: TFunc, by?: string) => (by === "secondary" ? t("secondary") : by === "primary" ? t("primary") : "");
-
-function currentReport(t: TFunc): string {
-  const show = useDoc.getState().show;
-  return reportText({ title: show?.title ?? "" }, useEvening.getState().log, withSuggestions(show?.checklist ?? [], t), t, (b) => byName(t, b));
-}
-
-async function exportReport(t: TFunc) {
-  const text = currentReport(t);
-  if (!isTauri) {
-    await navigator.clipboard?.writeText(text).catch(() => undefined);
-    useUi.getState().showToast(t("Report copied"));
-    return;
-  }
-  const { save } = await import("@tauri-apps/plugin-dialog");
-  const path = await save({ defaultPath: `${t("Show report")}.txt`, filters: [{ name: t("Text"), extensions: ["txt"] }] });
-  if (!path) return;
-  try {
-    await api.writeText(path, text);
-    useUi.getState().showToast(t("Report saved"));
-  } catch (e) {
-    useUi.getState().showToast(String(e), "error");
-  }
-}
-
-function printReport(t: TFunc) {
-  const w = window.open("", "_blank", "width=800,height=900");
-  if (!w) return;
-  const pre = w.document.createElement("pre");
-  pre.style.cssText = "font: 12px/1.5 Geist, system-ui, sans-serif; white-space: pre-wrap; margin: 24px;";
-  pre.textContent = currentReport(t);
-  w.document.title = t("Show report");
-  w.document.body.appendChild(pre);
-  w.focus();
-  w.print();
 }
 
 /** End of show: what to do with the changes made during the evening, once for both computers (the primary decides). */

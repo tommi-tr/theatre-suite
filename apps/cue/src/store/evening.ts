@@ -17,9 +17,48 @@ interface EveningStore {
   /** Interval running since (ms), or null. */
   intervalSince: number | null;
   ended: boolean;
+  /** Length of the log when it was last exported or printed (more entries since = not exported yet). */
+  exportedLen: number;
 }
 
-export const useEvening = create<EveningStore>(() => ({ log: [], baseline: null, intervalSince: null, ended: false }));
+export const useEvening = create<EveningStore>(() => ({ log: [], baseline: null, intervalSince: null, ended: false, exportedLen: 0 }));
+
+/** What the autosave keeps of the evening (it survives a crash; after a normal exit it is gone). */
+export interface EveningSnapshot {
+  log: LogEntry[];
+  baseline: Go[] | null;
+  intervalSince: number | null;
+  exportedLen: number;
+}
+
+export const eveningSnapshot = (): EveningSnapshot | null => {
+  const s = useEvening.getState();
+  return s.log.length || s.baseline ? { log: s.log, baseline: s.baseline, intervalSince: s.intervalSince, exportedLen: s.exportedLen } : null;
+};
+
+/** After a crash: the log comes back as it was (anything that is not a log is ignored). */
+export function restoreEvening(raw: unknown): boolean {
+  const x = raw as Partial<EveningSnapshot> | null;
+  if (!x || !Array.isArray(x.log)) return false;
+  const log = x.log.filter((e): e is LogEntry => !!e && typeof e.at === "number" && typeof e.text === "string" && typeof e.kind === "string").slice(-5000);
+  useEvening.setState({
+    log,
+    baseline: Array.isArray(x.baseline) ? (x.baseline as Go[]) : null,
+    intervalSince: typeof x.intervalSince === "number" ? x.intervalSince : null,
+    exportedLen: typeof x.exportedLen === "number" ? Math.min(x.exportedLen, log.length) : 0,
+    ended: false,
+  });
+  return true;
+}
+
+/** The report was exported or printed: closing Cue no longer asks about it. */
+export const markExported = (): void => useEvening.setState((s) => ({ exportedLen: s.log.length }));
+
+/** Entries of the log not exported yet (closing Cue asks before losing them). */
+export const unexportedEntries = (): number => {
+  const s = useEvening.getState();
+  return s.ended ? 0 : Math.max(0, s.log.length - s.exportedLen);
+};
 
 export function logEvent(kind: LogKind, text: string, by?: string): void {
   useEvening.setState((s) => ({ log: [...s.log, { at: Date.now(), kind, text, by }].slice(-5000) }));
@@ -39,7 +78,7 @@ export function endInterval(text: string): void {
 
 /** After "Fine spettacolo": a new evening starts clean. */
 export function resetEvening(): void {
-  useEvening.setState({ log: [], baseline: null, intervalSince: null, ended: false });
+  useEvening.setState({ log: [], baseline: null, intervalSince: null, ended: false, exportedLen: 0 });
 }
 
 /** Watches the show while Cue is open: GOs, pause, blackout, link problems, chat. Returns the cleanup. */

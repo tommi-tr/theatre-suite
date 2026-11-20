@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT, type TFunc } from "@theatre-suite/core";
 import { Button, confirmYesNo, Icon, NumberField, Segmented } from "@theatre-suite/ui";
-import { api, isDemo, isTauri } from "../lib/api";
 import { closeOutput, chooseMonitor, nextItem, openOutput, projErrorText, refreshMonitors, setBlank, stepItem, fireItem, toggleBlank, toggleTest, useProj } from "../lib/projection";
 import { addImages, addSlidesFromPdf, addSlidesFromPowerPoint, addVideos, chooseBlankImage, clearBlankImage, useImporting } from "../lib/projImport";
 import { pptSupported } from "../lib/ppt";
-import { resolveSourcePath } from "../lib/sources";
 import { COLOR_KEYS, effectiveColor, moveItem, NEUTRAL, removeItem, resetItemColor, setColorValue, transitionText, updateItem, withTransitionKind, type ColorKey } from "../model/projection";
 import type { Projection, ProjectionItem } from "../model/show";
 import { ProjectionScreen } from "../projection/ProjectionScreen";
 import { useItemThumb } from "../projection/usePicture";
 import { fmtDuration } from "../prepare/format";
 import { useDoc } from "../store/doc";
+import { acceptVideo, useVideoCheck } from "../lib/videoCheck";
 import { useUi } from "../store/ui";
 import "./projections.css";
 
@@ -44,7 +43,8 @@ export function ProjectionsMode() {
   const sel = items.find((i) => i.id === selected) ?? null;
   const cur = items.find((i) => i.id === current) ?? null;
   const next = nextItem(items, current);
-  const videoOk = useVideoFiles(items);
+  const videoState = useVideoCheck((s) => s.byId);
+  const videoOk = useMemo(() => Object.fromEntries(Object.entries(videoState).map(([id, v]) => [id, v !== "missing"])) as Record<string, boolean>, [videoState]);
   const screen = chooseMonitor(monitors, p?.screen ?? null);
 
   useEffect(() => void refreshMonitors(), []);
@@ -57,8 +57,6 @@ export function ProjectionsMode() {
 
   if (!p) return null;
   const edit = (fn: (p: Projection) => Projection, key?: string) => change((s) => ({ ...s, projection: fn(s.projection) }), key);
-  const videoMissing = items.filter((i) => i.kind === "video" && videoOk[i.id] === false).length;
-  const videos = items.filter((i) => i.kind === "video").length;
 
   const play = (id: string) => void fireItem(id).catch((e) => useUi.getState().showToast(projErrorText(t, e), "error"));
   const step = (dir: "next" | "previous") =>
@@ -259,6 +257,18 @@ export function ProjectionsMode() {
                 {videoOk[sel.id] === false ? t("Video not found: {path}", { path: sel.path }) : `${sel.path}${sel.durationSec ? ` · ${fmtDuration(sel.durationSec)}` : ""}`}
               </p>
             ) : null}
+            {sel.kind === "video" && videoState[sel.id] === "changed" ? (
+              <div className="cue-proj__changed" role="alert">
+                <p>{t("This video changed since it was added (another cut, or another file with the same name).")}</p>
+                <Button
+                  variant="sm"
+                  icon="check"
+                  onClick={() => void acceptVideo(sel).then(() => useUi.getState().showToast(t("This version of the video is now the right one."))).catch(() => useUi.getState().showToast(t("Video not found: {path}", { path: sel.path ?? "" }), "error"))}
+                >
+                  {t("Use this version")}
+                </Button>
+              </div>
+            ) : null}
           </>
         ) : (
           <>
@@ -282,58 +292,46 @@ export function ProjectionsMode() {
         </div>
       </aside>
 
-      <footer className="cue-proj__foot">
-        <span>
-          {t("{n} items", { n: items.length })}
-          {videos ? ` · ${videos === 1 ? t("1 video outside the file") : t("{n} videos outside the file", { n: videos })}` : ""}
-          {videoMissing ? ` · ${t("{n} not found", { n: videoMissing })}` : ""}
-        </span>
-        <span className="ts-spacer" />
-        <button
-          type="button"
-          className="cue-proj__link"
-          onClick={() =>
-            void (async () => {
-              if (!useProj.getState().windowOpen) await openOutput().catch((e) => useUi.getState().showToast(projErrorText(t, e), "error"));
-              await toggleTest();
-            })()
-          }
-        >
-          {t("Test pattern on the projector")}
-        </button>
-      </footer>
     </div>
+  );
+}
+
+/** The bottom line in Proiezioni: how many items and videos (missing, changed), and the test pattern. */
+export function ProjectionsStatusLine() {
+  const t = useT();
+  const items = useDoc((s) => s.show?.projection.items) ?? [];
+  const byId = useVideoCheck((s) => s.byId);
+  const videos = items.filter((i) => i.kind === "video");
+  const missing = videos.filter((i) => byId[i.id] === "missing").length;
+  const changed = videos.filter((i) => byId[i.id] === "changed").length;
+  return (
+    <>
+      <span>
+        {t("{n} items", { n: items.length })}
+        {videos.length ? ` · ${videos.length === 1 ? t("1 video outside the file") : t("{n} videos outside the file", { n: videos.length })}` : ""}
+      </span>
+      {missing ? <span className="cue-proj__bad">{t("{n} not found", { n: missing })}</span> : null}
+      {changed ? <span className="cue-proj__warn">{changed === 1 ? t("1 changed") : t("{n} changed", { n: changed })}</span> : null}
+      <span className="ts-spacer" />
+      <button
+        type="button"
+        className="cue-proj__link"
+        onClick={() =>
+          void (async () => {
+            if (!useProj.getState().windowOpen) await openOutput().catch((e) => useUi.getState().showToast(projErrorText(t, e), "error"));
+            await toggleTest();
+          })()
+        }
+      >
+        {t("Test pattern on the projector")}
+      </button>
+    </>
   );
 }
 
 const screenLabel = (m: { index: number; width: number; height: number }, t: TFunc) => `${t("Screen {n}", { n: m.index + 1 })} · ${m.width} × ${m.height} · ${t("full screen")}`;
 
 /** Which video files are there (computed when the list changes; the demo says yes). */
-function useVideoFiles(items: readonly ProjectionItem[]): Record<string, boolean> {
-  const file = useDoc((s) => s.filePath);
-  const [ok, setOk] = useState<Record<string, boolean>>({});
-  const key = items.map((i) => (i.kind === "video" ? `${i.id}:${i.path}` : "")).join("|");
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      const r: Record<string, boolean> = {};
-      for (const i of items) {
-        if (i.kind !== "video") continue;
-        if (!isTauri) r[i.id] = isDemo;
-        else {
-          const abs = i.path ? await resolveSourcePath({ path: i.path }, file) : null;
-          r[i.id] = !!abs && (await api.pathExists(abs).catch(() => false));
-        }
-      }
-      if (live) setOk(r);
-    })();
-    return () => {
-      live = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, file]);
-  return ok;
-}
 
 function BlankRow({ p, t }: { p: Projection; t: TFunc }) {
   const blank = useProj((s) => s.blank);
@@ -371,6 +369,8 @@ function SeqList({
 }) {
   const dragFrom = useRef<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
+  const byId = useVideoCheck((s) => s.byId);
+  const changed = useMemo(() => new Set(Object.entries(byId).filter(([, v]) => v === "changed").map(([id]) => id)), [byId]);
   const rows = useMemo(() => items, [items]);
   return (
     <>
@@ -422,6 +422,7 @@ function SeqList({
               {item.name}
             </span>
             {item.kind === "video" && videoOk[item.id] === false ? <Icon name="alert" size={13} /> : null}
+            {item.kind === "video" && changed.has(item.id) ? <span className="cue-seqrow__changed">{t("changed")}</span> : null}
           </div>
         </div>
       ))}

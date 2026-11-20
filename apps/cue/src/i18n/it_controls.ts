@@ -85,4 +85,9 @@ export const itControls: Dict = {
   "Pair a computer": "Abbina un computer",
   "Recommended: import the slides as images in Projections.": "Consigliato: importa le diapositive come immagini in Proiezioni.",
   "Open Projections": "Apri Proiezioni",
+
+  "Log of the evening not exported": "Registro della serata non esportato",
+  "The log of the evening has {n} entries that were not exported: closing Cue loses them.": "Il registro della serata ha {n} voci non esportate: chiudendo Cue si perdono.",
+  "Close without it": "Chiudi senza",
+  "Export the report": "Esporta il rapporto",
 };

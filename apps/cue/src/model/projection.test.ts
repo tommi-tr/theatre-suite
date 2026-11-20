@@ -14,6 +14,7 @@ import {
   temperatureGains,
   transitionTimeline,
   usedParts,
+  partsToDrop,
   withTransitionKind,
 } from "./projection";
 
@@ -116,3 +117,14 @@ describe("show.json", () => {
     expect(p.atEnd).toBe("hold");
   });
 });
+
+describe("cleaning the pictures no longer used", () => {
+  it("drops picture parts that no projection (now or in undo) uses, and nothing else", () => {
+    const now = proj([item("a", { thumb: "thumbs/a.jpg" })]);
+    const undo = proj([item("b")]);
+    const file = ["script.pdf", "images/a.png", "thumbs/a.jpg", "images/b.png", "images/c.png", "thumbs/c.jpg"];
+    expect(partsToDrop(file, [now, undo]).sort()).toEqual(["images/c.png", "thumbs/c.jpg"]);
+    expect(partsToDrop(file, [now])).toContain("images/b.png");
+  });
+});
+
