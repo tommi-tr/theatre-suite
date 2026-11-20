@@ -48,9 +48,10 @@ const project: ProjectView = {
       { id: "d4", app: "bardo", title: "AMLETO — Copione bozza 2", path: "Copione.bardo", phase: "preparation" },
       { id: "d5", app: "diaframma", title: "Scaletta — prima versione", path: "Audio/Vecchia.diaframma", phase: null },
       { id: "d6", app: "cantinella", title: "Produzione", path: "Amleto - produzione.cantinella", phase: "rehearsals" },
+      { id: "d7", app: "cue", title: "Serata", path: "Serata.tcue", phase: "show" },
     ],
   },
-  exists: { d1: true, d2: true, d3: true, d4: true, d5: false, d6: true },
+  exists: { d1: true, d2: true, d3: true, d4: true, d5: false, d6: true, d7: true },
   exports: {
     d4: [
       { name: "Amleto - copione 2.pdf", path: "Amleto - copione 2.pdf", modified: now - day },
@@ -83,6 +84,10 @@ const apps: AppsView = {
     {
       id: "cantinella", name: "Cantinella", installed: null, status: { state: "available", latest: "0.1.0", url: "" },
       latest: { version: "0.1.0", url: "", notes: "Prima versione: struttura, rubrica, importazione vCard e CSV." }, held: null, versions: [v("0.1.0", 0)],
+    },
+    {
+      id: "cue", name: "Cue", installed: null, status: { state: "available", latest: "0.1.0", url: "" },
+      latest: { version: "0.1.0", url: "", notes: "" }, held: null, versions: [v("0.1.0", 0)],
     },
   ],
   launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.4.3" }, status: { state: "available", latest: "0.4.4", url: "" }, latest: { version: "0.4.4", url: "", notes: "" }, held: null, versions: [v("0.4.4", 0, "Torna al launcher: le app aprono lo spettacolo qui."), v("0.4.3", 1, "", true), v("0.4.2", 2)] },

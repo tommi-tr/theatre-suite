@@ -1,4 +1,4 @@
-import { GRANVELO_LOGO } from "@theatre-suite/ui";
+import { CUE_LOGO, GRANVELO_LOGO } from "@theatre-suite/ui";
 
 /** The apps of the suite as the interface shows them. A new app = a new row. */
 export interface AppDef {
@@ -14,7 +14,7 @@ export interface AppDef {
   canCreate: boolean;
   accent: { dark: string; light: string };
   /** `stroke`: line width on the 100×100 grid for a tile of that size (default: AppLogo's own). */
-  logo: { a: string; b: string; accentColor: string; stroke?: (size: number) => number };
+  logo: { a: string; b: string; accentColor: string; dots?: readonly { cx: number; cy: number; r: number }[]; stroke?: (size: number) => number };
 }
 
 export const APPS: AppDef[] = [
@@ -64,6 +64,17 @@ export const APPS: AppDef[] = [
     // Gelatina (magenta), as Granvelo itself (02_design.md). Same drawing as the app icon "Banco", thick stroke.
     accent: { dark: "#f06fcf", light: "#a3218a" },
     logo: { a: GRANVELO_LOGO.accent, b: GRANVELO_LOGO.ink, accentColor: "#c2349f", stroke: GRANVELO_LOGO.stroke },
+  },
+  {
+    id: "cue",
+    name: "Cue",
+    role: "Show control",
+    about: "The digital prompt book: GO on the script, lights, sound and projections live.",
+    soon: false,
+    canCreate: true,
+    // Gesso (chalk), as in the app (docs/cue/13_cue.md). Same drawing as the app icon "Filo": a dot, a line and the GO button.
+    accent: { dark: "#e2ded4", light: "#4b4840" },
+    logo: { a: CUE_LOGO.accent, b: CUE_LOGO.ink, accentColor: "#77726a", dots: CUE_LOGO.dots, stroke: CUE_LOGO.stroke },
   },
 ];
 

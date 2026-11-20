@@ -94,7 +94,7 @@ export interface OpenResult {
 export interface Skipped {
   docId: string;
   title: string;
-  reason: "notInstalled" | "oneAtATime" | "missing" | "failed";
+  reason: "notInstalled" | "oneAtATime" | "notNeeded" | "missing" | "failed";
   detail: string;
 }
 

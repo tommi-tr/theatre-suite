@@ -49,7 +49,7 @@ pub fn reveal(path: &Path) -> Result<()> {
 pub struct Skipped {
     pub doc_id: String,
     pub title: String,
-    /// `notInstalled`, `oneAtATime`, `missing`, `failed`.
+    /// `notInstalled`, `oneAtATime`, `notNeeded`, `missing`, `failed`.
     pub reason: String,
     pub detail: String,
 }
@@ -71,8 +71,16 @@ pub fn open_all(
 ) -> OpenAllReport {
     let mut report = OpenAllReport::default();
     let mut used: Vec<String> = vec![];
+    // With a Cue document in the show, Cue runs the evening (it drives sound and lights itself):
+    // only Cue is opened, the other documents are listed as not needed.
+    let cue_runs_it = project.documents.iter().any(|d| d.phase == Some(Phase::Show) && d.app == "cue");
     for doc in project.documents.iter().filter(|d| d.phase == Some(Phase::Show)) {
         let skip = |reason: &str, detail: String| Skipped { doc_id: doc.id.clone(), title: doc.title.clone(), reason: reason.into(), detail };
+        if cue_runs_it && doc.app != "cue" {
+            let name = app_by_id(&doc.app).map_or(doc.app.as_str(), |a| a.name);
+            report.skipped.push(skip("notNeeded", name.to_string()));
+            continue;
+        }
         let path = document_path(dir, doc);
         if !path.is_file() {
             report.skipped.push(skip("missing", doc.path.clone()));
@@ -134,6 +142,32 @@ mod tests {
         assert!(reasons.contains(&"notInstalled")); // Bardo
         assert!(reasons.contains(&"missing"));
         assert_eq!(r.opened.len(), 1);
+    }
+
+    #[test]
+    fn a_cue_document_in_the_show_phase_opens_only_cue() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("a.diaframma"), "{}").unwrap();
+        std::fs::write(d.path().join("s.tcue"), "x").unwrap();
+        let mut p = manifest::create(d.path(), "X", "").unwrap();
+        for doc in p.documents.iter_mut() {
+            doc.phase = Some(Phase::Show);
+        }
+        assert_eq!(p.documents.len(), 2);
+        let log = RefCell::new(vec![]);
+        let r = open_all(
+            d.path(),
+            &p,
+            |a| Some(format!("C:/{}.exe", a.name)),
+            |prog, doc| {
+                log.borrow_mut().push((prog.to_string_lossy().to_string(), doc.file_name().unwrap().to_string_lossy().to_string()));
+                Ok(())
+            },
+        );
+        assert_eq!(log.borrow().as_slice(), &[("C:/Cue.exe".to_string(), "s.tcue".to_string())]);
+        assert_eq!(r.skipped.len(), 1);
+        assert_eq!(r.skipped[0].reason, "notNeeded");
+        assert_eq!(r.skipped[0].detail, "Diaframma");
     }
 }
 

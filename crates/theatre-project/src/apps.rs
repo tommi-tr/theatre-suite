@@ -35,6 +35,48 @@ const BARDO_FORMAT_VERSION: u32 = 1;
 /// Cantinella gives every missing field its default, so the title is enough.
 const CANTINELLA_FORMAT_VERSION: u32 = 1;
 
+/// Cue's file format (`.tcue`, a zip whose `show.json` carries this number; see `docs/cue/WORKPLAN.md`).
+const CUE_FORMAT_VERSION: u32 = 1;
+
+/// A random UUID version 4 (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`), built on `new_id`'s randomness.
+fn new_uuid_v4() -> String {
+    let mut b = [0u8; 16];
+    let hex = crate::model::new_id();
+    for (i, byte) in b.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap_or(0);
+    }
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let h: String = b.iter().map(|x| format!("{x:02x}")).collect();
+    format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..32])
+}
+
+/// A new empty Cue document: a zip archive holding only `show.json`.
+fn new_cue_document(title: &str) -> Option<Vec<u8>> {
+    use std::io::Write;
+    let v = serde_json::json!({
+        "format": "theatre.cue",
+        "formatVersion": CUE_FORMAT_VERSION,
+        "id": new_uuid_v4(),
+        "title": title.trim()
+    });
+    let json = serde_json::to_string_pretty(&v).ok()?;
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    zip.start_file("show.json", opts).ok()?;
+    zip.write_all(json.as_bytes()).ok()?;
+    Some(zip.finish().ok()?.into_inner())
+}
+
+/// Bytes of a new empty document of `app`, titled `title`; `None` if the launcher cannot make one.
+/// Text formats come from `new_document_text`; Cue's `.tcue` is a zip archive.
+pub fn new_document_bytes(app: &KnownApp, title: &str) -> Option<Vec<u8>> {
+    match app.id {
+        "cue" => new_cue_document(title),
+        _ => new_document_text(app, title).map(String::into_bytes),
+    }
+}
+
 /// Text of a new empty document of `app`, titled `title`; `None` if the launcher cannot make one.
 pub fn new_document_text(app: &KnownApp, title: &str) -> Option<String> {
     match app.id {
@@ -92,6 +134,15 @@ pub const KNOWN_APPS: &[KnownApp] = &[
         new_document: None,
         new_extension: "cantinella",
     },
+    KnownApp {
+        id: "cue",
+        name: "Cue",
+        extensions: &["tcue"],
+        multi_document: false,
+        exe: "Cue.exe",
+        new_document: None,
+        new_extension: "tcue",
+    },
 ];
 
 pub fn app_for_extension(ext: &str) -> Option<&'static KnownApp> {
@@ -140,5 +191,31 @@ mod tests {
         // Must match FORMAT_VERSION in apps/diaframma/src/state/types.ts.
         assert_eq!(v["formatVersion"], 3);
         assert!(v["tracks"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn new_cue_document_is_a_zip_with_only_show_json() {
+        use std::io::Read;
+        let app = app_by_id("cue").unwrap();
+        assert_eq!(app_for_extension("TCUE").unwrap().id, "cue");
+        let bytes = new_document_bytes(app, " La locandiera ").unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
+        assert_eq!(zip.len(), 1);
+        let mut text = String::new();
+        zip.by_name("show.json").unwrap().read_to_string(&mut text).unwrap();
+        assert!(text.contains('\n'), "pretty-printed");
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["format"], "theatre.cue");
+        assert_eq!(v["formatVersion"], 1);
+        assert_eq!(v["title"], "La locandiera");
+        let id = v["id"].as_str().unwrap();
+        assert_eq!(id.len(), 36);
+        assert_eq!(id.as_bytes()[14], b'4');
+        assert!(matches!(id.as_bytes()[19], b'8' | b'9' | b'a' | b'b'));
+        let other = new_document_bytes(app, "x").unwrap();
+        let mut z2 = zip::ZipArchive::new(std::io::Cursor::new(other)).unwrap();
+        let mut t2 = String::new();
+        z2.by_name("show.json").unwrap().read_to_string(&mut t2).unwrap();
+        assert_ne!(serde_json::from_str::<serde_json::Value>(&t2).unwrap()["id"], v["id"]);
     }
 }

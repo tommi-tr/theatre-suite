@@ -5,6 +5,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type HTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -1026,5 +1027,117 @@ export function Steps({
       </span>
       {showLabel ? <span className="ts-steps__label">{steps[value]?.label}</span> : null}
     </span>
+  );
+}
+
+/* ---------------- Key command (bottom bars) ---------------- */
+
+export interface KeyCommandProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  /** The command, written in words: "Blackout", "Fade to black · 1.0 s". */
+  children: ReactNode;
+  /** The key that does the same, shown as a key cap after the words: "B", "E E". */
+  keys?: ReactNode;
+  /** `danger` = red text (emergency commands). */
+  variant?: "normal" | "danger";
+  /** The command is on (amber for a normal one, red for a danger one). */
+  active?: boolean;
+  /** A danger command that needs a second press: it blinks until pressed again. */
+  armed?: boolean;
+  /** Optional small icon before the words (the default is text only). */
+  icon?: IconName;
+}
+
+/** A command written with its key, with no box: for the bottom bar of a live mode. Put several in a `KeyCommandBar`. */
+export function KeyCommand({ children, keys, variant = "normal", active, armed, icon, className, type = "button", ...rest }: KeyCommandProps) {
+  return (
+    <button type={type} className={cx("ts-keycmd", variant === "danger" && "ts-keycmd--danger", className)} data-on={active ? "" : undefined} data-armed={armed ? "" : undefined} {...rest}>
+      {icon ? <Icon name={icon} size={14} /> : null}
+      {children}
+      {keys ? <Kbd>{keys}</Kbd> : null}
+    </button>
+  );
+}
+
+/** The row that holds the `KeyCommand`s, always in the same place at the right of the bottom bar. */
+export function KeyCommandBar({ children, className, ...rest }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div role="group" className={cx("ts-keycmds", className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/* ---------------- Output pill ---------------- */
+
+/** The colours of `StatusLight`, plus `idle` (grey: nothing is connected, or it is simulated). */
+export type OutputPillState = LightState | "idle";
+
+export interface OutputPillProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  state: OutputPillState;
+  /** What the output is doing, in words: "DMX USB Pro · connected". */
+  label: string;
+  /** A quieter second part: "44 per second". */
+  detail?: string;
+  /** Working on it (connecting): the dot pulses. */
+  busy?: boolean;
+  /** A panel opened by the pill is showing (sets `aria-expanded`). */
+  open?: boolean;
+  /** Show the small arrow that tells there is a panel (default: when the pill can be pressed). */
+  chevron?: boolean;
+}
+
+const PILL_DOT: Record<OutputPillState, string> = { ok: "ts-dot--go", warn: "ts-dot--sb", stop: "ts-dot--stop", info: "ts-dot--pre", idle: "" };
+
+/** State of an output (audio device, DMX cable, projector…) as a round pill: coloured dot, words, optional detail. Red pill when `stop`. */
+export function OutputPill({ state, label, detail, busy, open, chevron, className, onClick, ...rest }: OutputPillProps) {
+  const body = (
+    <>
+      <span className={cx("ts-dot", PILL_DOT[state])} />
+      <span className="ts-outpill__label">{label}</span>
+      {detail ? <span className="ts-outpill__detail">{detail}</span> : null}
+      {chevron ?? !!onClick ? <Icon name="chevDown" size={12} /> : null}
+    </>
+  );
+  const cls = cx("ts-outpill", `ts-outpill--${state}`, busy && "ts-outpill--busy", className);
+  if (!onClick) return <span className={cls}>{body}</span>;
+  return (
+    <button type="button" className={cls} aria-expanded={open} onClick={onClick} {...rest}>
+      {body}
+    </button>
+  );
+}
+
+/* ---------------- Alert band ---------------- */
+
+export interface AlertBandProps {
+  tone: "stop" | "warn" | "info";
+  /** Bold first words: "USB-DMX cable unplugged." */
+  title?: ReactNode;
+  /** The explanation. */
+  children?: ReactNode;
+  /** Optional button on the right. */
+  action?: { label: string; icon?: IconName; onClick: () => void };
+  /** Icon before the text (default: a dot in the colour of the tone). */
+  icon?: IconName;
+  className?: string;
+}
+
+/** Full-width band under the title bar: red while something is broken (a cable unplugged), amber for a warning, blue for information. */
+export function AlertBand({ tone, title, children, action, icon, className }: AlertBandProps) {
+  return (
+    <div className={cx("ts-banner", "ts-alertband", `ts-alertband--${tone}`, className)} role={tone === "info" ? "status" : "alert"}>
+      {icon ? <Icon name={icon} size={16} /> : <span className={cx("ts-dot", tone === "stop" ? "ts-dot--stop" : tone === "warn" ? "ts-dot--sb" : "ts-dot--pre")} />}
+      <span>
+        {title ? <strong>{title}</strong> : null}
+        {title && children ? " " : null}
+        {children}
+      </span>
+      <span className="ts-spacer" />
+      {action ? (
+        <Button variant="sm" icon={action.icon} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
+    </div>
   );
 }
