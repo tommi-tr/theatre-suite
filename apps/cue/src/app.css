@@ -1,0 +1,673 @@
+/* Cue: app accent (chalk, "Gesso") on the shared Grafite base (02_design.md).
+   Only the accent and cue- layout classes live here; everything else comes from packages/ui.
+   Department colours (type marks only, never fills): lights magenta, audio indigo, projections cyan. */
+[data-app="cue"][data-theme="dark"],
+[data-app="cue"]:not([data-theme]) {
+  --accent: #e2ded4;
+  --accent-ink: #0e0f12;
+  --accent-soft: #2b2a26;
+  --accent-line: #4a4740;
+  --cue-lights: #f06fcf;
+  --cue-audio: #8e80ff;
+  --cue-video: #4cd6e6;
+}
+[data-app="cue"][data-theme="light"] {
+  --accent: #4b4840;
+  --accent-ink: #ffffff;
+  --accent-soft: #eceae4;
+  --accent-line: #cfcbc2;
+  --cue-lights: #a3218a;
+  --cue-audio: #5442e0;
+  --cue-video: #0a7886;
+}
+[data-app="cue"] {
+  --logo-a: #77726a;
+}
+
+/* ---------- Frame ---------- */
+.cue-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* The mode selector sits in the title bar (as in Diaframma): the chosen mode in the accent. */
+.cue-app .ts-titlebar .ts-seg {
+  background: var(--surface-2);
+  border-color: transparent;
+  border-radius: 9px;
+}
+.cue-app .ts-titlebar .ts-seg__btn {
+  height: 28px;
+  font-size: 13px;
+}
+.cue-app .ts-titlebar .ts-seg__btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Narrow windows: the modes become icons with a tooltip; never two rows. */
+@media (max-width: 1240px) {
+  .cue-app .ts-titlebar .ts-seg__label {
+    display: none;
+  }
+  .cue-app .ts-titlebar .ts-seg__btn {
+    padding: 0 12px;
+  }
+}
+
+.cue-awake {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cue-banner--stop {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+}
+
+/* ---------- File menu ---------- */
+.cue-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 270px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+.cue-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.cue-menu__item:hover:not(:disabled),
+.cue-menu__item:focus-visible {
+  background: var(--surface-2);
+}
+.cue-menu__item:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+.cue-menu__sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border);
+}
+.cue-menu__label {
+  display: block;
+  padding: 6px 10px 4px;
+}
+
+/* ---------- First screen: "Da dove vuoi iniziare?" ---------- */
+.cue-start {
+  flex: 1;
+  overflow: auto;
+  padding: 36px 32px;
+}
+.cue-start__inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.cue-start__head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.cue-start__head h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.cue-start__head p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  max-width: 680px;
+  line-height: 1.5;
+}
+.cue-start__cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.cue-start__col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cue-startcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+.cue-startcard--main .ts-field {
+  width: 100%;
+}
+.cue-startcard--btn {
+  flex: 1;
+  gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.cue-startcard--btn:hover {
+  border-color: var(--accent-line);
+}
+.cue-startcard__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cue-startcard__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cue-startcard__text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.cue-startcard__foot {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.cue-start__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cue-start__recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cue-start__none {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+}
+.cue-recent {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.cue-recent:hover {
+  background: var(--surface-2);
+}
+.cue-recent__path {
+  flex: 1;
+  font-size: 11.5px;
+}
+
+/* ---------- Modes in 0.1: what each one will hold ---------- */
+.cue-mode {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  padding: 32px;
+}
+.cue-mode__inner {
+  margin: auto;
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.cue-mode__inner--two {
+  max-width: 1040px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* The first step of Prepara: load the script. */
+.cue-first {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 26px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.cue-first h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+.cue-first p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cue-first__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cue-first__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* "Parte non ancora disponibile" (02_design.md). */
+.cue-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.cue-soon__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cue-soon h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+.cue-soon ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cue-soon__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cue-soon--compact {
+  padding: 18px 20px;
+}
+.cue-soon--compact h2 {
+  font-size: 16px;
+}
+.cue-soon--compact .cue-soon__icon {
+  width: 36px;
+  height: 36px;
+}
+.cue-soonpill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cue-soon__now {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* ---------- Settings ---------- */
+/* Fixed height: the window does not jump from one category to the next; a long category scrolls. */
+.cue-settings {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 18px;
+  height: 430px;
+}
+.cue-settabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+  padding-right: 10px;
+}
+.cue-settab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cue-settab:hover {
+  background: var(--surface-2);
+}
+.cue-settab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.cue-setpane {
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.cue-set-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 12px 0;
+}
+.cue-set-row__text {
+  flex: 1;
+  min-width: 0;
+}
+.cue-set-row__label {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.cue-set-row__ctl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding-top: 1px;
+}
+.cue-set-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.cue-set-range__value {
+  width: 38px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.cue-set-intro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.cue-set-later {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 8px;
+}
+.cue-set-later h3 {
+  margin: 4px 0 2px;
+  font-size: 15px;
+}
+.cue-set-later ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 540px;
+}
+.cue-set-about {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-top: 6px;
+}
+.cue-set-about .ts-field__hint {
+  margin-top: 4px;
+  max-width: 480px;
+}
+.cue-set-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 12.5px;
+}
+.cue-set-link__url {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Settings → Copione: two small pages, white and dark paper (independent of the theme). */
+.cue-paper-preview {
+  display: flex;
+  gap: 14px;
+  padding: 2px 0 8px;
+}
+.cue-paper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.55;
+}
+.cue-paper--active {
+  opacity: 1;
+}
+.cue-paper__page {
+  width: 210px;
+  height: 104px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9.5px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.cue-paper--active .cue-paper__page {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cue-paper__page b {
+  font-weight: 700;
+}
+.cue-paper__page i {
+  color: inherit;
+  opacity: 0.75;
+}
+.cue-paper__page--white {
+  background: #ffffff;
+  color: #1b1c21;
+}
+.cue-paper__page--dark {
+  background: #1c1d21;
+  color: #e8e8ea;
+}
+.cue-paper__label {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* Settings → Tasti */
+.cue-keys {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.cue-keys__group {
+  padding: 12px 0 4px;
+}
+.cue-keys__group:first-child {
+  padding-top: 0;
+}
+.cue-keys__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 27px;
+  border-bottom: 1px solid var(--border);
+}
+.cue-keys__name {
+  flex: 1;
+  min-width: 0;
+}
+.cue-keys__row--danger .cue-keys__name {
+  color: var(--stop);
+  font-weight: 600;
+}
+.cue-keys__keys {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+}
+.cue-keys__combo {
+  display: inline-flex;
+  gap: 3px;
+}
+.cue-pedal {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+}
+.cue-pedal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+/* ---------- Versions ---------- */
+.cue-versions__new {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cue-versions__empty {
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.cue-versions__empty p {
+  margin: 0 0 12px;
+}
+.cue-versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cue-version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.cue-version__main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cue-version__when {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cue-version__note {
+  color: var(--text-2);
+}
+.cue-version__meta {
+  color: var(--text-3);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.cue-versions__info {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+}

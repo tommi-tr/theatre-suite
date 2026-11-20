@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["apps/diaframma/src-tauri", "apps/bardo/src-tauri", "apps/cantinella/src-tauri", "apps/granvelo/src-tauri", "apps/launcher/src-tauri", "crates/theatre-project", "crates/launcher-core", "crates/suite-link"]
+members = ["apps/diaframma/src-tauri", "apps/bardo/src-tauri", "apps/cantinella/src-tauri", "apps/granvelo/src-tauri", "apps/launcher/src-tauri", "apps/cue/src-tauri", "crates/theatre-project", "crates/launcher-core", "crates/suite-link"]
 
 [profile.release]
 codegen-units = 1
