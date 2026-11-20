@@ -9,6 +9,8 @@
  *   rebuild them from the known fields alone.
  */
 
+import type { Action, Go, ItemRef } from "./gos";
+
 export const FORMAT = "theatre.cue";
 export const FORMAT_VERSION = 1;
 
@@ -47,44 +49,17 @@ export interface Source {
   /** Id of the document inside that file, when it has one. */
   docId?: string;
   name?: string;
+  /** SHA-256 of the file at the last load: a different one means the file changed (phase 2). */
+  sha256?: string;
 }
 
-/** An item of a source: a Granvelo memory, a Diaframma track (stable ids). */
-export interface ItemRef {
-  sourceId: string;
-  itemId: string;
-}
-
-export type ActionKind = "light" | "audio" | "projection" | "powerpoint";
-
-/** One action of a GO (planned, phase 2; projection and PowerPoint phase 4). */
-export interface GoAction {
-  id: string;
-  kind: ActionKind;
-  /** light / audio: the memory or track. */
-  ref?: ItemRef;
-  /** projection: the item of `projection.items`. */
-  projectionItemId?: string;
-  /** powerpoint: next, previous or a slide number. */
-  powerpoint?: "next" | "previous" | number;
-  /** Times taken from the source file, changed in Cue (seconds). */
-  times?: { fade?: number; delay?: number };
-  /** Audio level change in dB. */
-  levelDb?: number;
-}
-
-/** Who may give a GO when a secondary computer is connected. */
-export type GivenBy = "both" | "primary" | "secondary";
-
-export interface Go {
-  id: string;
-  anchor: Anchor;
-  actions: GoAction[];
-  givenBy: GivenBy;
-  /** Starts by itself after the previous one (Next/Crossfade of Diaframma, "parte da sola" of Granvelo). */
-  auto?: boolean;
-  note?: string;
-}
+/**
+ * GOs and their actions: the types live in model/gos.ts (with the functions that edit them) and are re-exported
+ * here, so `show.json` has one description.
+ */
+export type { Action, ActionKind, ActionTimes, AudioAction, AudioStopAction, GivenBy, Go, GoAnchor, ItemRef, LightAction, PowerPointAction, ProjectionAction } from "./gos";
+/** Old name of `Action`. */
+export type GoAction = Action;
 
 /** A note on the script (Note column; phase 1). */
 export interface ScriptNote {
@@ -148,8 +123,10 @@ export interface ChecklistItem {
 export interface ShowSettings {
   /** General auto scroll speed, script lines per second (phase 2). */
   autoScrollSpeed: number;
-  /** Fade to black, seconds. */
+  /** Fade to black, seconds (default 3). */
   ftbSeconds: number;
+  /** Piazzato rapido (Q): the memory it brings up; null = none chosen yet (Settings → Outputs). */
+  presetRef: ItemRef | null;
 }
 
 export interface CueShow {
@@ -172,7 +149,7 @@ export interface CueShow {
 
 export const DEFAULT_LAYOUT: Layout = { scriptWidth: null, audioBoxHeights: {} };
 export const DEFAULT_PROJECTION: Projection = { blank: { kind: "black" }, screen: null, items: [] };
-export const DEFAULT_SHOW_SETTINGS: ShowSettings = { autoScrollSpeed: 1, ftbSeconds: 5 };
+export const DEFAULT_SHOW_SETTINGS: ShowSettings = { autoScrollSpeed: 1, ftbSeconds: 3, presetRef: null };
 
 export type ShowFileProblem = "not-json" | "not-cue" | "newer" | "damaged";
 
@@ -216,6 +193,9 @@ function anchor(v: unknown): Anchor {
 
 export const SCRIPT_WIDTH_MIN = 0.2;
 export const SCRIPT_WIDTH_MAX = 0.8;
+
+const itemRef = (v: unknown): ItemRef | null =>
+  isObj(v) && typeof v.sourceId === "string" && typeof v.itemId === "string" ? ({ ...v, sourceId: v.sourceId, itemId: v.itemId } as ItemRef) : null;
 
 const withId = (o: Raw) => (typeof o.id === "string" && o.id ? o : null);
 
@@ -284,6 +264,7 @@ export function parseShow(text: string, makeId: () => string = defaultId): CueSh
       ...settings,
       autoScrollSpeed: num(settings.autoScrollSpeed, DEFAULT_SHOW_SETTINGS.autoScrollSpeed, 0.05, 20),
       ftbSeconds: num(settings.ftbSeconds, DEFAULT_SHOW_SETTINGS.ftbSeconds, 0, 60),
+      presetRef: itemRef(settings.presetRef),
     },
   };
   if (isObj(raw.savedWith)) show.savedWith = { ...raw.savedWith, app: str(raw.savedWith.app), version: str(raw.savedWith.version) };

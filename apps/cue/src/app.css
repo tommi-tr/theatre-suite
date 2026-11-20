@@ -1,27 +1,25 @@
 /* Cue: app accent (chalk, "Gesso") on the shared Grafite base (02_design.md).
    Only the accent and cue- layout classes live here; everything else comes from packages/ui.
-   Department colours (type marks only, never fills): lights magenta, audio indigo, projections cyan. */
+   Department colours (type marks only, never fills) are shared: --dept-lights, --dept-audio, --dept-video. */
 [data-app="cue"][data-theme="dark"],
 [data-app="cue"]:not([data-theme]) {
   --accent: #e2ded4;
   --accent-ink: #0e0f12;
   --accent-soft: #2b2a26;
   --accent-line: #4a4740;
-  --cue-lights: #f06fcf;
-  --cue-audio: #8e80ff;
-  --cue-video: #4cd6e6;
 }
 [data-app="cue"][data-theme="light"] {
   --accent: #4b4840;
   --accent-ink: #ffffff;
   --accent-soft: #eceae4;
   --accent-line: #cfcbc2;
-  --cue-lights: #a3218a;
-  --cue-audio: #5442e0;
-  --cue-video: #0a7886;
 }
 [data-app="cue"] {
   --logo-a: #77726a;
+  /* Old names of the department marks (now shared in packages/ui: --dept-*). */
+  --cue-lights: var(--dept-lights);
+  --cue-audio: var(--dept-audio);
+  --cue-video: var(--dept-video);
 }
 
 /* ---------- Frame ---------- */

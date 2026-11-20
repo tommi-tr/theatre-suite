@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { debounce, type Lang, type ThemePref } from "@theatre-suite/core";
 import { api, isTauri } from "../lib/api";
+import { normalizeKeymap, type Keymap } from "../model/keys";
 
 /** Paper of the script, separate from the app theme: white (default) or dark (inverted, with its brightness). */
 export type Paper = "white" | "dark";
@@ -16,6 +17,10 @@ export interface Settings {
   /** Brightness of the dark paper, 40–100 (%). */
   paperBrightness: number;
   arrowKeys: ArrowKeys;
+  /** Keys changed by the user (Settings → Tasti); the others are the defaults (model/keys.ts `resolveKeymap`). */
+  keys: Partial<Keymap>;
+  /** After a GO the script scrolls so the standby GO is in view (Settings → Copione). */
+  followStandby: boolean;
   recentFiles: string[];
 }
 
@@ -28,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   paper: "white",
   paperBrightness: 85,
   arrowKeys: "zoom",
+  keys: {},
+  followStandby: true,
   recentFiles: [],
 };
 
@@ -45,6 +52,8 @@ export function normalizeSettings(raw: unknown): Settings {
     paperBrightness:
       typeof r.paperBrightness === "number" && Number.isFinite(r.paperBrightness) ? Math.round(Math.min(100, Math.max(40, r.paperBrightness))) : DEFAULT_SETTINGS.paperBrightness,
     arrowKeys: pick<ArrowKeys>(r.arrowKeys, ["zoom", "page"], "zoom"),
+    keys: normalizeKeymap(r.keys),
+    followStandby: r.followStandby !== false,
     recentFiles: Array.isArray(r.recentFiles) ? r.recentFiles.filter((x): x is string => typeof x === "string").slice(0, 10) : [],
   };
 }

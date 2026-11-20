@@ -1,0 +1,349 @@
+/* The timeline of Show and Prepara (docs/cue/design/preview.html: .gob, .box, .hdr, the two SVG layers).
+   Colours only from packages/ui: states (--go, --sb, --pre), department marks (--dept-*), surfaces. */
+
+.cue-tl {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  /* The dots sit on the script's edge, a few px left of this area. */
+  overflow: clip;
+  overflow-clip-margin: 8px;
+  z-index: 4;
+  user-select: none;
+}
+.cue-tl__layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+  contain: layout style;
+}
+.cue-tl__svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.cue-tl__svg--back {
+  z-index: 1;
+}
+.cue-tl__svg--front {
+  z-index: 4;
+}
+
+/* Column titles, with the department mark. */
+.cue-tl__heads {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.cue-tl__head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+  margin-left: -3px;
+  padding-right: 3px;
+  box-sizing: content-box;
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.cue-tl__head::before {
+  content: "";
+  width: 9px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+.cue-tl__head--lights::before {
+  background: var(--dept-lights);
+}
+.cue-tl__head--audio::before {
+  background: var(--dept-audio);
+}
+.cue-tl__head--video::before {
+  background: var(--dept-video);
+}
+
+/* ---------- GO buttons ---------- */
+.cue-gob {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 12.5px/1.05 var(--font-ui);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+.cue-gob:hover {
+  border-color: var(--text-3);
+}
+.cue-gob:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cue-gob__main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.cue-gob__sub {
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.cue-gob--past {
+  background: var(--neutral-bg);
+  border-color: var(--border);
+  color: var(--text-3);
+}
+.cue-gob--last {
+  background: var(--go-bg);
+  border-color: var(--go);
+  color: var(--go);
+}
+.cue-gob--standby {
+  background: var(--sb-bg);
+  border-color: var(--sb);
+  color: var(--sb);
+  cursor: default;
+}
+.cue-gob--past,
+.cue-gob--last {
+  cursor: default;
+}
+.cue-gob--past:hover {
+  border-color: var(--border);
+}
+.cue-gob--last:hover {
+  border-color: var(--go);
+}
+.cue-gob--standby:hover {
+  border-color: var(--sb);
+}
+/* Given by the other computer: grey, with who gives it. */
+.cue-gob--other {
+  background: var(--neutral-bg);
+  border-color: var(--border-strong);
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 10.5px;
+  cursor: default;
+}
+.cue-gob--other .cue-gob__main {
+  white-space: normal;
+  line-height: 1.05;
+}
+/* Reserved by this computer (C held, phase 3). */
+.cue-gob--mine {
+  box-shadow: 0 0 0 3px var(--pre);
+}
+/* Prepara: the selected GO. */
+.cue-gob--sel {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+[data-locked] .cue-gob {
+  cursor: default;
+}
+
+/* ---------- Boxes of the columns ---------- */
+.cue-box {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 26px 8px 6px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: hidden;
+}
+.cue-box::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--ty, var(--text-3));
+}
+.cue-box--lights {
+  --ty: var(--dept-lights);
+}
+.cue-box--audio {
+  --ty: var(--dept-audio);
+}
+.cue-box--video {
+  --ty: var(--dept-video);
+}
+.cue-box--past {
+  background: var(--neutral-bg);
+  border-color: var(--border);
+  color: var(--text-3);
+}
+.cue-box--past::before {
+  opacity: 0.4;
+}
+.cue-box--past .cue-box__thumb,
+.cue-box--past .cue-box__proj {
+  opacity: 0.45;
+}
+.cue-box--on {
+  background: var(--go-bg);
+  border: 2px solid var(--go);
+  color: var(--go);
+  padding: 25.5px 7.5px 5.5px;
+}
+.cue-box--sb {
+  background: var(--sb-bg);
+  border: 2px solid var(--sb);
+  color: var(--sb);
+  padding: 25.5px 7.5px 5.5px;
+}
+.cue-box--sel {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.cue-box--click {
+  cursor: pointer;
+}
+.cue-box--missing {
+  border-style: dashed;
+}
+.cue-box__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: -1px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.cue-box__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cue-box__thumb {
+  flex: none;
+  display: block;
+  width: 100%;
+  border-radius: 5px;
+}
+.cue-box__proj {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #d8d0bf, #8b7a5e);
+  color: rgba(20, 16, 10, 0.55);
+}
+.cue-box__proj[data-kind="video"] {
+  background: linear-gradient(135deg, #8fa3b8, #3b4a5e);
+  color: rgba(255, 255, 255, 0.6);
+}
+.cue-box__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cue-box__name svg {
+  vertical-align: -1px;
+  margin-left: 3px;
+}
+.cue-box__num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.cue-box__dur {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.cue-box__missing {
+  color: var(--stop);
+}
+.cue-box__grip {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 34px;
+  height: 11px;
+  margin-left: -17px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.cue-box__grip::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.6;
+}
+[data-locked] .cue-box__grip {
+  display: none;
+}
+
+.cue-tl__empty {
+  position: absolute;
+  inset: 40px 20px auto 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--text-3);
+  text-align: center;
+  z-index: 2;
+}
+.cue-tl__empty p {
+  margin: 0;
+  max-width: 280px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cue-gob {
+    transition: none;
+  }
+}

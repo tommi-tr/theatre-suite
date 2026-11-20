@@ -204,6 +204,11 @@ export function ScriptView({ onNoteKey }: ScriptViewProps) {
     [stopAnim, tick],
   );
 
+  useEffect(() => {
+    scriptLive.setController({ tweenTo, tweening: () => anim.current.tween !== null });
+    return () => scriptLive.setController(null);
+  }, [tweenTo]);
+
   /** Zoom keeping a point of the view in place (the pointer, or the centre). */
   const zoomBy = useCallback(
     (factor: number, at?: { x: number; y: number }) => {

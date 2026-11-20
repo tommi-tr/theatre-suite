@@ -68,6 +68,12 @@
   /* Dot colours of a status light (same in both themes). */
   --stop-fill: #ff5f5f;
   --pre-fill: #4fa8ff;
+
+  /* Department marks (type marks only, never fills: column titles, the 3 px top rule of a box, library tabs).
+     Lights = Granvelo's magenta, audio = Diaframma's indigo, video/projections = cyan (born with Cue, 02_design.md). */
+  --dept-lights: #f06fcf;
+  --dept-audio: #8e80ff;
+  --dept-video: #4cd6e6;
 }
 
 [data-theme="light"] {
@@ -117,6 +123,10 @@
   --stop-bg: #fbe1e1;
   --pre-bg: #e7f0fb;
   --neutral-bg: #f2f3f6;
+
+  --dept-lights: #a3218a;
+  --dept-audio: #5442e0;
+  --dept-video: #0a7886;
 }
 
 :root {

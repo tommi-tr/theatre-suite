@@ -82,6 +82,15 @@ const scrollFns = new Set<ScrollFn>();
 let scroller: HTMLElement | null = null;
 let pointer: { x: number; y: number } | null = null;
 
+/** The script view's own smooth movement (set by ScriptView): a visible glide to a point, used by the Show. */
+export interface ScrollController {
+  /** Glides to `top` (content px); `done` when there. */
+  tweenTo(top: number, done?: () => void): void;
+  /** A glide started by `tweenTo` is running. */
+  tweening(): boolean;
+}
+let controller: ScrollController | null = null;
+
 export const scriptLive = {
   attach(el: HTMLElement | null) {
     scroller = el;
@@ -95,6 +104,26 @@ export const scriptLive = {
     return () => scrollFns.delete(fn);
   },
   scrollTop: () => scroller?.scrollTop ?? 0,
+  /** Height of the visible part of the script (px). */
+  viewHeight: () => scroller?.clientHeight ?? 0,
+  /** Largest scrollTop. */
+  maxTop: () => (scroller ? Math.max(0, scroller.scrollHeight - scroller.clientHeight) : 0),
+  /** Moves the script at once (auto scroll, the wheel over the Lock veil). */
+  setTop(top: number) {
+    if (scroller) scroller.scrollTop = top;
+  },
+  scrollBy(dy: number) {
+    if (scroller) scroller.scrollTop += dy;
+  },
+  setController(c: ScrollController | null) {
+    controller = c;
+  },
+  /** A visible glide to `top`; without a script view, nothing. */
+  tweenTo(top: number, done?: () => void) {
+    if (controller) controller.tweenTo(top, done);
+    else done?.();
+  },
+  tweening: () => controller?.tweening() ?? false,
   /** Content point under the pointer (null when the pointer is not on the script). */
   setPointer(p: { x: number; y: number } | null) {
     pointer = p;

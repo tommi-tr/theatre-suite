@@ -28,8 +28,8 @@ import { actionDept, audioEngineTrackId, goDepts, sortGos, type Action, type Aud
  *   any command**.
  */
 
-/** Second press of E within this time fires the emergency (as Granvelo). */
-export const EMERGENCY_WINDOW_MS = 3000;
+/** Second press of E within this time fires the emergency (13_cue.md, "Tasti": E E, two presses within 1 s). */
+export const EMERGENCY_WINDOW_MS = 1000;
 /** Fade out of the sounds of a GO undone by Indietro (seconds). */
 export const BACK_AUDIO_FADE = 1.5;
 
