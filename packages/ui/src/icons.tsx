@@ -256,6 +256,18 @@ export const GRANVELO_LOGO = {
   ink: "M28 18V82M50 18V82M72 18V82",
   /** 6 on the 100×100 grid (6.4 at 64 px, 8.5 at 32 px, 9.5 at 24 px, 11 at 16–20 px). */
   stroke: (size: number): number => (size <= 20 ? 11 : size <= 24 ? 9.5 : size <= 32 ? 8.5 : size <= 64 ? 6.4 : 6),
+  /** The accent of the tile (`--logo-a` of the wrapper), the same in both themes. */
+  color: "#c2349f",
+} as const;
+
+/**
+ * Diaframma icon (100×100): the waveform, upper half in the accent, lower half in ink. Use with `AppLogo` inside
+ * an element that sets `--logo-a` to `DIAFRAMMA_LOGO.color` (the launcher and Cue's linked-files list do).
+ */
+export const DIAFRAMMA_LOGO = {
+  accent: "M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38",
+  ink: "M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68",
+  color: "#6b5bef",
 } as const;
 
 /**

@@ -1,4 +1,4 @@
-import { CUE_LOGO, GRANVELO_LOGO } from "@theatre-suite/ui";
+import { CUE_LOGO, DIAFRAMMA_LOGO, GRANVELO_LOGO } from "@theatre-suite/ui";
 
 /** The apps of the suite as the interface shows them. A new app = a new row. */
 export interface AppDef {
@@ -26,11 +26,7 @@ export const APPS: AppDef[] = [
     soon: false,
     canCreate: true,
     accent: { dark: "#8e80ff", light: "#5442e0" },
-    logo: {
-      a: "M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38",
-      b: "M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68",
-      accentColor: "#6b5bef",
-    },
+    logo: { a: DIAFRAMMA_LOGO.accent, b: DIAFRAMMA_LOGO.ink, accentColor: DIAFRAMMA_LOGO.color },
   },
   {
     id: "bardo",
