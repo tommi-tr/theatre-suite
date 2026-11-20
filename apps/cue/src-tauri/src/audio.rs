@@ -37,11 +37,6 @@ pub fn engine_id(source_id: &str, track_id: &str) -> String {
     format!("{source_id}:{track_id}")
 }
 
-/// Source id and track id of an engine id (`None` if it has no source prefix).
-pub fn split_engine_id(id: &str) -> Option<(&str, &str)> {
-    id.split_once(':')
-}
-
 /// All the tracks of all the sources, with engine ids (`sourceId:trackId`). A track whose
 /// engine id was already given (the same source twice) is left out.
 pub fn prefix_tracks(sources: Vec<SyncSource>) -> Vec<TrackParams> {
@@ -178,10 +173,9 @@ mod tests {
     }
 
     #[test]
-    fn engine_ids_split_at_the_first_colon() {
+    fn engine_ids_carry_the_source() {
         assert_eq!(engine_id("src", "trk"), "src:trk");
-        assert_eq!(split_engine_id("src:trk#a1"), Some(("src", "trk#a1")));
-        assert_eq!(split_engine_id("plain"), None);
+        assert_eq!(engine_id("src", "trk#a1"), "src:trk#a1");
     }
 
     #[test]
