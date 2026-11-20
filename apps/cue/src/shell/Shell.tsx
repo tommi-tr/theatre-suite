@@ -1,3 +1,4 @@
+import { startEvening } from "../store/evening";
 import { useCallback, useEffect, useState } from "react";
 import { basename, useT } from "@theatre-suite/core";
 import { AppLogo, Button, ConfirmHost, KeyCommand, KeyCommandBar, Segmented, StatusBar, TitleBar, useBackToLauncher } from "@theatre-suite/ui";
@@ -47,7 +48,7 @@ export function Shell() {
   // The memories and tracks of the linked files follow the show; the sound output chosen last time is asked again.
   useEffect(() => {
     void applySavedOutputs();
-    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startLink(), startProjectionSync()];
+    const stops = [startLibrarySync(), startAudioSync(), startOutputs(), startRunSync(), startFollow(), startLink(), startProjectionSync(), startEvening(t)];
     return () => stops.forEach((f) => f());
   }, []);
 

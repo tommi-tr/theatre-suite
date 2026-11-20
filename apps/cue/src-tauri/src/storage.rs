@@ -269,6 +269,12 @@ pub fn file_read_text(path: String) -> Result<String, String> {
     read_limited(Path::new(&path))
 }
 
+/// Writes a text file the user chose (the show report). Not used for show files.
+#[tauri::command]
+pub async fn file_write_text(path: String, text: String) -> Result<(), String> {
+    std::fs::write(&path, text).map_err(|e| format!("io: {e}"))
+}
+
 #[tauri::command]
 pub fn path_exists(path: String) -> bool {
     !path.is_empty() && Path::new(&path).is_file()

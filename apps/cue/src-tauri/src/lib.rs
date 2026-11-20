@@ -140,6 +140,7 @@ pub fn run() {
             storage::staged_drop,
             storage::part_export,
             storage::file_read_text,
+            storage::file_write_text,
             storage::path_exists,
             storage::reveal_in_folder,
             storage::tcue_new,

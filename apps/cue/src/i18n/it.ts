@@ -33,7 +33,6 @@ export const it: Dict = {
   "Brightness of the dark paper": "Luminosità della carta scura",
   "Cancel": "Annulla",
   "Change page": "Cambio pagina",
-  "Checks before the curtain": "Controlli prima del sipario",
   "Close": "Chiudi",
   "Code and versions": "Codice e versioni",
   "Coming soon": "Prossimamente",
@@ -63,7 +62,6 @@ export const it: Dict = {
   "Dry run: the whole show in silence, nothing sent to lights, sound or screens.": "Prova a secco: tutto lo spettacolo in silenzio, niente mandato a luci, audio o schermi.",
   "During the show": "Durante lo spettacolo",
   "Emergency": "Emergenza",
-  "Every tick goes into the log of the evening.": "Ogni spunta finisce nel registro della serata.",
   "Everything stays on this computer: Cue does not use the internet and sends nothing.": "Tutto resta su questo computer: Cue non usa internet e non invia nulla.",
   "Fade to black": "Fade to black",
   "File": "File",
@@ -100,10 +98,6 @@ export const it: Dict = {
   "No versions yet. Write a note above and press “Save as a version”.": "Ancora nessuna versione. Scrivi una nota qui sopra e premi “Salva come versione”.",
   "not saved yet": "non ancora salvato",
   "Note": "Nota",
-  "On the right the checklist before the curtain, with suggested items and your own, saved in the file.":
-    "A destra la lista di controllo prima del sipario, con voci proposte e voci tue, salvate nel file.",
-  "One card per output (audio, DMX lights, projector, secondary, PowerPoint, pedal) with its state in words and a test button.":
-    "Una scheda per uscita (audio, luci DMX, proiettore, secondario, PowerPoint, pedale) con lo stato a parole e il comando di prova.",
   "One PDF: the script or the score. It goes inside the show file and Cue never changes it; underlines and comments already in the PDF stay visible.":
     "Un solo PDF: il copione o la partitura. Entra nel file dello spettacolo e Cue non lo modifica mai; sottolineature e commenti già nel PDF restano visibili.",
   "Open a .tcue file": "Apri un file .tcue",

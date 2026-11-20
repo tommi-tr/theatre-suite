@@ -163,6 +163,9 @@
   margin: 0;
   font-size: 12.5px;
   line-height: 1.5;
+  color: var(--text-3);
+}
+
 /* Settings → Proiezioni */
 .cue-proj-set__list {
   display: flex;

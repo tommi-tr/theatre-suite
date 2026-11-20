@@ -108,6 +108,7 @@ export const api = {
   sessionStart: () => (isTauri ? call<SessionStart>("session_start") : Promise.resolve<SessionStart>({ crashed: false, autosave: null, openFile: null, instance: 1 })),
   autosaveWrite: (json: string) => (isTauri ? call<void>("autosave_write", { json }) : Promise.resolve()),
   autosaveClear: () => (isTauri ? call<void>("autosave_clear") : Promise.resolve()),
+  writeText: (path: string, text: string) => call<void>("file_write_text", { path, text }),
   readText: (path: string) => (isTauri ? call<string>("file_read_text", { path }) : Promise.reject(new Error(`io: ${path} is not available in the preview`))),
   pathExists: (path: string) => (isTauri ? call<boolean>("path_exists", { path }) : Promise.resolve(memFs.exists(path))),
   revealInFolder: (path: string) => (isTauri ? call<void>("reveal_in_folder", { path }) : Promise.resolve(void console.info("[demo] show in folder:", path))),

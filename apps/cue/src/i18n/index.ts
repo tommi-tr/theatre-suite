@@ -7,9 +7,10 @@ import { itShow } from "./it_show";
 import { itPrepare } from "./it.prepare";
 import { itLink } from "./it.link";
 import { itProj } from "./it_proj";
+import { itControls } from "./it_controls";
 
 /** The Italian dictionaries, one per group of parts (more files come with the modes). A text must mean the same everywhere. */
-export const IT_PARTS: Dict[] = [it, itScript, itCore, itPrepare, itShow, itLink, itProj];
+export const IT_PARTS: Dict[] = [it, itScript, itCore, itPrepare, itShow, itLink, itProj, itControls];
 
 /** Keys are the English texts: English needs only the few keys with a context (see en.ts). */
 export const DICTS: Record<Lang, Dict> = { en, it: Object.assign({}, ...IT_PARTS) };
