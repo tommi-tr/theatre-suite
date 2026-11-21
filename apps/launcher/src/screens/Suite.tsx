@@ -103,6 +103,11 @@ export function SuiteScreen() {
           const st: AppStatus = apps?.apps.find((a) => a.id === def.id) ?? { id: def.id, name: def.name, installed: null, status: { state: "notInstalled" }, latest: null, versions: [], held: null };
           return <AppCard key={def.id} def={def} status={st} />;
         })}
+        <article className="ln-appcard ln-appcard--more">
+          <h3>{t("More apps coming soon")}</h3>
+          <p>{t("The suite grows: tell us what you would need.")}</p>
+          <button type="button" className="ln-textlink" onClick={() => setDialog({ kind: "feedback" })}>{t("Tell us")}</button>
+        </article>
       </div>
 
       <footer className="ln-suitefoot">

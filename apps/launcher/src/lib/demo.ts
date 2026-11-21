@@ -48,9 +48,11 @@ const project: ProjectView = {
       { id: "d4", app: "bardo", title: "AMLETO — Copione bozza 2", path: "Copione.bardo", phase: "preparation" },
       { id: "d5", app: "diaframma", title: "Scaletta — prima versione", path: "Audio/Vecchia.diaframma", phase: null },
       { id: "d6", app: "cantinella", title: "Produzione", path: "Amleto - produzione.cantinella", phase: "rehearsals" },
+      { id: "d7", app: "cue", title: "Serata", path: "Serata.tcue", phase: "show" },
+      { id: "d8", app: "granvelo", title: "Luci — sala", path: "Luci/Sala.granvelo", phase: "show" },
     ],
   },
-  exists: { d1: true, d2: true, d3: true, d4: true, d5: false, d6: true },
+  exists: { d1: true, d2: true, d3: true, d4: true, d5: false, d6: true, d7: true, d8: true },
   exports: {
     d4: [
       { name: "Amleto - copione 2.pdf", path: "Amleto - copione 2.pdf", modified: now - day },
@@ -72,27 +74,35 @@ const v = (version: string, daysAgo: number, notes = "", kept = false) => ({
 const apps: AppsView = {
   apps: [
     {
-      id: "diaframma", name: "Diaframma", installed: { path: "", version: "0.2.0" }, status: { state: "available", latest: "0.3.0", url: "" },
-      latest: { version: "0.3.0", url: "", notes: "" }, held: null,
-      versions: [v("0.3.0", 1, "Fade più morbidi, nuova finestra EDITING."), v("0.2.0", 12, "", true), v("0.1.0", 30, "", true)],
+      id: "diaframma", name: "Diaframma", installed: { path: "", version: "0.3.1" }, status: { state: "available", latest: "0.3.2", url: "" },
+      latest: { version: "0.3.2", url: "", notes: "Motore audio condiviso con Cue." }, held: null,
+      versions: [v("0.3.2", 1, "Motore audio condiviso con Cue."), v("0.3.1", 5, "", true), v("0.3.0", 12, "", true)],
     },
     {
-      id: "bardo", name: "Bardo", installed: { path: "", version: "0.1.1" }, status: { state: "upToDate" },
-      latest: { version: "0.1.1", url: "", notes: "" }, held: null, versions: [v("0.1.1", 2, "", true), v("0.1.0", 9)],
+      id: "bardo", name: "Bardo", installed: { path: "", version: "0.2.0" }, status: { state: "upToDate" },
+      latest: { version: "0.2.0", url: "", notes: "" }, held: null, versions: [v("0.2.0", 2, "", true), v("0.1.1", 9)],
     },
     {
-      id: "cantinella", name: "Cantinella", installed: null, status: { state: "available", latest: "0.1.0", url: "" },
-      latest: { version: "0.1.0", url: "", notes: "Prima versione: struttura, rubrica, importazione vCard e CSV." }, held: null, versions: [v("0.1.0", 0)],
+      id: "cantinella", name: "Cantinella", installed: null, status: { state: "available", latest: "0.9.0", url: "" },
+      latest: { version: "0.9.0", url: "", notes: "Rubrica, prove, budget, reparti e tournée." }, held: null, versions: [v("0.9.0", 0)],
+    },
+    {
+      id: "granvelo", name: "Granvelo", installed: null, status: { state: "available", latest: "0.6.1", url: "" },
+      latest: { version: "0.6.1", url: "", notes: "Il banco luci: palco, proiettori, memorie e uscita DMX." }, held: null, versions: [v("0.6.1", 0), v("0.6.0", 3)],
+    },
+    {
+      id: "cue", name: "Cue", installed: null, status: { state: "available", latest: "0.6.1", url: "" },
+      latest: { version: "0.6.1", url: "", notes: "I GO sul copione, luci, audio e video dal vivo; primario e secondario in rete." }, held: null, versions: [v("0.6.1", 0), v("0.6.0", 1)],
     },
   ],
-  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.4.2" }, status: { state: "available", latest: "0.4.3", url: "" }, latest: { version: "0.4.3", url: "", notes: "" }, held: null, versions: [v("0.4.3", 0, "Torna al launcher: le app aprono lo spettacolo qui."), v("0.4.2", 1, "", true), v("0.3.2", 2)] },
+  launcher: { id: "launcher", name: "Theatre Suite", installed: { path: "", version: "0.4.5" }, status: { state: "available", latest: "0.4.6", url: "" }, latest: { version: "0.4.6", url: "", notes: "" }, held: null, versions: [v("0.4.6", 0, "Granvelo e Cue nella suite."), v("0.4.5", 1, "", true), v("0.4.4", 2)] },
   checkedAt: now - 3 * day,
   error: null,
 };
 
 export async function demo(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
   switch (cmd) {
-    case "app_info": return { name: "Theatre Suite", version: "0.4.2", os: "demo" };
+    case "app_info": return { name: "Theatre Suite", version: "0.4.5", os: "demo" };
     case "startup_show": return null;
     case "settings_load": return settings;
     case "settings_save": settings = args!.settings as Settings; return;

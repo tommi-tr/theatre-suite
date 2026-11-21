@@ -25,6 +25,10 @@ export class History<T> {
     this.past = [];
     this.future = [];
   }
+  /** Every snapshot kept for undo and redo (what an undo could bring back). */
+  snapshots(): readonly T[] {
+    return [...this.past, ...this.future];
+  }
   get canUndo() {
     return this.past.length > 0;
   }

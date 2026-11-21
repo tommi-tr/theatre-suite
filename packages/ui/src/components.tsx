@@ -5,6 +5,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type HTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -453,19 +454,25 @@ export function Dialog({
   closeLabel?: string;
 }) {
   const boxRef = useRef<HTMLElement>(null);
+  // The latest onClose, so a new function identity at each render does not re-run the effects below.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         e.preventDefault();
-        onClose();
+        closeRef.current();
       }
     };
     window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+  // Focus the first control once, when the dialog opens (not again while the user types).
+  useEffect(() => {
     const first = boxRef.current?.querySelector<HTMLElement>("button, input, select, [tabindex='0']");
     first?.focus();
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, []);
   return (
     <div className="ts-overlay" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <section ref={boxRef} role="dialog" aria-modal="true" aria-label={title} className="ts-dialog" style={{ width }}>
@@ -1026,5 +1033,251 @@ export function Steps({
       </span>
       {showLabel ? <span className="ts-steps__label">{steps[value]?.label}</span> : null}
     </span>
+  );
+}
+
+/* ---------------- Key command (bottom bars) ---------------- */
+
+export interface KeyCommandProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  /** The command, written in words: "Blackout", "Fade to black · 1.0 s". */
+  children: ReactNode;
+  /** The key that does the same, shown as a key cap after the words: "B", "E E". */
+  keys?: ReactNode;
+  /** `danger` = red text (emergency commands). */
+  variant?: "normal" | "danger";
+  /** The command is on (amber for a normal one, red for a danger one). */
+  active?: boolean;
+  /** A danger command that needs a second press: it blinks until pressed again. */
+  armed?: boolean;
+  /** Optional small icon before the words (the default is text only). */
+  icon?: IconName;
+}
+
+/** A command written with its key, with no box: for the bottom bar of a live mode. Put several in a `KeyCommandBar`. */
+export function KeyCommand({ children, keys, variant = "normal", active, armed, icon, className, type = "button", ...rest }: KeyCommandProps) {
+  return (
+    <button type={type} className={cx("ts-keycmd", variant === "danger" && "ts-keycmd--danger", className)} data-on={active ? "" : undefined} data-armed={armed ? "" : undefined} {...rest}>
+      {icon ? <Icon name={icon} size={14} /> : null}
+      {children}
+      {keys ? <Kbd>{keys}</Kbd> : null}
+    </button>
+  );
+}
+
+/** The row that holds the `KeyCommand`s, always in the same place at the right of the bottom bar. */
+export function KeyCommandBar({ children, className, ...rest }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div role="group" className={cx("ts-keycmds", className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/* ---------------- Output pill ---------------- */
+
+/** The colours of `StatusLight`, plus `idle` (grey: nothing is connected, or it is simulated). */
+export type OutputPillState = LightState | "idle";
+
+export interface OutputPillProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  state: OutputPillState;
+  /** What the output is doing, in words: "DMX USB Pro · connected". */
+  label: string;
+  /** A quieter second part: "44 per second". */
+  detail?: string;
+  /** Working on it (connecting): the dot pulses. */
+  busy?: boolean;
+  /** A panel opened by the pill is showing (sets `aria-expanded`). */
+  open?: boolean;
+  /** Show the small arrow that tells there is a panel (default: when the pill can be pressed). */
+  chevron?: boolean;
+}
+
+const PILL_DOT: Record<OutputPillState, string> = { ok: "ts-dot--go", warn: "ts-dot--sb", stop: "ts-dot--stop", info: "ts-dot--pre", idle: "" };
+
+/** State of an output (audio device, DMX cable, projector…) as a round pill: coloured dot, words, optional detail. Red pill when `stop`. */
+export function OutputPill({ state, label, detail, busy, open, chevron, className, onClick, ...rest }: OutputPillProps) {
+  const body = (
+    <>
+      <span className={cx("ts-dot", PILL_DOT[state])} />
+      <span className="ts-outpill__label">{label}</span>
+      {detail ? <span className="ts-outpill__detail">{detail}</span> : null}
+      {chevron ?? !!onClick ? <Icon name="chevDown" size={12} /> : null}
+    </>
+  );
+  const cls = cx("ts-outpill", `ts-outpill--${state}`, busy && "ts-outpill--busy", className);
+  if (!onClick) return <span className={cls}>{body}</span>;
+  return (
+    <button type="button" className={cls} aria-expanded={open} onClick={onClick} {...rest}>
+      {body}
+    </button>
+  );
+}
+
+/* ---------------- Alert band ---------------- */
+
+export interface AlertBandProps {
+  tone: "stop" | "warn" | "info";
+  /** Bold first words: "USB-DMX cable unplugged." */
+  title?: ReactNode;
+  /** The explanation. */
+  children?: ReactNode;
+  /** Optional button on the right. */
+  action?: { label: string; icon?: IconName; onClick: () => void };
+  /** Icon before the text (default: a dot in the colour of the tone). */
+  icon?: IconName;
+  className?: string;
+}
+
+/** Full-width band under the title bar: red while something is broken (a cable unplugged), amber for a warning, blue for information. */
+export function AlertBand({ tone, title, children, action, icon, className }: AlertBandProps) {
+  return (
+    <div className={cx("ts-banner", "ts-alertband", `ts-alertband--${tone}`, className)} role={tone === "info" ? "status" : "alert"}>
+      {icon ? <Icon name={icon} size={16} /> : <span className={cx("ts-dot", tone === "stop" ? "ts-dot--stop" : tone === "warn" ? "ts-dot--sb" : "ts-dot--pre")} />}
+      <span>
+        {title ? <strong>{title}</strong> : null}
+        {title && children ? " " : null}
+        {children}
+      </span>
+      <span className="ts-spacer" />
+      {action ? (
+        <Button variant="sm" icon={action.icon} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+
+/* ---------------- Settings dialog layout ---------------- */
+
+export interface SettingsCategory<T extends string = string> {
+  id: T;
+  /** Already translated. */
+  label: string;
+  icon: IconName;
+}
+
+export interface SettingsLayoutProps<T extends string = string> {
+  categories: SettingsCategory<T>[];
+  active: T;
+  onSelect: (id: T) => void;
+  /** Accessible name of the list of categories (usually "Settings"). */
+  label: string;
+  /** Fixed height of the body in px: the dialog does not jump between categories and a long one scrolls. */
+  height?: number;
+  /** Minimum height in px, when the body should grow with its content instead. */
+  minHeight?: number;
+  children: ReactNode;
+}
+
+/** Body of a settings dialog: categories in a column on the left, the pane of the active one on the right. Goes inside `Dialog`, with `SettingsFooter`. */
+export function SettingsLayout<T extends string = string>({ categories, active, onSelect, label, height, minHeight, children }: SettingsLayoutProps<T>) {
+  return (
+    <div className={cx("ts-settings", height !== undefined && "ts-settings--fixed")} style={{ height, minHeight }}>
+      <div className="ts-settabs" role="tablist" aria-label={label}>
+        {categories.map((c) => (
+          <button key={c.id} type="button" role="tab" aria-selected={active === c.id} className="ts-settab" onClick={() => onSelect(c.id)}>
+            <Icon name={c.icon} size={14} />
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="ts-setpane" role="tabpanel">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Footer of a settings dialog: version text on the left, the "Done" button on the right. */
+export function SettingsFooter({ text, doneLabel, onDone }: { text: ReactNode; doneLabel: string; onDone: () => void }) {
+  return (
+    <>
+      <span className="ts-muted" style={{ fontSize: 11.5 }}>
+        {text}
+      </span>
+      <span className="ts-spacer" />
+      <Button variant="primary" icon="check" onClick={onDone}>
+        {doneLabel}
+      </Button>
+    </>
+  );
+}
+
+/** One setting: label and hint on the left, the control on the right. */
+export function SettingsRow({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="ts-set-row">
+      <div className="ts-set-row__text">
+        <div className="ts-set-row__label">{label}</div>
+        {hint ? <div className="ts-field__hint">{hint}</div> : null}
+      </div>
+      {children ? <div className="ts-set-row__ctl">{children}</div> : null}
+    </div>
+  );
+}
+
+/** A block of a settings pane with an optional badge (e.g. `ComingSoonPill`), a title, a description and its content (rows or a list). */
+export function SettingsSection({
+  title,
+  description,
+  badge,
+  children,
+}: {
+  title?: ReactNode;
+  description?: ReactNode;
+  badge?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="ts-set-section">
+      {badge}
+      {title ? <h3>{title}</h3> : null}
+      {description ? <p>{description}</p> : null}
+      {children}
+    </section>
+  );
+}
+
+/* ---------------- Coming soon ---------------- */
+
+/** Small dashed pill with the version that brings a part ("Coming with Cue 0.3"). `label` comes already translated. */
+export function ComingSoonPill({ label }: { label: string }) {
+  return <span className="ts-soonpill">{label}</span>;
+}
+
+export interface ComingSoonCardProps {
+  icon: IconName;
+  /** Text of the pill, already translated: "Coming with Cue 0.3". */
+  label: string;
+  title: string;
+  /** Bullet list of what the part will do (already translated). */
+  items?: string[];
+  /** Block under a rule: what can be done meanwhile. */
+  children?: ReactNode;
+  compact?: boolean;
+}
+
+/** "Part not yet available" (02_design.md): icon, dashed pill with the version, title, bullet list. */
+export function ComingSoonCard({ icon, label, title, items, children, compact }: ComingSoonCardProps) {
+  return (
+    <section className={cx("ts-soon", compact && "ts-soon--compact")}>
+      <div className="ts-soon__head">
+        <span className="ts-soon__icon">
+          <Icon name={icon} size={compact ? 18 : 22} />
+        </span>
+        <ComingSoonPill label={label} />
+      </div>
+      <h2>{title}</h2>
+      {items?.length ? (
+        <ul>
+          {items.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      ) : null}
+      {children ? <div className="ts-soon__now">{children}</div> : null}
+    </section>
   );
 }

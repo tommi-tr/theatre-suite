@@ -7,21 +7,22 @@ export function AppIcon({ id, size = 28 }: { id: string; size?: number }) {
   if (!def) return <span className="ln-appicon" style={{ width: size, height: size }} aria-hidden="true" />;
   return (
     <span style={{ display: "inline-flex", ["--logo-a" as string]: def.logo.accentColor }}>
-      <AppLogo accentPath={def.logo.a} inkPath={def.logo.b} size={size} label={def.name} />
+      <AppLogo accentPath={def.logo.a} inkPath={def.logo.b} accentDots={def.logo.dots} size={size} label={def.name} strokeWidth={def.logo.stroke?.(size)} />
     </span>
   );
 }
 
-/** The launcher's own mark: four short strokes, one per app. */
+/** The launcher's own mark: five short strokes, one per app. */
 export function LauncherMark({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Theatre Suite" style={{ flex: "none" }}>
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />
       <g strokeWidth="7.5" strokeLinecap="round" fill="none">
-        <path d="M24 36H44" stroke="#6b5bef" />
-        <path d="M56 36H76" stroke="#c8642c" />
-        <path d="M24 64H44" stroke="#55627e" />
-        <path d="M56 64H76" stroke="#c2349f" />
+        <path d="M22 28H42" stroke="#6b5bef" />
+        <path d="M58 28H78" stroke="#c8642c" />
+        <path d="M40 50H60" stroke="#77726a" />
+        <path d="M22 72H42" stroke="#55627e" />
+        <path d="M58 72H78" stroke="#c2349f" />
       </g>
     </svg>
   );

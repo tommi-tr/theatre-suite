@@ -1,0 +1,231 @@
+/* Settings → Uscite and Tasti. */
+.cue-out__ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cue-out__ctl .ts-select {
+  max-width: 250px;
+}
+.cue-out__band {
+  margin-top: 6px;
+  border-radius: var(--r-md);
+}
+
+.cue-keyedit {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.cue-keyedit__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cue-keyedit__row--bad {
+  background: var(--stop-soft);
+  box-shadow: -8px 0 0 var(--stop-soft), 8px 0 0 var(--stop-soft);
+}
+.cue-keyedit__name {
+  flex: 1;
+  min-width: 0;
+}
+.cue-keyedit__row--danger .cue-keyedit__name {
+  color: var(--stop);
+  font-weight: 600;
+}
+.cue-keyedit__msg {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--stop);
+}
+.cue-keyedit__keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.cue-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.cue-chip:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.cue-chip--bad {
+  border-color: var(--stop);
+}
+.cue-chip--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-2);
+}
+.cue-chip__x {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.cue-chip__x:hover {
+  color: var(--stop);
+}
+.cue-chip__add {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.cue-chip__add:hover {
+  color: var(--text);
+}
+.cue-keyedit__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 4px 0 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.cue-keyedit__fixed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 30px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* Settings → Collegamento */
+.cue-firewall {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--pre-line);
+  border-radius: var(--r-lg);
+  background: var(--pre-bg);
+  font-size: 12.5px;
+}
+.cue-firewall p {
+  margin: 0;
+  line-height: 1.5;
+}
+.cue-firewall__actions {
+  display: flex;
+  gap: 8px;
+}
+.cue-pair {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+}
+.cue-pair__code {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+.cue-pair__entry {
+  display: flex;
+  gap: 8px;
+}
+.cue-pair__input {
+  width: 130px;
+}
+.cue-link-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Settings → Proiezioni */
+.cue-proj-set__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cue-proj-set__mon {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  cursor: pointer;
+}
+.cue-proj-set__mon[data-on] {
+  border-color: var(--dept-video);
+}
+.cue-proj-set__mon small {
+  display: block;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.cue-out__tip {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Settings → Test: the result of the reliability test. */
+.cue-test__result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.cue-test__nums {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.cue-test__nums dt {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.cue-test__nums dd {
+  margin: 2px 0 0;
+  font: 600 15px var(--font-mono, monospace);
+  color: var(--text);
+}
+.cue-test__note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}

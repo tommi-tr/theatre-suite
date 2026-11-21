@@ -1,0 +1,224 @@
+/* The electricians' sheets: black on white, also with the dark theme or the dark stage. The same markup is shown in the
+   preview of the "Stampa" dialog (scaled down) and handed to the printer (#gv-print, only visible when printing). */
+
+.gv-sheet {
+  --gv-symbol-stroke: #2a2a2a;
+  --gv-lens-off: #ffffff;
+  --sb: #b45309;
+  --accent: #2a2a2a;
+  --accent-soft: transparent;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #111;
+  font-family: Geist, system-ui, "Segoe UI", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.3;
+}
+.gv-sheet--plan {
+  width: 297mm;
+  height: 210mm;
+  padding: 10mm;
+  page: gv-plan;
+}
+.gv-sheet--list {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 12mm;
+  page: gv-list;
+}
+.gv-sheet__head h1 {
+  margin: 0;
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.gv-sheet__head p {
+  margin: 2pt 0 8pt;
+  color: #555;
+  font-size: 10pt;
+}
+.gv-sheet--plan .gv-sheet__head {
+  padding-bottom: 3mm;
+}
+.gv-sheet__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 6mm;
+}
+.gv-sheet__plan {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: block;
+}
+.gv-sheet__legend {
+  flex: none;
+  width: 52mm;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2mm;
+  padding-left: 5mm;
+  border-left: 0.4pt solid #bbb;
+  font-size: 9pt;
+  color: #222;
+}
+.gv-sheet__legendtitle {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 7.5pt;
+  color: #666;
+}
+.gv-sheet__legenditem {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+}
+.gv-sheet__legendnote {
+  margin: auto 0 0;
+  color: #666;
+  font-size: 8.5pt;
+}
+.gv-sheet__empty {
+  color: #666;
+}
+.gv-sheet__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10pt;
+}
+.gv-sheet__table thead {
+  display: table-header-group;
+}
+.gv-sheet__table thead th {
+  text-align: left;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+  padding: 2pt 5pt;
+  border-bottom: 0.8pt solid #222;
+}
+.gv-sheet__table td {
+  padding: 3pt 5pt;
+  border-bottom: 0.4pt solid #ccc;
+  vertical-align: baseline;
+}
+.gv-sheet__table tr {
+  break-inside: avoid;
+}
+.gv-sheet__table .is-num {
+  text-align: right;
+  width: 16mm;
+  font-variant-numeric: tabular-nums;
+}
+.gv-sheet__table td.is-num:nth-child(5) {
+  width: 24mm;
+}
+.gv-sheet__group th {
+  text-align: left;
+  background: #eeeeec;
+  padding: 3pt 5pt;
+  font-size: 10pt;
+  border-top: 6pt solid #fff;
+  break-after: avoid;
+}
+.gv-sheet__group th span {
+  font-weight: 400;
+  color: #555;
+}
+.gv-sheet__table tr.is-unused td {
+  color: #888;
+}
+.gv-sheet__table tr.is-unused em {
+  font-style: normal;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 0.5pt solid #aaa;
+  border-radius: 2pt;
+  padding: 0 3pt;
+  margin-left: 3pt;
+}
+
+/* ---------- Preview in the dialog ---------- */
+.gv-printprev__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.gv-printprev__sizes,
+.gv-printprev__tip {
+  font-size: 12px;
+}
+.gv-printprev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  max-height: min(62vh, 640px);
+  overflow: auto;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+.gv-printprev .gv-sheet {
+  zoom: 0.54;
+  flex: none;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+.gv-printprev__empty {
+  color: var(--text-3);
+  margin: 24px;
+}
+
+/* ---------- On paper ---------- */
+#gv-print {
+  display: none;
+}
+@page gv-plan {
+  size: A4 landscape;
+  margin: 10mm;
+}
+@page gv-list {
+  size: A4 portrait;
+  margin: 12mm;
+}
+@media print {
+  body > *:not(#gv-print) {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  #gv-print {
+    display: block;
+  }
+  #gv-print .gv-sheet {
+    box-shadow: none;
+    padding: 0;
+    zoom: 1;
+  }
+  #gv-print .gv-sheet--plan {
+    width: 277mm;
+    height: 190mm;
+    break-after: page;
+  }
+  #gv-print .gv-sheet--list {
+    width: 186mm;
+    min-height: 0;
+  }
+  #gv-print .gv-sheet--plan:last-child {
+    break-after: auto;
+  }
+  #gv-print * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

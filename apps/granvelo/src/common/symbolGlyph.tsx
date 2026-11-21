@@ -1,0 +1,53 @@
+import type { SymbolKind } from "../model/fixtureTypes";
+
+/**
+ * The drawings of the light symbols (10_granvelo.md, "Simboli delle luci"), without any store: used by `FixtureSymbol`
+ * (lists, properties) and by the stage views (2D in SVG, 3D drawn on a canvas from the same paths).
+ * 24×24 box, stroke 1.6, round caps.
+ */
+
+export type SymbolState = "normal" | "selected" | "conflict" | "unused";
+
+export const SYMBOL_PATHS: Record<SymbolKind, string> = {
+  par: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
+  pc: "M8 8h8v8H8zM8 8L5 4h14l-3 4M16 8l4-3v14l-4-3M16 16l3 4H5l3-4M8 16l-4 3V5l4 3",
+  profile: "M3 9h12v6H3zM15 8l5-2v12l-5-2M7 15v3",
+  wash: "M5 18h14v3H5zM7 18V9M17 18V9M7 11h2M15 11h2M11 5h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
+  spot: "M5 18h14v3H5zM7 18V9M17 18V9M7 11h2M15 11h2M11 5h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
+  bar: "M2 9h20v6H2z",
+  strobe: "M3 7h18v10H3zM13 8l-3 4h4l-3 4",
+  smoke: "M2 9h10v7H2zM12 12h2M16 10a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M18.5 14a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M15 15a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0",
+};
+
+/** The spot's narrow lens (drawn over the wash geometry). */
+export const SPOT_LENS = "M12 9.5a1.6 1.6 0 1 0 0.01 0";
+/** The cells of the LED bar. */
+export const BAR_CELLS = "M6 12h.01M10 12h.01M14 12h.01M18 12h.01";
+/** Where the lens of the round symbols is: centre and radius (24×24 box). */
+export const LENS_DISC: Partial<Record<SymbolKind, { cx: number; cy: number; r: number }>> = {
+  par: { cx: 12, cy: 12, r: 3.2 },
+  wash: { cx: 12, cy: 10.5, r: 2.2 },
+};
+
+/**
+ * The symbol as SVG elements in its 24×24 box (to be placed with a transform). `stroke` and `lensOff` default to the
+ * theme variables; `frame` draws the rounded selection box in the accent.
+ */
+export function SymbolGlyph({ kind, state = "normal", lens, rotate = 0, frame }: { kind: SymbolKind; state?: SymbolState; lens?: string | null; rotate?: number; frame?: boolean }) {
+  const stroke = state === "conflict" ? "var(--sb)" : "var(--gv-symbol-stroke)";
+  const dash = state === "unused" ? "2.2 2" : undefined;
+  const lensFill = lens ?? "transparent";
+  const lensStyle = state === "unused" ? undefined : lens ? { fill: lensFill } : undefined;
+  const disc = LENS_DISC[kind];
+  return (
+    <>
+      {frame || state === "selected" ? <rect x="-1.4" y="-1.4" width="26.8" height="26.8" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" strokeWidth="1.4" /> : null}
+      <g transform={rotate ? `rotate(${rotate} 12 12)` : undefined} fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dash} opacity={state === "unused" ? 0.45 : undefined}>
+        {disc ? <circle cx={disc.cx} cy={disc.cy} r={disc.r} stroke="none" fill="var(--gv-lens-off)" style={lensStyle} /> : null}
+        <path d={SYMBOL_PATHS[kind]} />
+        {kind === "spot" ? <path d={SPOT_LENS} fill="var(--gv-lens-off)" style={lensStyle} /> : null}
+        {kind === "bar" ? <path d={BAR_CELLS} stroke={state !== "unused" && lens ? lensFill : stroke} strokeWidth="2.4" strokeDasharray={undefined} /> : null}
+      </g>
+    </>
+  );
+}

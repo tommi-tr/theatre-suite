@@ -244,7 +244,7 @@ export function NewDocDialog({ path, app, phase }: { path: string; app: string; 
     >
       <div className="ln-form">
         <Field label={t("Name")}>
-          <input className="ln-input" value={title} autoFocus placeholder={app === "bardo" ? t("For example: Hamlet — script") : app === "cantinella" ? t("For example: Production") : t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
+          <input className="ln-input" value={title} autoFocus placeholder={app === "bardo" ? t("For example: Hamlet — script") : app === "cantinella" ? t("For example: Production") : app === "cue" ? t("For example: The evening show") : app === "granvelo" ? t("For example: Main hall lights") : t("For example: Cue list — Act I")} onChange={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && void create()} />
         </Field>
         {error ? <div className="ln-error">{error}</div> : null}
       </div>
@@ -262,6 +262,7 @@ export function OpenAllDialog({ report }: { report: OpenAllReport }) {
   const reason = (r: OpenAllReport["skipped"][number]): string => {
     switch (r.reason) {
       case "notInstalled": return t("{name} is not installed", { name: r.detail });
+      case "notNeeded": return t("not needed: {name} is not used while Cue runs the show", { name: r.detail });
       case "oneAtATime": return t("{name} opens one document at a time: open this one from the list", { name: r.detail });
       case "missing": return t("the file {file} cannot be found", { file: r.detail });
       default: return r.detail || t("it could not be started");

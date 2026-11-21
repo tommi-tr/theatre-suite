@@ -1,0 +1,67 @@
+name: Granvelo · Windows installer
+
+on:
+  push:
+    branches: [main, granvelo-dev, cue-dev]
+    tags: ["granvelo-v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: granvelo-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check (all packages)
+        run: pnpm -r typecheck
+
+      - name: Tests (data model, file format, crossfade, dictionary)
+        run: pnpm --filter granvelo test
+
+      - name: Build installer
+        run: pnpm --filter granvelo tauri build --bundles nsis
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: Granvelo-Windows-installer
+          path: target/release/bundle/nsis/Granvelo_*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Rust tests
+        run: cargo test -p granvelo -p dmx-engine --lib
+
+      # The launcher reads these public releases (tags <app>-v<version>) to show, install and update the apps.
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/granvelo-v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: target/release/bundle/nsis/Granvelo_*.exe
+          draft: false

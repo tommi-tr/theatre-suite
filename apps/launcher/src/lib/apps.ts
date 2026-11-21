@@ -1,3 +1,5 @@
+import { CUE_LOGO, DIAFRAMMA_LOGO, GRANVELO_LOGO } from "@theatre-suite/ui";
+
 /** The apps of the suite as the interface shows them. A new app = a new row. */
 export interface AppDef {
   id: string;
@@ -11,7 +13,8 @@ export interface AppDef {
   /** Can the launcher create an empty document for it? */
   canCreate: boolean;
   accent: { dark: string; light: string };
-  logo: { a: string; b: string; accentColor: string };
+  /** `stroke`: line width on the 100×100 grid for a tile of that size (default: AppLogo's own). */
+  logo: { a: string; b: string; accentColor: string; dots?: readonly { cx: number; cy: number; r: number }[]; stroke?: (size: number) => number };
 }
 
 export const APPS: AppDef[] = [
@@ -23,11 +26,7 @@ export const APPS: AppDef[] = [
     soon: false,
     canCreate: true,
     accent: { dark: "#8e80ff", light: "#5442e0" },
-    logo: {
-      a: "M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38",
-      b: "M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68",
-      accentColor: "#6b5bef",
-    },
+    logo: { a: DIAFRAMMA_LOGO.accent, b: DIAFRAMMA_LOGO.ink, accentColor: DIAFRAMMA_LOGO.color },
   },
   {
     id: "bardo",
@@ -52,14 +51,26 @@ export const APPS: AppDef[] = [
     logo: { a: "M35 45L65 21M35 79L65 55", b: "M30 16H70V84H30ZM30 50H70", accentColor: "#55627e" },
   },
   {
-    id: "luci",
-    name: "Luci",
+    id: "granvelo",
+    name: "Granvelo",
     role: "Lighting desk",
-    about: "The lighting desk: scenes and cues for the lights. Still being designed.",
-    soon: true,
-    canCreate: false,
-    accent: { dark: "#3fc1c9", light: "#0f7f87" },
-    logo: { a: "M18 38H38M42 64H62M66 34H86", b: "M28 16V84M52 16V84M76 16V84", accentColor: "#c2349f" },
+    about: "The lighting desk: draw the stage and its lights, then play the memories through a USB-DMX cable.",
+    soon: false,
+    canCreate: true,
+    // Gelatina (magenta), as Granvelo itself (02_design.md). Same drawing as the app icon "Banco", thick stroke.
+    accent: { dark: "#f06fcf", light: "#a3218a" },
+    logo: { a: GRANVELO_LOGO.accent, b: GRANVELO_LOGO.ink, accentColor: "#c2349f", stroke: GRANVELO_LOGO.stroke },
+  },
+  {
+    id: "cue",
+    name: "Cue",
+    role: "Show control",
+    about: "The digital prompt book: GO on the script, lights, sound and projections live.",
+    soon: false,
+    canCreate: true,
+    // Gesso (chalk), as in the app (docs/cue/13_cue.md). Same drawing as the app icon "Filo": a dot, a line and the GO button.
+    accent: { dark: "#e2ded4", light: "#4b4840" },
+    logo: { a: CUE_LOGO.accent, b: CUE_LOGO.ink, accentColor: "#77726a", dots: CUE_LOGO.dots, stroke: CUE_LOGO.stroke },
   },
 ];
 

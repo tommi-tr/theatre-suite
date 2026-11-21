@@ -1,0 +1,190 @@
+/* DMX output: the chip of the top bar, its panel, the "cable unplugged" band and Settings → Uscita DMX.
+   Colours keep their suite meaning: green = sending to a cable, red = cable lost / problem, neutral = simulated. */
+
+.gv-out {
+  position: relative;
+  min-width: 0;
+  display: inline-flex;
+}
+.gv-out-connect {
+  border-radius: 999px;
+}
+/* Panel under the chip. */
+.gv-out-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 340px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.gv-out-pop__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.gv-out-pop__text {
+  margin: 0 0 8px;
+  color: var(--text-2);
+}
+.gv-out-pop__detail {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+.gv-out-pop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.gv-out-pop__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.gv-out-pop__link:hover {
+  text-decoration: underline;
+}
+.gv-out-facts {
+  margin: 4px 0 0;
+  display: grid;
+  gap: 4px;
+}
+.gv-out-facts > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 8px;
+}
+.gv-out-facts dt {
+  color: var(--text-3);
+}
+.gv-out-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Settings → Uscita DMX */
+.gv-dmxset__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+.gv-dmxset__kinds {
+  margin: 2px 0 6px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.gv-dmxset__kinds strong {
+  color: var(--text);
+}
+.gv-dmxset__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.gv-dmxset__head .ts-set-row__label {
+  margin: 0;
+}
+.gv-dmxset__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 236px;
+  overflow: auto;
+}
+.gv-dmxset__dev {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gv-dmxset__dev:hover {
+  background: var(--surface-2);
+}
+.gv-dmxset__dev[aria-checked="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.gv-dmxset__radio {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1.5px solid var(--text-3);
+  border-radius: 50%;
+}
+.gv-dmxset__dev[aria-checked="true"] .gv-dmxset__radio {
+  border: 4px solid var(--accent);
+}
+.gv-dmxset__name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gv-dmxset__meta {
+  grid-column: 2;
+  font-size: 11.5px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.gv-dmxset__guess {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.gv-dmxset__empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.gv-dmxset__warn {
+  color: var(--sb);
+  font-weight: 600;
+}
+.gv-dmxset__testing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 10px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}

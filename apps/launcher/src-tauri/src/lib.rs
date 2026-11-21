@@ -16,7 +16,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
-use theatre_project::apps::{KNOWN_APPS, app_by_id, new_document_text};
+use theatre_project::apps::{KNOWN_APPS, app_by_id, new_document_bytes};
 use theatre_project::model::*;
 use theatre_project::registry::{Node, Registry};
 use theatre_project::{Error as ProjectError, copy, exports, manifest, ready, registry, updates};
@@ -325,7 +325,7 @@ fn document_set(path: String, doc_id: String, patch: Value) -> Result<()> {
 fn document_new(path: String, app_id: String, title: String) -> Result<String> {
     let dir = Path::new(&path);
     let app = app_by_id(&app_id).ok_or("Unknown app")?;
-    let template = new_document_text(app, &title).ok_or("This app creates its own documents")?;
+    let template = new_document_bytes(app, &title).ok_or("This app creates its own documents")?;
     let stem = copy::sanitize_name(&title).map_err(s)?;
     let mut file = dir.join(format!("{stem}.{}", app.new_extension));
     let mut n = 2;
@@ -333,7 +333,7 @@ fn document_new(path: String, app_id: String, title: String) -> Result<String> {
         file = dir.join(format!("{stem} {n}.{}", app.new_extension));
         n += 1;
     }
-    manifest::atomic_write(&file, template.as_bytes()).map_err(s)?;
+    manifest::atomic_write(&file, &template).map_err(s)?;
     let mut p = manifest::load(dir).map_err(s)?;
     let rel = file
         .strip_prefix(dir)

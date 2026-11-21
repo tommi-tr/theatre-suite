@@ -1,0 +1,66 @@
+import type { Dict } from "@theatre-suite/core";
+
+/** Italian: prints for the electricians, preview detail, scenery per memory. Keys are the English texts. */
+export const itPrint: Dict = {
+  "1 light": "1 luce",
+  "Automatic: what was measured": "Automatica: cosa è stato misurato",
+  "Granvelo measures how smooth the preview is on this computer and chooses the level by itself.":
+    "Granvelo misura quanto è fluida l'anteprima su questo computer e sceglie da solo il livello.",
+  "Measure again": "Misura di nuovo",
+  "Measure now": "Misura ora",
+  "Measuring… Granvelo is drawing a test stage for a couple of seconds. The screen may stutter for a moment.":
+    "Misurazione in corso… Granvelo disegna un palco di prova per un paio di secondi. Lo schermo può scattare per un momento.",
+  "Not measured yet: the Medium level is used until the first measurement.": "Non ancora misurato: finché non c'è la prima misura si usa il livello Media.",
+  "On this computer the richest preview is drawn at about {n} pictures a second. Level in use: {level}.":
+    "Su questo computer l'anteprima più ricca viene disegnata a circa {n} immagini al secondo. Livello in uso: {level}.",
+  "The measurement lasts a few seconds, never repeats by itself and sends nothing anywhere. Measure again if you change the computer or its graphics card.":
+    "La misura dura pochi secondi, non si ripete da sola e non invia nulla da nessuna parte. Rifalla se cambi computer o scheda grafica.",
+  "This computer cannot draw the stage in 3D: the flat views from above and from the front are used, which are light.":
+    "Questo computer non riesce a disegnare il palco in 3D: si usano le viste piane dall'alto e di fronte, che sono leggere.",
+  "As built (every piece)": "Come costruita (tutti gli elementi)",
+  "Choose a memory above to say which pieces are on stage in it and where.": "Scegli sopra una memoria per dire quali elementi ci sono in scena e dove.",
+  "Choose a memory to make pieces enter, leave or move in it.": "Scegli una memoria per far entrare, uscire o spostare degli elementi in quella memoria.",
+  "Copy from the memory before": "Copia dalla memoria precedente",
+  "Each memory remembers which pieces are on stage and where they stand. Tick the pieces that are on stage in this memory and move them: the other memories do not change. Name, shape, size and colour are the same everywhere.":
+    "Ogni memoria ricorda quali elementi sono in scena e dove stanno. Spunta gli elementi che in questa memoria sono in scena e spostali: le altre memorie non cambiano. Nome, forma, misure e colore sono uguali dappertutto.",
+  "Enters": "Entra",
+  "Leaves": "Esce",
+  "Moves": "Si sposta",
+  "Not on stage in this memory": "Non è in scena in questa memoria",
+  "On stage in this memory": "È in scena in questa memoria",
+  "Pieces in this memory": "Elementi in questa memoria",
+  "Position in this memory": "Posizione in questa memoria",
+  "Scenery copied from memory {n}. Undo brings it back.": "Scenografia copiata dalla memoria {n}. Annulla la riporta com'era.",
+  "Scenery of a memory": "Scenografia di una memoria",
+  "Size, shape, colour and name are the same in every memory.": "Misure, forma, colore e nome sono uguali in ogni memoria.",
+  "This memory has no memory before it in the show.": "Questa memoria non ha una memoria prima di sé nello spettacolo.",
+  "This piece is not on stage in this memory. Tick it in the list above to bring it in.": "Questo elemento non è in scena in questa memoria. Spuntalo nell'elenco qui sopra per farlo entrare.",
+  "Turn in this memory": "Rotazione in questa memoria",
+  "Drag a piece to move it in this memory only. Pieces that are not on stage in this memory are added from the list on the right.": "Trascina un elemento per spostarlo solo in questa memoria. Gli elementi che in questa memoria non sono in scena si aggiungono dall'elenco a destra.",
+  "{name} is on stage in this memory": "{name} è in scena in questa memoria",
+  "Put on stage": "Metti in scena",
+  "Put the memory on stage?": "Mettere la memoria in scena?",
+  "The faders are up and not saved in any memory. Putting this memory on stage will lose what you set.": "I cursori sono alzati e non sono salvati in nessuna memoria. Mettere questa memoria in scena fa perdere ciò che hai impostato.",
+  "Both": "Tutte e due",
+  "Key": "Legenda",
+  "List": "Elenco",
+  "List of lights": "Elenco delle luci",
+  "List: A4 portrait": "Elenco: A4 verticale",
+  "No.": "N.",
+  "On Windows, choose “Microsoft Print to PDF” to make a PDF file.": "Su Windows scegli «Microsoft Print to PDF» per fare un file PDF.",
+  "Plan of the lights": "Pianta delle luci",
+  "Plan: A4 landscape": "Pianta: A4 orizzontale",
+  "Preview of the sheets": "Anteprima dei fogli",
+  "Print": "Stampa",
+  "Print the plan and the list of lights": "Stampa la pianta e l'elenco delle luci",
+  "Print…": "Stampa…",
+  "The plan of the lights seen from above and the list of lights, for the electricians. They print in black on white paper.":
+    "La pianta delle luci vista dall'alto e l'elenco delle luci, per gli elettricisti. Si stampano in nero su carta bianca.",
+  "There are no lights in this show yet.": "In questo spettacolo non ci sono ancora luci.",
+  "Under each light: its number, then its DMX address.": "Sotto ogni luce: il suo numero, poi il suo indirizzo DMX.",
+  "What to print": "Cosa stampare",
+  "not used": "non usata",
+  "{n} lights": "{n} luci",
+  "{n} not used": "{n} non usate",
+  "{y} m from the front edge, {z} m high": "a {y} m dal bordo del palco, alta {z} m",
+};

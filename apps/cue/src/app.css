@@ -1,0 +1,1151 @@
+/* Cue: app accent (chalk, "Gesso") on the shared Grafite base (02_design.md).
+   Only the accent and cue- layout classes live here; everything else comes from packages/ui.
+   Department colours (type marks only, never fills) are shared: --dept-lights, --dept-audio, --dept-video. */
+[data-app="cue"][data-theme="dark"],
+[data-app="cue"]:not([data-theme]) {
+  --accent: #e2ded4;
+  --accent-ink: #0e0f12;
+  --accent-soft: #2b2a26;
+  --accent-line: #4a4740;
+}
+[data-app="cue"][data-theme="light"] {
+  --accent: #4b4840;
+  --accent-ink: #ffffff;
+  --accent-soft: #eceae4;
+  --accent-line: #cfcbc2;
+}
+[data-app="cue"] {
+  --logo-a: #77726a;
+  /* Old names of the department marks (now shared in packages/ui: --dept-*). */
+  --cue-lights: var(--dept-lights);
+  --cue-audio: var(--dept-audio);
+  --cue-video: var(--dept-video);
+}
+
+/* ---------- Frame ---------- */
+.cue-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* The mode selector sits in the title bar (as in Diaframma): the chosen mode in the accent. */
+.cue-app .ts-titlebar .ts-seg {
+  background: var(--surface-2);
+  border-color: transparent;
+  border-radius: 9px;
+}
+.cue-app .ts-titlebar .ts-seg__btn {
+  height: 28px;
+  font-size: 13px;
+}
+.cue-app .ts-titlebar .ts-seg__btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Narrow windows: the modes become icons with a tooltip; never two rows. */
+@media (max-width: 1240px) {
+  .cue-app .ts-titlebar .ts-seg__label {
+    display: none;
+  }
+  .cue-app .ts-titlebar .ts-seg__btn {
+    padding: 0 12px;
+  }
+}
+
+.cue-awake {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cue-banner--stop {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+}
+
+/* ---------- File menu ---------- */
+.cue-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 270px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+.cue-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.cue-menu__item:hover:not(:disabled),
+.cue-menu__item:focus-visible {
+  background: var(--surface-2);
+}
+.cue-menu__item:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+.cue-menu__sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border);
+}
+.cue-menu__label {
+  display: block;
+  padding: 6px 10px 4px;
+}
+
+/* ---------- First screen: "Da dove vuoi iniziare?" ---------- */
+.cue-start {
+  flex: 1;
+  overflow: auto;
+  padding: 36px 32px;
+}
+.cue-start__inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.cue-start__head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.cue-start__head h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.cue-start__head p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  max-width: 680px;
+  line-height: 1.5;
+}
+.cue-start__cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.cue-start__col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cue-startcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+.cue-startcard--main .ts-field {
+  width: 100%;
+}
+.cue-startcard--btn {
+  flex: 1;
+  gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.cue-startcard--btn:hover {
+  border-color: var(--accent-line);
+}
+.cue-startcard__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cue-startcard__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cue-startcard__text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.cue-startcard__foot {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.cue-start__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cue-start__recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cue-start__none {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+}
+.cue-recent {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.cue-recent:hover {
+  background: var(--surface-2);
+}
+.cue-recent__path {
+  flex: 1;
+  font-size: 11.5px;
+}
+
+/* ---------- Modes in 0.1: what each one will hold ---------- */
+.cue-mode {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  padding: 32px;
+}
+.cue-mode__inner {
+  margin: auto;
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.cue-mode__inner--two {
+  max-width: 1040px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* The first step of Prepara: load the script. */
+.cue-first {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 26px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.cue-first h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+.cue-first p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cue-first__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cue-first__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ---------- Settings ---------- */
+.cue-set-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.cue-set-range__value {
+  width: 38px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.cue-set-intro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.cue-set-about {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-top: 6px;
+}
+.cue-set-about .ts-field__hint {
+  margin-top: 4px;
+  max-width: 480px;
+}
+.cue-set-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 12.5px;
+}
+.cue-set-link__url {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Settings → Copione: two small pages, white and dark paper (independent of the theme). */
+.cue-paper-preview {
+  display: flex;
+  gap: 14px;
+  padding: 2px 0 8px;
+}
+.cue-paper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.55;
+}
+.cue-paper--active {
+  opacity: 1;
+}
+.cue-paper__page {
+  width: 210px;
+  height: 104px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9.5px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.cue-paper--active .cue-paper__page {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cue-paper__page b {
+  font-weight: 700;
+}
+.cue-paper__page i {
+  color: inherit;
+  opacity: 0.75;
+}
+.cue-paper__page--white {
+  background: #ffffff;
+  color: #1b1c21;
+}
+.cue-paper__page--dark {
+  background: #1c1d21;
+  color: #e8e8ea;
+}
+.cue-paper__label {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* Settings → Tasti */
+.cue-keys {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.cue-keys__group {
+  padding: 12px 0 4px;
+}
+.cue-keys__group:first-child {
+  padding-top: 0;
+}
+.cue-keys__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 27px;
+  border-bottom: 1px solid var(--border);
+}
+.cue-keys__name {
+  flex: 1;
+  min-width: 0;
+}
+.cue-keys__row--danger .cue-keys__name {
+  color: var(--stop);
+  font-weight: 600;
+}
+.cue-keys__keys {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+}
+.cue-keys__combo {
+  display: inline-flex;
+  gap: 3px;
+}
+.cue-pedal {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+}
+.cue-pedal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+/* ---------- Versions ---------- */
+.cue-versions__new {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cue-versions__empty {
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.cue-versions__empty p {
+  margin: 0 0 12px;
+}
+.cue-versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cue-version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.cue-version__main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cue-version__when {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cue-version__note {
+  color: var(--text-2);
+}
+.cue-version__meta {
+  color: var(--text-3);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.cue-versions__info {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+}
+
+/* ---------- Show and Prepara: the stage (script, notes, columns, side panels) ---------- */
+.cue-stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.cue-stage__main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.cue-stage__work {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.cue-stage__script {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  display: flex;
+  background: var(--bg);
+}
+
+/* Divider between script and columns: a 1 px line, 9 px to grab. */
+.cue-divider {
+  position: relative;
+  flex: none;
+  width: 9px;
+  margin: 0 -4px;
+  z-index: 3;
+  cursor: col-resize;
+  touch-action: none;
+}
+.cue-divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--border);
+  transition: background 0.12s;
+}
+.cue-divider:hover::after,
+.cue-divider:focus-visible::after,
+.cue-divider--drag::after {
+  left: 3px;
+  width: 3px;
+  background: var(--accent-line);
+}
+.cue-divider:focus-visible {
+  outline: none;
+}
+
+/* ---------- The script ---------- */
+.cue-script {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.cue-script__scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  outline: none;
+  overscroll-behavior: contain;
+}
+.cue-script__content {
+  position: relative;
+}
+.cue-page {
+  position: absolute;
+  contain: strict;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.cue-page__paper {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  overflow: hidden;
+}
+.cue-page__host,
+.cue-page__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.cue-page__num {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(14, 15, 18, 0.55);
+  color: #e6e7ea;
+  font: 500 10px/14px var(--font-mono);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.cue-script:hover .cue-page__num {
+  opacity: 0.85;
+}
+/* Comments already in the PDF: shown, never edited. */
+.cue-page__comment {
+  position: absolute;
+  border-radius: 2px;
+}
+.cue-page__comment--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: #ffd84a;
+  color: #3a2c0d;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.cue-page__tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+  display: none;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+  white-space: normal;
+}
+.cue-page__tip b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.cue-page__comment:hover .cue-page__tip {
+  display: block;
+}
+/* A note's point on the margin of the page. */
+.cue-script__mark {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* Peek: dashed line where you were, neutral band on top. */
+.cue-script__here {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px dashed var(--text-3);
+  pointer-events: none;
+  z-index: 2;
+}
+.cue-script__here span {
+  position: absolute;
+  right: 8px;
+  top: -10px;
+  padding: 1px 7px;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 18px;
+}
+.cue-peekband {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  animation: cue-fadein 0.12s ease-out;
+}
+.cue-peekband span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+@keyframes cue-fadein {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Zoom: a small pill at the bottom right of the script. */
+.cue-zoompill {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  opacity: 0.85;
+}
+.cue-zoompill:hover {
+  opacity: 1;
+}
+.cue-zoompill .ts-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+.cue-zoompill__value {
+  min-width: 46px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font: 500 11.5px var(--font-mono);
+  cursor: pointer;
+}
+.cue-zoompill__value:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* No script yet, opening, cannot be read. */
+.cue-script-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+}
+.cue-script-empty__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 400px;
+  padding: 22px 24px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.cue-script-empty__card h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+.cue-script-empty__card p {
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.cue-first__icon--warn {
+  background: var(--sb-soft);
+  color: var(--sb);
+}
+
+/* ---------- Notes column (left of the script, only with notes) ---------- */
+.cue-notes {
+  position: relative;
+  flex: none;
+  width: 196px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bar);
+}
+.cue-notes__title {
+  /* Over the notes, so the notes layer lines up with the script (which has no title row). */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  background: linear-gradient(var(--bar) 70%, transparent);
+  pointer-events: none;
+}
+.cue-notes__clip {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.cue-notes__layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  will-change: transform;
+}
+.cue-notes__dot {
+  position: absolute;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cue-note {
+  position: absolute;
+  left: 8px;
+  right: 10px;
+  padding: 6px 8px 5px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cue-note--editing {
+  border-color: var(--accent-line);
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cue-note__text {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.cue-note__text:disabled {
+  cursor: default;
+}
+.cue-note__area {
+  display: block;
+  width: 100%;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.cue-note__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 18px;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+.cue-note__del.ts-btn {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+}
+.cue-note:hover .cue-note__del,
+.cue-note__del:focus-visible {
+  opacity: 1;
+}
+
+/* ---------- Columns (Cue 0.3) ---------- */
+.cue-columns {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cue-columns__heads {
+  flex: none;
+  display: flex;
+  justify-content: space-around;
+  height: 30px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.cue-colhead {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.cue-colhead::before {
+  content: "";
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+.cue-colhead--lights::before {
+  background: var(--cue-lights);
+}
+.cue-colhead--audio::before {
+  background: var(--cue-audio);
+}
+.cue-colhead--video::before {
+  background: var(--cue-video);
+}
+.cue-columns__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+.cue-columns__empty p {
+  margin: 0;
+  max-width: 300px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cue-columns__empty p.ts-muted {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* ---------- Side panels: link (Show), selected GO (Prepara), libraries (Prepara) ---------- */
+.cue-panel {
+  flex: none;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-left: 1px solid var(--border);
+  background: var(--bar);
+  overflow: auto;
+}
+.cue-panel p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.cue-panel__head {
+  font-size: 15px;
+  font-weight: 700;
+}
+.cue-panel__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cue-panel__state .ts-dot {
+  width: 8px;
+  height: 8px;
+}
+.cue-panel__spacer {
+  flex: 1;
+}
+.cue-panel__hint {
+  color: var(--text-3);
+}
+.cue-library {
+  flex: none;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-right: 1px solid var(--border);
+  background: var(--bar);
+}
+.cue-library .ts-seg {
+  width: 100%;
+}
+.cue-library .ts-seg__btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  justify-content: center;
+}
+.cue-library__empty {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  padding: 6px 4px;
+}
+.cue-library__empty p,
+.cue-library__hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---------- Replace the script: preview before applying ---------- */
+.cue-replace {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.cue-replace__row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto 150px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+.cue-replace__row[data-state="unsure"],
+.cue-replace__row[data-state="missing"] {
+  border-color: var(--sb-line);
+  background: var(--sb-soft);
+}
+.cue-replace__row input {
+  accent-color: var(--accent);
+}
+.cue-replace__what {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.cue-replace__kind {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cue-replace__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cue-replace__quote {
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cue-replace__where {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cue-replace__arrow {
+  color: var(--text-3);
+}
+.cue-replace__pick {
+  height: 26px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.cue-replace__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.cue-replace__row[data-state="unsure"] .cue-replace__state,
+.cue-replace__row[data-state="missing"] .cue-replace__state {
+  color: var(--sb);
+}
+.cue-replace__note {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+.cue-replace__sum {
+  font-size: 12px;
+}
+
+/* Narrow windows (1280 × 720): narrower side panels. */
+@media (max-width: 1300px) {
+  .cue-library {
+    width: 184px;
+  }
+  .cue-panel {
+    width: 184px;
+  }
+  .cue-notes {
+    width: 176px;
+  }
+}

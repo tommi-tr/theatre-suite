@@ -1,0 +1,172 @@
+/* The Show around the timeline: bottom bar, bands, Lock, auto scroll (docs/cue/design: .sbar, .ribbon). */
+
+.cue-show {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cue-show > .cue-stage {
+  min-height: 0;
+}
+
+/* Bottom bar of the Show: 34 px as in the design, words and keys a little larger than in the other modes. */
+.cue-app[data-mode="show"] .ts-statusbar {
+  height: 34px;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.cue-showbar__where {
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.cue-showbar__where .mono {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+.cue-showbar__paused {
+  color: var(--sb);
+}
+.cue-showbar__pills {
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+.cue-showbar__pills .ts-outpill {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11.5px;
+  gap: 6px;
+}
+.cue-showbar__cmds {
+  gap: 4px;
+}
+.cue-showbar__cmds .ts-keycmd {
+  height: 28px;
+  font-size: 12.5px;
+}
+@media (max-width: 1340px) {
+  .cue-showbar__pills .ts-outpill__detail {
+    display: none;
+  }
+}
+
+/* Bands over the Show (as Granvelo's): emergency red, Blackout / Fade to black amber. */
+.cue-showband {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+}
+.cue-showband--stop {
+  background: var(--stop);
+  color: #fff;
+}
+.cue-showband--stop .ts-btn {
+  background: rgba(0, 0, 0, 0.18);
+  border-color: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+.cue-showband--warn {
+  background: var(--sb-bg);
+  color: var(--sb);
+  border-bottom-color: var(--sb-line);
+}
+.cue-showband--warn .ts-ellipsis {
+  color: var(--text);
+}
+
+/* Lock: a veil that stops clicks, with a small card on top (the show stays in sight). */
+.cue-lockveil {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: transparent;
+  cursor: not-allowed;
+}
+.cue-lockcard {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(760px, calc(100vw - 40px));
+  padding: 8px 8px 8px 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: default;
+  font-size: 12.5px;
+}
+.cue-lockcard > svg {
+  flex: none;
+  color: var(--accent);
+}
+.cue-lockcard__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cue-lockcard__text span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+}
+.cue-lockcard__hold {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Auto scroll, bottom left of the script (the zoom is bottom right). */
+.cue-autopill {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.cue-autopill:hover,
+.cue-autopill--on {
+  opacity: 1;
+}
+.cue-autopill .ts-btn {
+  height: 26px;
+  border-radius: 999px;
+}
+.cue-autopill .ts-btn--ghost:not(.ts-btn--icon) {
+  padding: 0 10px;
+}
+.cue-autopill__value {
+  min-width: 40px;
+  text-align: center;
+  font: 500 11.5px var(--font-mono);
+  color: var(--text);
+}
+.cue-autopill__zone {
+  color: var(--accent);
+}
+.cue-autopill__follow {
+  margin-left: 4px;
+}

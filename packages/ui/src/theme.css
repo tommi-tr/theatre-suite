@@ -68,6 +68,12 @@
   /* Dot colours of a status light (same in both themes). */
   --stop-fill: #ff5f5f;
   --pre-fill: #4fa8ff;
+
+  /* Department marks (type marks only, never fills: column titles, the 3 px top rule of a box, library tabs).
+     Lights = Granvelo's magenta, audio = Diaframma's indigo, video/projections = cyan (born with Cue, 02_design.md). */
+  --dept-lights: #f06fcf;
+  --dept-audio: #8e80ff;
+  --dept-video: #4cd6e6;
 }
 
 [data-theme="light"] {
@@ -117,6 +123,10 @@
   --stop-bg: #fbe1e1;
   --pre-bg: #e7f0fb;
   --neutral-bg: #f2f3f6;
+
+  --dept-lights: #a3218a;
+  --dept-audio: #5442e0;
+  --dept-video: #0a7886;
 }
 
 :root {
@@ -841,6 +851,142 @@ textarea {
   background: var(--sb-soft);
   font-size: 12.5px;
 }
+/* Alert band (AlertBand): the ts-banner layout, coloured by tone. */
+.ts-alertband--stop {
+  border-bottom-color: var(--stop);
+  background: var(--stop-soft);
+}
+.ts-alertband--stop strong {
+  color: var(--stop);
+}
+.ts-alertband--stop > svg {
+  color: var(--stop);
+}
+.ts-alertband--warn > svg,
+.ts-alertband--warn strong {
+  color: var(--sb);
+}
+.ts-alertband--info {
+  border-bottom-color: var(--pre-line);
+  background: var(--pre-soft);
+}
+.ts-alertband--info > svg,
+.ts-alertband--info strong {
+  color: var(--pre);
+}
+
+/* ---------- Key commands (KeyCommand): words with their key, no box, for the bottom bar of a live mode ---------- */
+.ts-keycmds {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.ts-keycmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ts-keycmd:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.ts-keycmd:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ts-keycmd[data-on] {
+  color: var(--sb);
+  background: var(--sb-soft);
+  font-weight: 600;
+}
+.ts-keycmd--danger {
+  color: var(--stop);
+  font-weight: 600;
+}
+.ts-keycmd--danger[data-on],
+.ts-keycmd--danger[data-armed] {
+  color: var(--stop);
+  background: var(--stop-soft);
+  box-shadow: inset 0 0 0 1px var(--stop);
+}
+.ts-keycmd--danger[data-armed] {
+  animation: ts-keycmd-armed 0.6s ease-in-out infinite alternate;
+}
+@keyframes ts-keycmd-armed {
+  to {
+    background: transparent;
+  }
+}
+
+/* ---------- Output pill (OutputPill): the state of an output as a round pill ---------- */
+.ts-outpill {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+button.ts-outpill {
+  cursor: pointer;
+}
+button.ts-outpill:hover,
+.ts-outpill[aria-expanded="true"] {
+  background: var(--surface-2);
+}
+.ts-outpill > svg {
+  flex: none;
+  color: var(--text-3);
+}
+.ts-outpill__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ts-outpill__detail {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.ts-outpill--stop {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+  color: var(--stop);
+  font-weight: 600;
+}
+button.ts-outpill--stop:hover,
+.ts-outpill--stop[aria-expanded="true"] {
+  background: var(--stop-soft);
+  filter: brightness(1.15);
+}
+.ts-outpill--busy .ts-dot {
+  animation: ts-outpill-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes ts-outpill-pulse {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* ---------- Show band: the app is open inside a show of the launcher ---------- */
 .ts-titlebar--show {
@@ -1128,4 +1274,167 @@ button.ts-steps__bar:focus-visible {
 }
 .ts-steps--draft .ts-steps__bar.is-on {
   border-color: var(--text-3);
+}
+
+/* ---------- Settings dialog (SettingsLayout, SettingsRow, SettingsSection) ---------- */
+.ts-settings {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 18px;
+}
+.ts-settabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+  padding-right: 10px;
+}
+.ts-settab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ts-settab:hover {
+  background: var(--surface-2);
+}
+.ts-settab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.ts-setpane {
+  min-width: 0;
+}
+.ts-settings--fixed .ts-setpane {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.ts-set-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 12px 0;
+}
+.ts-set-row__text {
+  flex: 1;
+  min-width: 0;
+}
+.ts-set-row__label {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.ts-set-row__ctl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding-top: 1px;
+}
+.ts-set-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 8px;
+}
+.ts-set-section h3 {
+  margin: 4px 0 2px;
+  font-size: 15px;
+}
+.ts-set-section p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 540px;
+}
+.ts-set-section ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 540px;
+}
+
+/* ---------- "Coming soon" card (ComingSoonCard) ---------- */
+.ts-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.ts-soon__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ts-soon h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+.ts-soon ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ts-soon__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ts-soon--compact {
+  padding: 18px 20px;
+}
+.ts-soon--compact h2 {
+  font-size: 16px;
+}
+.ts-soon--compact .ts-soon__icon {
+  width: 36px;
+  height: 36px;
+}
+.ts-soonpill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ts-soon__now {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
 }

@@ -1,6 +1,6 @@
 {
   "name": "diaframma",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-dialog": "2.8.4",
     "@theatre-suite/core": "workspace:*",
+    "@theatre-suite/show-files": "workspace:*",
     "@theatre-suite/ui": "workspace:*",
     "qrcode": "1.5.4",
     "react": "19.3.1",

@@ -1,0 +1,42 @@
+[package]
+name = "cue"
+version = "0.6.1"
+description = "Cue — the stage manager's digital prompt book: script, GOs and live show control (Theatre Suite)"
+authors = ["Theatre Suite"]
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "cue_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-clipboard-manager = "2.5.0"
+suite-link = { path = "../../../crates/suite-link" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# The .tcue container: raw copy of unchanged entries, deflate for show.json.
+zip = { version = "9.8.0", default-features = false, features = ["deflate"] }
+sha2 = "0.11.1"
+base64 = "0.22.1"
+# The engines shared with Diaframma and Granvelo (src/audio.rs, src/dmx.rs).
+audio-engine = { path = "../../../crates/audio-engine" }
+dmx-engine = { path = "../../../crates/dmx-engine" }
+# Primary/secondary link (src/net): signed messages, pairing code, interface list for discovery.
+hmac = "0.13.0"
+getrandom = "0.4.3"
+if-addrs = "0.15.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[target.'cfg(windows)'.dependencies]
+# SetThreadExecutionState: keep Windows awake while Cue is open (src/power.rs); same version as the other apps.
+windows = { version = "0.62.2", features = ["Win32_System_Power"] }

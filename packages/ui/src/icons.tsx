@@ -169,6 +169,19 @@ export const ICONS = {
   truck: "M2 6h12v10H2zM14 10h4l3 3v3h-7M6 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M17 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3",
   calendar: "M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",
   addressBook: "M6 2h13v20H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 17a4 4 0 0 1 8 0M2 7h3M2 12h3M2 17h3",
+  // Lighting (Granvelo). `eye` (Blind) and `curtain` (Show) already exist above.
+  /** Blackout: a circle crossed out. */
+  blackout: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5.6 5.6l12.8 12.8",
+  /** Fade to black: the light goes down to the floor line. */
+  ftb: "M3 5h4l10 13h4M3 21h18",
+  /** Emergency: triangle with an exclamation mark (same drawing as `alert`, its own name for the safety command). */
+  emergency: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+  /** Bench (Banco): three faders with their handles. */
+  bench: "M6 3v18M12 3v18M18 3v18M4 15h4M10 8h4M16 12h4",
+  /** Stage (Allestimento): the stage floor with a truss and two lights above. */
+  stage: "M3 20l3-6h12l3 6zM4 4h16M8 4v3M16 4v3",
+  /** A plug: the DMX output (cable to the lights). */
+  plug: "M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5",
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -216,16 +229,57 @@ export interface AppLogoProps {
   label: string;
   /** Line width on the 100×100 grid; by default it grows as the tile gets smaller. */
   strokeWidth?: number;
+  /** Filled dots in the accent colour (Cue: the dot on the script). */
+  accentDots?: readonly { cx: number; cy: number; r: number }[];
 }
 
 /** App icon tile: light tile, accent + ink line marks (see 02_design.md). */
-export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth }: AppLogoProps) {
+export function AppLogo({ accentPath, inkPath, size = 22, label, strokeWidth, accentDots }: AppLogoProps) {
   const stroke = strokeWidth ?? (size < 24 ? 4.5 : size <= 64 ? 3.4 : 3);
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={label} style={{ flex: "none" }}>
       <rect x="1" y="1" width="98" height="98" rx="23" fill="var(--tile)" stroke="var(--tile-border)" strokeWidth="2" />
       <path d={inkPath} fill="none" stroke="var(--logo-ink)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={accentPath} fill="none" stroke="var(--logo-a)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
+      {accentPath && <path d={accentPath} fill="none" stroke="var(--logo-a)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />}
+      {accentDots?.map((d, i) => <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="var(--logo-a)" />)}
     </svg>
   );
 }
+
+/**
+ * Granvelo icon "Banco" (100×100, 02_design.md): three faders in ink and three handles in the accent, thick
+ * stroke. Use with `AppLogo` and `strokeWidth={GRANVELO_LOGO.stroke(size)}`; `tools/make_icons.mjs` of the app
+ * draws the same geometry with the same strokes.
+ */
+export const GRANVELO_LOGO = {
+  accent: "M20 62H36M42 34H58M64 50H80",
+  ink: "M28 18V82M50 18V82M72 18V82",
+  /** 6 on the 100×100 grid (6.4 at 64 px, 8.5 at 32 px, 9.5 at 24 px, 11 at 16–20 px). */
+  stroke: (size: number): number => (size <= 20 ? 11 : size <= 24 ? 9.5 : size <= 32 ? 8.5 : size <= 64 ? 6.4 : 6),
+  /** The accent of the tile (`--logo-a` of the wrapper), the same in both themes. */
+  color: "#c2349f",
+} as const;
+
+/**
+ * Diaframma icon (100×100): the waveform, upper half in the accent, lower half in ink. Use with `AppLogo` inside
+ * an element that sets `--logo-a` to `DIAFRAMMA_LOGO.color` (the launcher and Cue's linked-files list do).
+ */
+export const DIAFRAMMA_LOGO = {
+  accent: "M20 34V38M25 32V40M30 29V43M35 31V41M40 26V46M45 23V49M50 27V45M55 30V42M60 28V44M65 31V41M70 33V39M75 32V40M80 34V38",
+  ink: "M20 64V68M25 63V69M30 61V71M35 62V70M40 60V72M45 58V74M50 60V72M55 56V76M60 54V78M65 59V73M70 61V71M75 63V69M80 64V68",
+  color: "#6b5bef",
+} as const;
+
+/**
+ * Cue icon "Filo" (100×100, 02_design.md): the dot on the script (filled, logo colour #77726A), the line and the
+ * GO button (ink, outline only). Use with `AppLogo accentPath="" accentDots={CUE_LOGO.dots}
+ * inkPath={CUE_LOGO.ink} strokeWidth={CUE_LOGO.stroke(size)}`; `apps/cue/tools/make_icons.mjs` draws the same.
+ */
+export const CUE_LOGO = {
+  accent: "",
+  dots: [{ cx: 22, cy: 50, r: 10 }],
+  /** Line M33 50H50 and the button rect x50 y35 w32 h30 rx9 (outline). */
+  ink: "M33 50H50M59 35H73A9 9 0 0 1 82 44V56A9 9 0 0 1 73 65H59A9 9 0 0 1 50 56V44A9 9 0 0 1 59 35Z",
+  /** 6 on the 100×100 grid (8.5 up to 32 px, 11 at 16–20 px). */
+  stroke: (size: number): number => (size <= 20 ? 11 : size <= 32 ? 8.5 : 6),
+} as const;

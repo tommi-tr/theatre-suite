@@ -2,7 +2,7 @@ name: Diaframma · Windows installer
 
 on:
   push:
-    branches: [main, diaframma-dev]
+    branches: [main, diaframma-dev, cue-dev]
     tags: ["diaframma-v*"]
   pull_request:
   workflow_dispatch:
@@ -61,7 +61,7 @@ jobs:
           retention-days: 30
 
       - name: Rust tests
-        run: cargo test -p diaframma --lib
+        run: cargo test -p diaframma -p audio-engine --lib
 
       # The Chrome extension goes into the release as a .zip, next to the installer.
       - name: Pack the Chrome extension (tags only)

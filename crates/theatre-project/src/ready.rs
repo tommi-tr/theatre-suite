@@ -62,6 +62,8 @@ pub fn check(dir: &Path, project: &Project) -> Report {
             issues.push(mk(IssueKind::DocumentMissing));
             continue;
         }
+        // TODO(cue): for a `cue` document only the file's existence is checked for now; its references
+        // (linked .diaframma/.granvelo files, videos) are checked in a later phase, see docs/cue/WORKPLAN.md.
         if doc.app == "diaframma" {
             match missing_cue_files(&path) {
                 Ok(m) if !m.is_empty() => issues.push(mk(IssueKind::FilesMissing {

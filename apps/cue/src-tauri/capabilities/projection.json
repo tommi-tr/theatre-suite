@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "projection",
+  "description": "The output window: it only listens to Cue and reads show images.",
+  "windows": [
+    "projection"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}

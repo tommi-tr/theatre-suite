@@ -47,6 +47,12 @@ export const it: Dict = {
   "Scripts": "Copioni",
   "Rehearsals": "Prove",
   "Lighting desk": "Banco luci",
+  "Show control": "Regia",
+  "The digital prompt book: GO on the script, lights, sound and projections live.": "Il libro di scena digitale: GO sul copione, luci, audio e proiezioni dal vivo.",
+  "More apps coming soon": "Altre app in arrivo",
+  "The suite grows: tell us what you would need.": "La suite cresce: dicci cosa ti servirebbe.",
+  "For example: The evening show": "Per esempio: La serata",
+  "not needed: {name} is not used while Cue runs the show": "non serve: {name} non è usata mentre Cue conduce lo spettacolo",
   "Coming soon": "In arrivo",
   "Not installed": "Non installata",
   "New version available": "Nuova versione disponibile",
@@ -118,7 +124,8 @@ export const it: Dict = {
     "Suona l'audio dello spettacolo: musiche ed effetti a cue, con entrate, uscite, loop e un launchpad.",
   "Writes and keeps the script: scenes, characters and lines, with export to PDF and Word.":
     "Scrive e conserva il copione: scene, personaggi e battute, con esportazione in PDF e Word.",
-  "The lighting desk: scenes and cues for the lights. Still being designed.": "Il banco luci: scene e cue per le luci. Ancora in progettazione.",
+  "The lighting desk: draw the stage and its lights, then play the memories through a USB-DMX cable.": "Il banco luci: disegna il palco e i proiettori, poi suona le memorie con un cavo USB-DMX.",
+  "For example: Main hall lights": "Per esempio: Luci della sala grande",
   "Once a week the launcher checks whether new versions exist. It only looks: it never downloads or installs anything by itself.":
     "Una volta a settimana il launcher controlla se esistono nuove versioni. Si limita a guardare: non scarica e non installa nulla da solo.",
   "Feedback": "Feedback",
