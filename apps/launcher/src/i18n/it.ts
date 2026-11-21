@@ -124,7 +124,8 @@ export const it: Dict = {
     "Suona l'audio dello spettacolo: musiche ed effetti a cue, con entrate, uscite, loop e un launchpad.",
   "Writes and keeps the script: scenes, characters and lines, with export to PDF and Word.":
     "Scrive e conserva il copione: scene, personaggi e battute, con esportazione in PDF e Word.",
-  "The lighting desk: scenes and cues for the lights. Still being designed.": "Il banco luci: scene e cue per le luci. Ancora in progettazione.",
+  "The lighting desk: draw the stage and its lights, then play the memories through a USB-DMX cable.": "Il banco luci: disegna il palco e i proiettori, poi suona le memorie con un cavo USB-DMX.",
+  "For example: Main hall lights": "Per esempio: Luci della sala grande",
   "Once a week the launcher checks whether new versions exist. It only looks: it never downloads or installs anything by itself.":
     "Una volta a settimana il launcher controlla se esistono nuove versioni. Si limita a guardare: non scarica e non installa nulla da solo.",
   "Feedback": "Feedback",

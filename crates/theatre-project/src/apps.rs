@@ -35,6 +35,10 @@ const BARDO_FORMAT_VERSION: u32 = 1;
 /// Cantinella gives every missing field its default, so the title is enough.
 const CANTINELLA_FORMAT_VERSION: u32 = 1;
 
+/// Granvelo's file format (`FILE_FORMAT` in `packages/show-files/src/granvelo/types.ts`).
+/// Granvelo fills in what is missing, but the stage size, the id and the format are required.
+const GRANVELO_FORMAT_VERSION: u32 = 1;
+
 /// Cue's file format (`.tcue`, a zip whose `show.json` carries this number; see `docs/cue/WORKPLAN.md`).
 const CUE_FORMAT_VERSION: u32 = 1;
 
@@ -102,6 +106,27 @@ pub fn new_document_text(app: &KnownApp, title: &str) -> Option<String> {
             });
             serde_json::to_string_pretty(&v).ok()
         }
+        "granvelo" => {
+            // Same defaults as `newDocument()` in `packages/show-files/src/granvelo/file.ts`
+            // (stage 8 × 6 × 4.5 m, memories bound to the DMX address, 3 s crossfade).
+            let v = serde_json::json!({
+                "app": "granvelo",
+                "format": GRANVELO_FORMAT_VERSION,
+                "savedWith": { "app": "Theatre Suite", "version": env!("CARGO_PKG_VERSION") },
+                "savedAt": "",
+                "id": new_uuid_v4(),
+                "title": title.trim(),
+                "stage": { "width": 8, "depth": 6, "height": 4.5 },
+                "trusses": [],
+                "fixtures": [],
+                "scenery": [],
+                "groups": [],
+                "memories": [],
+                "sequence": [],
+                "settings": { "memoryBinding": "address", "defaultCrossfade": 3, "emergencyMemoryId": null }
+            });
+            serde_json::to_string_pretty(&v).ok()
+        }
         _ => app.new_document.map(str::to_string),
     }
 }
@@ -133,6 +158,15 @@ pub const KNOWN_APPS: &[KnownApp] = &[
         exe: "Cantinella.exe",
         new_document: None,
         new_extension: "cantinella",
+    },
+    KnownApp {
+        id: "granvelo",
+        name: "Granvelo",
+        extensions: &["granvelo"],
+        multi_document: false,
+        exe: "Granvelo.exe",
+        new_document: None,
+        new_extension: "granvelo",
     },
     KnownApp {
         id: "cue",
@@ -191,6 +225,25 @@ mod tests {
         // Must match FORMAT_VERSION in apps/diaframma/src/state/types.ts.
         assert_eq!(v["formatVersion"], 3);
         assert!(v["tracks"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn new_granvelo_document_is_in_the_current_format() {
+        let app = app_by_id("granvelo").unwrap();
+        assert_eq!(app_for_extension("GRANVELO").unwrap().id, "granvelo");
+        let text = new_document_text(app, " Sala grande ").unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["app"], "granvelo");
+        // Must match FILE_FORMAT in packages/show-files/src/granvelo/types.ts.
+        assert_eq!(v["format"], 1);
+        assert_eq!(v["title"], "Sala grande");
+        assert_eq!(v["stage"]["width"], 8);
+        assert_eq!(v["id"].as_str().unwrap().len(), 36);
+        for k in ["trusses", "fixtures", "scenery", "groups", "memories", "sequence"] {
+            assert!(v[k].as_array().unwrap().is_empty(), "{k}");
+        }
+        let other: serde_json::Value = serde_json::from_str(&new_document_text(app, "x").unwrap()).unwrap();
+        assert_ne!(other["id"], v["id"]);
     }
 
     #[test]

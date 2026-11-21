@@ -51,12 +51,12 @@ export const APPS: AppDef[] = [
     logo: { a: "M35 45L65 21M35 79L65 55", b: "M30 16H70V84H30ZM30 50H70", accentColor: "#55627e" },
   },
   {
-    id: "luci",
-    name: "Luci",
+    id: "granvelo",
+    name: "Granvelo",
     role: "Lighting desk",
-    about: "The lighting desk: scenes and cues for the lights. Still being designed.",
-    soon: true,
-    canCreate: false,
+    about: "The lighting desk: draw the stage and its lights, then play the memories through a USB-DMX cable.",
+    soon: false,
+    canCreate: true,
     // Gelatina (magenta), as Granvelo itself (02_design.md). Same drawing as the app icon "Banco", thick stroke.
     accent: { dark: "#f06fcf", light: "#a3218a" },
     logo: { a: GRANVELO_LOGO.accent, b: GRANVELO_LOGO.ink, accentColor: "#c2349f", stroke: GRANVELO_LOGO.stroke },
